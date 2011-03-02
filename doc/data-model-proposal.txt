@@ -1,0 +1,75 @@
+We decided to choose a generic way to describe the data model on the client side.
+
+It is understood that the mechanism for storing data can be either a full-fledged
+ORM and something much simpler, like Sencha Touch storage interface (Model/Strore/Proxy).
+
+And it is necessary that our data description "language" could be successfully used in
+both cases.
+
+Investigation of the data models in the Sencha Touch shows it is the quite universal way,
+and it is safe to extend it to work with the ORM too.
+
+It supports both the types of field and relationships between models. Moreover, if we
+want to use this description to work with ORM, we can add our own descriptive attributes,
+such as "lazyLoad" or "indexBy".
+
+Simply put, we are free to add any additional attributes that will not be accepted by
+Sencha Touch, and do not obstruct its work. But they can be read by our adapters to use
+with another arbitrary data storage interface.
+
+Thus, proposal is to make use of model description data according to the rules of Sencha
+Touch, expanding it as it needed.
+
+Here is the sample of models description for different storage interfaces concurently:
+
+
+Rhosync.storage.define(
+    "SenchaTouch_adapter": [
+        {
+            type: "model",
+            Employee: {
+                belongsTo: "Department",
+                fields: [
+                    {name: 'name',  type: 'string'},
+                    {name: 'position',  type: 'string'},
+                    {name: 'age',   type: 'int'},
+                    {name: 'phone', type: 'string'}
+                ]
+            }
+        },
+        {
+            type: "model",
+            Equipment: {
+                belongsTo: "Department",
+                fields: [
+                    {name: 'name',  type: 'string'},
+                    {name: 'model',  type: 'string'},
+                    {name: 'sn', type: 'string'}
+                ]
+            }
+
+        },
+        {
+            type: "model",
+            Department: {
+                hasMany: "Employee Equipment",
+                lazyLoad: "Equipment",
+                fields: [
+                    {name: 'name',  type: 'string'}
+                ]
+            }
+        },
+        {
+            type: "index",
+            DeptEmployee: {
+                using: "Department.id Employee.id"
+            }
+        }
+    ],
+    "persistense.js_adapter": {
+        // some other models definition
+    },
+    "someOtherAPI_adapter": {
+        // some other models definition
+    }
+);
