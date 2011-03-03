@@ -112,8 +112,12 @@ describe("RhoSync", function() {
                 expect(errHdlr).not.toHaveBeenCalled();
             });
             runs(function(){
-                expect(rhosync.api.storage.tx).toBeDefined();
-                rhosync.api.storage.tx().done(okHdlr).fail(errHdlr);
+                try {
+                    expect(rhosync.api.storage.tx).toBeDefined();
+                    rhosync.api.storage.tx().ready(okHdlr).fail(errHdlr);
+                } catch (ex) {
+                    jasmine.log(ex);
+                }
             });
             waitsForSpies([okHdlr, errHdlr], 'open database timeout');
             runs(function(){
@@ -220,16 +224,16 @@ describe("RhoSync", function() {
             // read and verify clients
             runs(function(){
                 jasmine.log('loadClient()');
-                rhosync.api.storage.tx().done(function(tx){
+                rhosync.api.storage.tx().ready($.proxy(function(db, tx){
                     $.when(
-                            rhosync.api.storage.insertClient(id1, tx).done(function(tx, client){
+                            rhosync.api.storage.loadClient(id1, tx).done($.proxy(function(tx, client){
                                 this.client1 = client;
-                            }),
-                            rhosync.api.storage.insertClient(id2, tx).done(function(tx, client){
+                            }, this)),
+                            rhosync.api.storage.loadClient(id2, tx).done($.proxy(function(tx, client){
                                 this.client2 = client;
-                            })
+                            }, this))
                     ).done(okHdlr).fail(errHdlr);
-                }).fail(errHdlr);
+                }, this)).fail(errHdlr);
             });
             waitsForSpies([okHdlr, errHdlr], 'clients select query timeout');
             runs(function(){
@@ -250,12 +254,28 @@ describe("RhoSync", function() {
 
             // update them
             runs(function(){
-                client1.sesson = "updatedSession1";
-                client2.sesson = "updatedSession2";
+                client1.session = "updatedSession1";
+                client2.session = "updatedSession2";
                 jasmine.log('storeClient()');
-                rhosync.api.storage.storeClient(client1).done(function(){
-                        rhosync.api.storage.storeClient(client2).done(okHdlr).fail(errHdlr);
-                }).fail(errHdlr);
+//                rhosync.api.storage.storeClient(client1).done(function(){
+//                        rhosync.api.storage.storeClient(client2).done(okHdlr).fail(errHdlr);
+//                }).fail(errHdlr);
+                rhosync.api.storage.tx("read-write").ready(function(db, tx){
+                    $.when(
+                            rhosync.api.storage.storeClient(client1, tx).done(function(tx, client){
+                            }),
+                            rhosync.api.storage.storeClient(client2, tx).done(function(tx, client){
+                            })
+                    ).done(function(obj, status){
+                        okHdlr(obj, status);
+                    }).fail(function(obj, error){
+                        errHdlr(obj, error);
+                    });
+                }).done(function(obj, status){
+                    okHdlr(obj, status);
+                }).fail(function(obj, error){
+                    errHdlr(obj, error);
+                });
             });
             waitsForSpies([okHdlr, errHdlr], 'clients update query timeout');
             runs(function(){
@@ -265,16 +285,16 @@ describe("RhoSync", function() {
             // read and verify updates
             runs(function(){
                 jasmine.log('loadClient()');
-                rhosync.api.storage.tx().done(function(tx){
+                rhosync.api.storage.tx().ready($.proxy(function(db, tx){
                     $.when(
-                            rhosync.api.storage.insertClient(id1, tx).done(function(tx, client){
+                            rhosync.api.storage.loadClient(id1, tx).done($.proxy(function(tx, client){
                                 this.client1 = client;
-                            }),
-                            rhosync.api.storage.insertClient(id2, tx).done(function(tx, client){
+                            }, this)),
+                            rhosync.api.storage.loadClient(id2, tx).done($.proxy(function(tx, client){
                                 this.client2 = client;
-                            })
+                            }, this))
                     ).done(okHdlr).fail(errHdlr);
-                }).fail(errHdlr);
+                }, this)).fail(errHdlr);
             });
             waitsForSpies([okHdlr, errHdlr], 'clients select query timeout');
             runs(function(){
@@ -296,12 +316,12 @@ describe("RhoSync", function() {
             // delete them
             runs(function(){
                 jasmine.log('deleteClient()');
-                rhosync.api.storage.deleteClient(this.client1).done(function(tx, client){
+                rhosync.api.storage.deleteClient(this.client1).done($.proxy(function(tx, client){
                     this.client1 = client;
-                    rhosync.api.storage.deleteClient(this.client2).done(function(tx, client){
+                    rhosync.api.storage.deleteClient(this.client2).done($.proxy(function(tx, client){
                         this.client2 = client;
-                    }).done(okHdlr).fail(errHdlr);
-                }).fail(errHdlr);
+                    }, this)).done(okHdlr).fail(errHdlr);
+                }, this)).fail(errHdlr);
             });
             waitsForSpies([okHdlr, errHdlr], 'clients delete query timeout');
             runs(function(){
@@ -311,9 +331,9 @@ describe("RhoSync", function() {
             // check there are two clients has been deleted
             runs(function(){
                 jasmine.log('listClientsId()');
-                rhosync.api.storage.listClientsId().done(function(tx, ids){
+                rhosync.api.storage.listClientsId().done($.proxy(function(tx, ids){
                     this.ids = ids;
-                }).done(okHdlr).fail(errHdlr);
+                }, this)).done(okHdlr).fail(errHdlr);
             });
             waitsForSpies([okHdlr, errHdlr], 'clients list select query timeout');
             runs(function(){
@@ -326,21 +346,21 @@ describe("RhoSync", function() {
             // check load failure for absent clients
             runs(function(){
                 jasmine.log('loadClient()');
-                rhosync.api.storage.tx().done(function(tx){
+                rhosync.api.storage.tx().ready($.proxy(function(db, tx){
                     $.when(
-                            rhosync.api.storage.insertClient(id1, tx).done(function(tx, client){
+                            rhosync.api.storage.loadClient(id1, tx).done($.proxy(function(tx, client){
                                 this.client1 = client;
-                            }),
-                            rhosync.api.storage.insertClient(id2, tx).done(function(tx, client){
+                            }, this)),
+                            rhosync.api.storage.loadClient(id2, tx).done($.proxy(function(tx, client){
                                 this.client2 = client;
-                            })
+                            }, this))
                     ).done(okHdlr).fail(errHdlr);
-                }).fail(errHdlr);
+                }, this)).fail(errHdlr);
             });
             waitsForSpies([okHdlr, errHdlr], 'clients select query timeout');
             runs(function(){
-                expect(errHdlr).not.toHaveBeenCalled();
-
+                expect(errHdlr).toHaveBeenCalled();
+                jasmine.log(errHdlr.mostRecentCall.args);
                 expect(this.client1).toBeNull();
                 expect(this.client2).toBeNull();
             });
