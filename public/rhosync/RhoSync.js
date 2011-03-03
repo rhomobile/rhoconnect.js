@@ -67,6 +67,28 @@
                 +'CREATE INDEX by_src_value ON object_values ("attrib", "source_id", "value");'
                 ;
 
+        function Source(id) {
+            this.name = null;
+            this.token = null;
+            this.sync_priority = null /*bigint, no default*/;
+            this.partition = null /*varchar, no default*/;
+            this.sync_type = null /*varchar, no default*/;
+            this.metadata = null;
+            this.last_updated = 0;
+            this.last_inserted_size = 0;
+            this.last_deleted_size = 0;
+            this.last_sync_duration = 0;
+            this.last_sync_success = 0;
+            this.backend_refresh_time = 0;
+            this.source_attribs = null;
+            this.schema = null;
+            this.schema_version = null;
+            this.associations = null;
+            this.blob_attribs = null;
+            
+            this.id = function(){return id;}; // is read-only
+        }
+
         function Client(id) {
             this.session = null;
             this.token = null;
@@ -75,10 +97,6 @@
             this.port = null;
             this.last_sync_success = null;
             this.sources = {};
-            this.id = function(){return id;}; // is read-only
-        }
-
-        function Source(id) {
             this.id = function(){return id;}; // is read-only
         }
 
@@ -213,7 +231,7 @@
                 return $['when'].apply(this, promises);
             }
 
-            function _iniSchema()
+            function _initSchema()
             {
                 return _executeBatchSQL(initDbSchemaSQL);
             }
@@ -258,11 +276,11 @@
                             dfr.reject(id, 'Not found');
                         } else {
                             var client = new Client(id);
-                            client.session = rs.rows.item(0)['session'];
-                            client.token = rs.rows.item(0)['token'];
-                            client.token_sent = rs.rows.item(0)['token_sent'];
-                            client.reset = rs.rows.item(0)['reset'];
-                            client.port = rs.rows.item(0)['port'];
+                            client.session           = rs.rows.item(0)['session'];
+                            client.token             = rs.rows.item(0)['token'];
+                            client.token_sent        = rs.rows.item(0)['token_sent'];
+                            client.reset             = rs.rows.item(0)['reset'];
+                            client.port              = rs.rows.item(0)['port'];
                             client.last_sync_success = rs.rows.item(0)['last_sync_success'];
                             dfr.resolve(tx, client);
                         }
@@ -321,6 +339,137 @@
                 }).promise();
             }
 
+            // Source-related ========================
+
+            function listSourcesId(optionalTx) {
+                return $.Deferred(function(dfr){
+                    _executeSQL('SELECT source_id FROM sources', null, optionalTx).done(function(tx, rs) {
+                        var ids = [];
+                        for(var i=0; i<rs.rows.length; i++) {
+                            ids.push(rs.rows.item(i)['source_id']);
+                        }
+                        dfr.resolve(tx, ids);
+                    }).fail(function(obj, err) {
+                        dfr.reject(obj, err);
+                    });
+                }).promise();
+            }
+
+            function loadSource(id, optionalTx) {
+                return $.Deferred(function(dfr){
+                    _executeSQL('SELECT * FROM sources WHERE source_id = ?', [id],
+                            optionalTx).done(function(tx, rs) {
+                        if (0 == rs.rows.length) {
+                            dfr.reject(id, 'Not found');
+                        } else {
+                            var source = new Source(id);
+                            source.name                 = rs.rows.item(0)['name'];
+                            source.token                = rs.rows.item(0)['token'];
+                            source.sync_priority        = rs.rows.item(0)['sync_priority'];
+                            source.partition            = rs.rows.item(0)['partition'];
+                            source.sync_type            = rs.rows.item(0)['sync_type'];
+                            source.metadata             = rs.rows.item(0)['metadata'];
+                            source.last_updated         = rs.rows.item(0)['last_updated'];
+                            source.last_inserted_size   = rs.rows.item(0)['last_inserted_size'];
+                            source.last_deleted_size    = rs.rows.item(0)['last_deleted_size'];
+                            source.last_sync_duration   = rs.rows.item(0)['last_sync_duration'];
+                            source.last_sync_success    = rs.rows.item(0)['last_sync_success'];
+                            source.backend_refresh_time = rs.rows.item(0)['backend_refresh_time'];
+                            source.source_attribs       = rs.rows.item(0)['source_attribs'];
+                            source.schema               = rs.rows.item(0)['schema'];
+                            source.schema_version       = rs.rows.item(0)['schema_version'];
+                            source.associations         = rs.rows.item(0)['associations'];
+                            source.blob_attribs         = rs.rows.item(0)['blob_attribs'];
+                            dfr.resolve(tx, source);
+                        }
+                    }).fail(function(obj, err) {
+                        dfr.reject(obj, err);
+                    });
+                }).promise();
+            }
+
+            function storeSource(source, optionalTx, isNew) {
+                var updateQuery = 'UPDATE sources SET'
+                    +' name = ?,'
+                    +' token = ?,'
+                    +' sync_priority = ?,'
+                    +' partition = ?,'
+                    +' sync_type = ?,'
+                    +' metadata = ?,'
+                    +' last_updated = ?,'
+                    +' last_inserted_size = ?,'
+                    +' last_deleted_size = ?,'
+                    +' last_sync_duration = ?,'
+                    +' last_sync_success = ?,'
+                    +' backend_refresh_time = ?,'
+                    +' source_attribs = ?,'
+                    +' schema = ?,'
+                    +' schema_version = ?,'
+                    +' associations = ?,'
+                    +' blob_attribs = ?'
+                    +' WHERE source_id = ?';
+                var insertQuery = 'INSERT INTO sources ('
+                    +' name,'
+                    +' token,'
+                    +' sync_priority,'
+                    +' partition,'
+                    +' sync_type,'
+                    +' metadata,'
+                    +' last_updated,'
+                    +' last_inserted_size,'
+                    +' last_deleted_size,'
+                    +' last_sync_duration,'
+                    +' last_sync_success,'
+                    +' backend_refresh_time,'
+                    +' source_attribs,'
+                    +' schema,'
+                    +' schema_version,'
+                    +' associations,'
+                    +' blob_attribs,'
+                    +' source_id'
+                    +' ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+                return $.Deferred(function(dfr){
+                    _executeSQL(isNew ? insertQuery : updateQuery, [
+                        source.name,
+                        source.token,
+                        source.sync_priority,
+                        source.partition,
+                        source.sync_type,
+                        source.metadata,
+                        source.last_updated,
+                        source.last_inserted_size,
+                        source.last_deleted_size,
+                        source.last_sync_duration,
+                        source.last_sync_success,
+                        source.backend_refresh_time,
+                        source.source_attribs,
+                        source.schema,
+                        source.schema_version,
+                        source.associations,
+                        source.blob_attribs,
+                        source.id()], optionalTx).done(function(tx, rs) {
+                        dfr.resolve(tx, source);
+                    }).fail(function(obj, err) {
+                        dfr.reject(obj, err);
+                    });
+                }).promise();
+            }
+
+            function insertSource(source, optionalTx) {
+                return storeSource(source, optionalTx, true);
+            }
+
+            function deleteSource(sourceOrId, optionalTx) {
+                var id = ("object" == typeof sourceOrId) ? sourceOrId.id() : sourceOrId;
+                return $.Deferred(function(dfr){
+                    _executeSQL('DELETE FROM sources WHERE source_id = ?', [id], optionalTx).done(function(tx, rs) {
+                            dfr.resolve(tx, null);
+                    }).fail(function(obj, err) {
+                        dfr.reject(obj, err);
+                    });
+                }).promise();
+            }
+
             return {
                 // Client
                 listClientsId: listClientsId,
@@ -328,12 +477,18 @@
                 storeClient: storeClient,
                 insertClient: insertClient,
                 deleteClient: deleteClient,
+                // Client
+                listSourcesId: listSourcesId,
+                loadSource: loadSource,
+                storeSource: storeSource,
+                insertSource: insertSource,
+                deleteSource: deleteSource,
                 // low-level
                 open: _open,
                 tx: _tx,
                 executeSQL: _executeSQL,
                 executeBatchSQL: _executeBatchSQL,
-                initSchema: _iniSchema,
+                initSchema: _initSchema,
                 getAllTableNames: _getAllTableNames
             }
         }('rhoSyncDb');

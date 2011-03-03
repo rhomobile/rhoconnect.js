@@ -365,6 +365,199 @@ describe("RhoSync", function() {
                 expect(this.client2).toBeNull();
             });
         });
+
+        it("is able to store sources", function() {
+            var okHdlr = jasmine.createSpy('for ok');
+            var errHdlr = jasmine.createSpy('for errors');
+
+            expect(rhosync.api.models.Source).toBeDefined();
+            expect(rhosync.api.storage.listSourcesId).toBeDefined();
+            expect(rhosync.api.storage.insertSource).toBeDefined();
+            expect(rhosync.api.storage.storeSource).toBeDefined();
+            expect(rhosync.api.storage.loadSource).toBeDefined();
+            expect(rhosync.api.storage.deleteSource).toBeDefined();
+
+            var id1 = 'testId1_#' +Date.now().toString();
+            var id2 = 'testId2_#' +Date.now().toString();
+
+            // create sources
+            var source1 = new rhosync.api.models.Source(id1);
+            source1.name = "name1";
+            var source2 = new rhosync.api.models.Source(id2);
+            source2.name = "name2";
+
+            // store them
+            runs(function(){
+                jasmine.log('insertSource()');
+                rhosync.api.storage.insertSource(source1).done(function(){
+                        rhosync.api.storage.insertSource(source2).done(okHdlr).fail(errHdlr);
+                }).fail(errHdlr);
+            });
+            waitsForSpies([okHdlr, errHdlr], 'sources insert query timeout');
+            runs(function(){
+                expect(errHdlr).not.toHaveBeenCalled();
+            });
+
+            // check there are two sources at least
+            runs(function(){
+                jasmine.log('listSourcesId()');
+                rhosync.api.storage.listSourcesId().done($.proxy(function(tx, ids){
+                    this.ids = ids;
+                    this.idsLengthWithTestSources = ids.length;
+                }, this)).done(okHdlr).fail(errHdlr);
+            });
+            waitsForSpies([okHdlr, errHdlr], 'sources list select query timeout');
+            runs(function(){
+                expect(errHdlr).not.toHaveBeenCalled();
+                expect(this.ids).toBeDefined();
+                expect(this.ids.length).toBeDefined();
+                expect(this.ids.length).toBeGreaterThan(1);
+            });
+
+            // read and verify sources
+            runs(function(){
+                jasmine.log('loadSource()');
+                rhosync.api.storage.tx().ready($.proxy(function(db, tx){
+                    $.when(
+                            rhosync.api.storage.loadSource(id1, tx).done($.proxy(function(tx, source){
+                                this.source1 = source;
+                            }, this)),
+                            rhosync.api.storage.loadSource(id2, tx).done($.proxy(function(tx, source){
+                                this.source2 = source;
+                            }, this))
+                    ).done(okHdlr).fail(errHdlr);
+                }, this)).fail(errHdlr);
+            });
+            waitsForSpies([okHdlr, errHdlr], 'sources select query timeout');
+            runs(function(){
+                expect(errHdlr).not.toHaveBeenCalled();
+
+                expect(this.source1).toBeDefined();
+                expect(this.source1.id).toBeDefined();
+                expect(this.source1.id()).toEqual(id1);
+                expect(this.source1.name).toBeDefined();
+                expect(this.source1.name).toEqual("name1");
+
+                expect(this.source2).toBeDefined();
+                expect(this.source2.id).toBeDefined();
+                expect(this.source2.id()).toEqual(id2);
+                expect(this.source2.name).toBeDefined();
+                expect(this.source2.name).toEqual("name2");
+            });
+
+            // update them
+            runs(function(){
+                source1.name = "updatedName1";
+                source2.name = "updatedName2";
+                jasmine.log('storeSource()');
+//                rhosync.api.storage.storeSource(source1).done(function(){
+//                        rhosync.api.storage.storeSource(source2).done(okHdlr).fail(errHdlr);
+//                }).fail(errHdlr);
+                rhosync.api.storage.tx("read-write").ready(function(db, tx){
+                    $.when(
+                            rhosync.api.storage.storeSource(source1, tx).done(function(tx, source){
+                            }),
+                            rhosync.api.storage.storeSource(source2, tx).done(function(tx, source){
+                            })
+                    ).done(function(obj, status){
+                        okHdlr(obj, status);
+                    }).fail(function(obj, error){
+                        errHdlr(obj, error);
+                    });
+                }).done(function(obj, status){
+                    okHdlr(obj, status);
+                }).fail(function(obj, error){
+                    errHdlr(obj, error);
+                });
+            });
+            waitsForSpies([okHdlr, errHdlr], 'sources update query timeout');
+            runs(function(){
+                expect(errHdlr).not.toHaveBeenCalled();
+            });
+
+            // read and verify updates
+            runs(function(){
+                jasmine.log('loadSource()');
+                rhosync.api.storage.tx().ready($.proxy(function(db, tx){
+                    $.when(
+                            rhosync.api.storage.loadSource(id1, tx).done($.proxy(function(tx, source){
+                                this.source1 = source;
+                            }, this)),
+                            rhosync.api.storage.loadSource(id2, tx).done($.proxy(function(tx, source){
+                                this.source2 = source;
+                            }, this))
+                    ).done(okHdlr).fail(errHdlr);
+                }, this)).fail(errHdlr);
+            });
+            waitsForSpies([okHdlr, errHdlr], 'sources select query timeout');
+            runs(function(){
+                expect(errHdlr).not.toHaveBeenCalled();
+
+                expect(this.source1).toBeDefined();
+                expect(this.source1.id).toBeDefined();
+                expect(this.source1.id()).toEqual(id1);
+                expect(this.source1.name).toBeDefined();
+                expect(this.source1.name).toEqual("updatedName1");
+
+                expect(this.source2).toBeDefined();
+                expect(this.source2.id).toBeDefined();
+                expect(this.source2.id()).toEqual(id2);
+                expect(this.source2.name).toBeDefined();
+                expect(this.source2.name).toEqual("updatedName2");
+            });
+
+            // delete them
+            runs(function(){
+                jasmine.log('deleteSource()');
+                rhosync.api.storage.deleteSource(this.source1).done($.proxy(function(tx, source){
+                    this.source1 = source;
+                    rhosync.api.storage.deleteSource(this.source2).done($.proxy(function(tx, source){
+                        this.source2 = source;
+                    }, this)).done(okHdlr).fail(errHdlr);
+                }, this)).fail(errHdlr);
+            });
+            waitsForSpies([okHdlr, errHdlr], 'sources delete query timeout');
+            runs(function(){
+                expect(errHdlr).not.toHaveBeenCalled();
+            });
+
+            // check there are two sources has been deleted
+            runs(function(){
+                jasmine.log('listSourcesId()');
+                rhosync.api.storage.listSourcesId().done($.proxy(function(tx, ids){
+                    this.ids = ids;
+                }, this)).done(okHdlr).fail(errHdlr);
+            });
+            waitsForSpies([okHdlr, errHdlr], 'sources list select query timeout');
+            runs(function(){
+                expect(errHdlr).not.toHaveBeenCalled();
+                expect(this.ids).toBeDefined();
+                expect(this.ids.length).toBeDefined();
+                expect(this.ids.length).toEqual(this.idsLengthWithTestSources - 2);
+            });
+
+            // check load failure for absent sources
+            runs(function(){
+                jasmine.log('loadSource()');
+                rhosync.api.storage.tx().ready($.proxy(function(db, tx){
+                    $.when(
+                            rhosync.api.storage.loadSource(id1, tx).done($.proxy(function(tx, source){
+                                this.source1 = source;
+                            }, this)),
+                            rhosync.api.storage.loadSource(id2, tx).done($.proxy(function(tx, source){
+                                this.source2 = source;
+                            }, this))
+                    ).done(okHdlr).fail(errHdlr);
+                }, this)).fail(errHdlr);
+            });
+            waitsForSpies([okHdlr, errHdlr], 'sources select query timeout');
+            runs(function(){
+                expect(errHdlr).toHaveBeenCalled();
+                jasmine.log(errHdlr.mostRecentCall.args);
+                expect(this.source1).toBeNull();
+                expect(this.source2).toBeNull();
+            });
+        });
     });
 
 });
