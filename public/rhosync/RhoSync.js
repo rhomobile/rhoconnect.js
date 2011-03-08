@@ -3,9 +3,11 @@
 
         const SESSION_COOKIE = 'rhosync_session';
 
-        const NOTIFY_GENERIC = 'rhoSyncNotifyGeneric';
-        const NOTIFY_ERROR = 'rhoSyncNotifyError';
-        const NOTIFY_CLIENT_CREATED = 'rhoSyncNotifyClientCreated';
+        var events = {
+            GENERIC_NOTIFICATION: 'rhoSyncGenericNotification',
+            ERROR: 'rhoSyncErrorNotification',
+            CLIENT_CREATED: 'rhoSyncClientCreatedNotification'
+        };
 
         var defaults = {
 			syncserver: "",
@@ -67,6 +69,35 @@
                 +'CREATE INDEX by_src_value ON object_values ("attrib", "source_id", "value");'
                 ;
 
+        function Model(defn) {
+
+            this.name = defn.name;
+            this.fields = defn.fields;
+
+            this.newObject = function(attribs) {};
+            this.createObject = function(attributes) {};
+        }
+
+        function Object(attributes) {
+            this.id = function(){return id;}; // is read-only
+
+            // Rhom API methods
+            
+            this.clearNotifications = function () {};
+            this.deleteAll = function(conditions) {};
+            this.destroy = function() {};
+            this.find = function(args) {};
+            this.findAll = function(args) {};
+            this.findBySql = function(query) {};
+            this.paginate = function(args) {};
+            this.sync = function(callback, cbData, showStatusPopup) {};
+            this.setNotification = function(url, params) {};
+            this.updateAttributes = function(attributes) {};
+            this.save = function() {};
+            this.canModify = function() {};
+            this.isChanged = function() {};
+        }
+
         function Source(id) {
             this.name = null;
             this.token = null;
@@ -85,7 +116,7 @@
             this.schema_version = null;
             this.associations = null;
             this.blob_attribs = null;
-            
+
             this.id = function(){return id;}; // is read-only
         }
 
@@ -190,7 +221,7 @@
 
                 // Accumulate deferred objects for aggregate
                 // resolving, one per each statement
-                $.each(statements, function(idx, val){
+                $(statements).each(function(idx, val){
                     dfrs.push($.Deferred());
                 });
 
@@ -224,7 +255,7 @@
                 }
 
                 var promises = [];
-                $.each(dfrs, function(idx, dfr){
+                $(dfrs).each(function(idx, dfr){
                     promises.push(dfr.promise());
                 });
 
@@ -538,10 +569,10 @@
                          data: $.toJSON(data),
                         dataType: 'json'
                     }).done(function(data, status, xhr){
-                        _notify(NOTIFY_GENERIC, status, data, xhr);
+                        _notify(events.GENERIC_NOTIFICATION, status, data, xhr);
                         dfr.resolve(status, data, xhr);
                     }).fail(function(xhr, status, error){
-                        _notify(NOTIFY_GENERIC, status, error, xhr);
+                        _notify(events.GENERIC_NOTIFICATION, status, error, xhr);
                         dfr.reject(status, error, xhr);
                     });
                 }).promise();
@@ -603,18 +634,18 @@
                             var client = new Client(data.client.client_id);
                             storage.insertClient(client).done(function(tx, client){
                                 dfr.resolve(client);
-                                _notify(NOTIFY_CLIENT_CREATED, client);
+                                _notify(events.CLIENT_CREATED, client);
                             }).fail(function(tx, error){
                                 dfr.reject("db access error");
-                                _notify(NOTIFY_ERROR, 'Db access error in clientCreate');
+                                _notify(events.ERROR, 'Db access error in clientCreate');
                             });
                         } else {
                             dfr.reject("server response error");
-                            _notify(NOTIFY_ERROR, 'Server response error in clientCreate');
+                            _notify(events.ERROR, 'Server response error in clientCreate');
                         }
                     }).fail(function(error){
                         dfr.reject("server request error");
-                        _notify(NOTIFY_ERROR, 'Server request error clientCreate');
+                        _notify(events.ERROR, 'Server request error clientCreate');
                     });
                 }).promise();
             }
@@ -630,7 +661,7 @@
                                 dfr.resolve(client);
                             }).fail(function(){
                                 dfr.reject("db access error");
-                                _notify(NOTIFY_ERROR, 'Db access error in initClient');
+                                _notify(events.ERROR, 'Db access error in initClient');
                             });
                         } else {
                             // None of them, going to obtain from the server
@@ -638,7 +669,7 @@
                                 dfr.resolve(client);
                             }).fail(function(error){
                                 dfr.reject("client creation error: " +error);
-                                _notify(NOTIFY_ERROR, "Client creation error in initClient");
+                                _notify(events.ERROR, "Client creation error in initClient");
                             });
                         }
                     }).fail(function(){
@@ -672,7 +703,9 @@
             }
 
             return {
-                clientCreate: _createClient
+                Client: Client,
+                Source: Source,
+                init: init
             }
         }();
 
@@ -681,21 +714,34 @@
             // fire exact notifications here
         }
 
+        var models = {};
+
+        function init(storageType, modelDefns) {
+            function _initModel(defn) {
+                if ('string' == typeof defn.name) {
+                    models[defn.name] = new Model(defn);
+                }
+            }
+
+            if (modelDefns && 'object' == typeof modelDefns) {
+                if ($.isArray(modelDefns)) {
+                    $(modelDefns).each(function(i){_initModel(modelDefns[i])});
+                } else {
+                    _initModel(modelDefns);
+                }
+            }
+        }
+
 		return {
 			api: {
-                events: {
-                    NOTIFY_GENERIC: NOTIFY_GENERIC,
-                    NOTIFY_CLIENT_CREATED: NOTIFY_CLIENT_CREATED
-                },
-                models: {
-                    Client: Client,
-                    Source: Source
-                },
+                events: events,
                 protocol: protocol,
                 engine: engine,
                 storage: storage
 			},
-			rhoconfig: config
+            config: config,
+            models: models,
+            init: init
 		}
 	}
 })(jQuery);

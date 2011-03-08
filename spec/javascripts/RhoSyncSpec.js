@@ -30,16 +30,41 @@ describe("RhoSync", function() {
         };
 	});
   
-	it("should be initialized", function() {
-    	expect(rhosync.rhoconfig.syncserver).toEqual(syncUrl);
- 	});
+    it("able to be configured", function() {
+        expect(rhosync.config.syncserver).toEqual(syncUrl);
+    });
+
+    it("should be define models", function() {
+
+        expect(rhosync.init).toBeDefined();
+
+        var models = [
+            {name: 'Product', fields: [
+                {name: 'name',      type: 'string'},
+                {name: 'price',     type: 'int'},
+                {name: 'available', type: 'boolean', defaultValue: true}
+                ]},
+            {name: 'Order', fields: [
+                {name: 'id',           type: 'string'},
+                {name: 'productName',  type: 'string'},
+                {name: 'customerName', type: 'string'},
+                {name: 'address',      type: 'string'},
+                {name: 'phone',        type: 'string'}
+                ]}
+        ];
+
+        rhosync.init('native', models);
+
+        expect(rhosync.models.Product).toBeDefined('Product model');
+        expect(rhosync.models.Order).toBeDefined('Order model');
+    });
 
     it("should login ok with proper credentials", function() {
         //fakeAjax({urls: {'/login': {successData: 'login'}}});
 
         var okHdlr = jasmine.createSpy('ajax handler spy');
 
-        $(window).bind(rhosync.api.events.NOTIFY_GENERIC, null, notify);
+        $(window).bind(rhosync.api.events.GENERIC_NOTIFICATION, null, notify);
 
         rhosync.api.protocol.login("lars", "larspass").done(function(data, response){
             okHdlr("success", response);
@@ -51,7 +76,7 @@ describe("RhoSync", function() {
         runs(function(){
             expect(okHdlr).toHaveBeenCalledWith("success", null);
             expect(notified).toBeTruthy();
-            $(window).unbind(rhosync.api.events.NOTIFY_GENERIC, notify);
+            $(window).unbind(rhosync.api.events.GENERIC_NOTIFICATION, notify);
         });
     });
 
@@ -60,7 +85,7 @@ describe("RhoSync", function() {
 
         var okHdlr = jasmine.createSpy('ajax handler spy');
 
-        $(window).bind(rhosync.api.events.NOTIFY_GENERIC, null, notify);
+        $(window).bind(rhosync.api.events.GENERIC_NOTIFICATION, null, notify);
 
         rhosync.api.protocol.login("not_lars", "not_larspass").done(function(data, response){
             okHdlr("success", response);
@@ -72,10 +97,9 @@ describe("RhoSync", function() {
         runs(function(){
             expect(okHdlr).toHaveBeenCalledWith("error", "Unauthorized");
             expect(notified).toBeTruthy();
-            $(window).unbind(rhosync.api.events.NOTIFY_GENERIC, notify);
+            $(window).unbind(rhosync.api.events.GENERIC_NOTIFICATION, notify);
         });
     });
-
 /*
     it("should be able to start sync engine", function() {
         $(window).bind(rhosync.api.events.NOTIFY_CLIENT_CREATED, null, notify);
@@ -91,7 +115,6 @@ describe("RhoSync", function() {
         });
     });
 */
-
 
     describe("Rhomobile.db.DbStorage", function() {
 
@@ -177,7 +200,7 @@ describe("RhoSync", function() {
             var okHdlr = jasmine.createSpy('for ok');
             var errHdlr = jasmine.createSpy('for errors');
 
-            expect(rhosync.api.models.Client).toBeDefined();
+            expect(rhosync.api.engine.Client).toBeDefined();
             expect(rhosync.api.storage.listClientsId).toBeDefined();
             expect(rhosync.api.storage.insertClient).toBeDefined();
             expect(rhosync.api.storage.storeClient).toBeDefined();
@@ -188,9 +211,9 @@ describe("RhoSync", function() {
             var id2 = 'testId2_#' +Date.now().toString();
 
             // create clients
-            var client1 = new rhosync.api.models.Client(id1);
+            var client1 = new rhosync.api.engine.Client(id1);
             client1.session = "session1";
-            var client2 = new rhosync.api.models.Client(id2);
+            var client2 = new rhosync.api.engine.Client(id2);
             client2.session = "session2";
 
             // store them
@@ -370,7 +393,7 @@ describe("RhoSync", function() {
             var okHdlr = jasmine.createSpy('for ok');
             var errHdlr = jasmine.createSpy('for errors');
 
-            expect(rhosync.api.models.Source).toBeDefined();
+            expect(rhosync.api.engine.Source).toBeDefined();
             expect(rhosync.api.storage.listSourcesId).toBeDefined();
             expect(rhosync.api.storage.insertSource).toBeDefined();
             expect(rhosync.api.storage.storeSource).toBeDefined();
@@ -381,9 +404,9 @@ describe("RhoSync", function() {
             var id2 = 'testId2_#' +Date.now().toString();
 
             // create sources
-            var source1 = new rhosync.api.models.Source(id1);
+            var source1 = new rhosync.api.engine.Source(id1);
             source1.name = "name1";
-            var source2 = new rhosync.api.models.Source(id2);
+            var source2 = new rhosync.api.engine.Source(id2);
             source2.name = "name2";
 
             // store them
@@ -559,5 +582,4 @@ describe("RhoSync", function() {
             });
         });
     });
-
 });
