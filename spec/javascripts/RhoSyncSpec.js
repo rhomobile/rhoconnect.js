@@ -34,6 +34,7 @@ describe("RhoSync", function() {
         expect(rhosync.config.syncserver).toEqual(syncUrl);
     });
 
+/*
     it("should be define models", function() {
 
         expect(rhosync.init).toBeDefined();
@@ -45,7 +46,7 @@ describe("RhoSync", function() {
                 {name: 'available', type: 'boolean', defaultValue: true}
                 ]},
             {name: 'Order', fields: [
-                {name: 'id',           type: 'string'},
+                {name: 'unmber',       type: 'int'},
                 {name: 'productName',  type: 'string'},
                 {name: 'customerName', type: 'string'},
                 {name: 'address',      type: 'string'},
@@ -58,6 +59,7 @@ describe("RhoSync", function() {
         expect(rhosync.models.Product).toBeDefined('Product model');
         expect(rhosync.models.Order).toBeDefined('Order model');
     });
+*/
 
     it("should login ok with proper credentials", function() {
         //fakeAjax({urls: {'/login': {successData: 'login'}}});
@@ -133,6 +135,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'open database timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
             });
             runs(function(){
                 try {
@@ -145,6 +148,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'open database timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
             });
         });
 
@@ -162,6 +166,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'db query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
             });
         });
 
@@ -175,6 +180,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'db initialization timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
             });
 
             runs(function(){
@@ -188,6 +194,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'table names read timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
                 expect(this.names).toBeDefined();
                 jasmine.log('Table names are: "' +this.names.toString().replace(/,/g, '", "') +'"');
                 expect(this.names.length).toEqual(4+1);
@@ -226,6 +233,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'clients insert query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
             });
 
             // check there are two clients at least
@@ -239,6 +247,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'clients list select query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
                 expect(this.ids).toBeDefined();
                 expect(this.ids.length).toBeDefined();
                 expect(this.ids.length).toBeGreaterThan(1);
@@ -261,16 +270,15 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'clients select query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
 
                 expect(this.client1).toBeDefined();
-                expect(this.client1.id).toBeDefined();
-                expect(this.client1.id()).toEqual(id1);
+                expect(this.client1.id).toEqual(id1);
                 expect(this.client1.session).toBeDefined();
                 expect(this.client1.session).toEqual("session1");
 
                 expect(this.client2).toBeDefined();
-                expect(this.client2.id).toBeDefined();
-                expect(this.client2.id()).toEqual(id2);
+                expect(this.client2.id).toEqual(id2);
                 expect(this.client2.session).toBeDefined();
                 expect(this.client2.session).toEqual("session2");
             });
@@ -303,6 +311,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'clients update query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
             });
 
             // read and verify updates
@@ -322,16 +331,15 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'clients select query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
 
                 expect(this.client1).toBeDefined();
-                expect(this.client1.id).toBeDefined();
-                expect(this.client1.id()).toEqual(id1);
+                expect(this.client1.id).toEqual(id1);
                 expect(this.client1.session).toBeDefined();
                 expect(this.client1.session).toEqual("updatedSession1");
 
                 expect(this.client2).toBeDefined();
-                expect(this.client2.id).toBeDefined();
-                expect(this.client2.id()).toEqual(id2);
+                expect(this.client2.id).toEqual(id2);
                 expect(this.client2.session).toBeDefined();
                 expect(this.client2.session).toEqual("updatedSession2");
             });
@@ -349,6 +357,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'clients delete query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
             });
 
             // check there are two clients has been deleted
@@ -361,6 +370,8 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'clients list select query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
+
                 expect(this.ids).toBeDefined();
                 expect(this.ids.length).toBeDefined();
                 expect(this.ids.length).toEqual(this.idsLengthWithTestClients - 2);
@@ -383,7 +394,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'clients select query timeout');
             runs(function(){
                 expect(errHdlr).toHaveBeenCalled();
-                jasmine.log(errHdlr.mostRecentCall.args);
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
                 expect(this.client1).toBeNull();
                 expect(this.client2).toBeNull();
             });
@@ -400,7 +411,7 @@ describe("RhoSync", function() {
             expect(rhosync.api.storage.loadSource).toBeDefined();
             expect(rhosync.api.storage.deleteSource).toBeDefined();
 
-            var id1 = 'testId1_#' +Date.now().toString();
+            var id1 = 'testId1_#' +Date.now().toString();  // It shouldn't work at all!!! client_id is BIGINT !
             var id2 = 'testId2_#' +Date.now().toString();
 
             // create sources
@@ -419,6 +430,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'sources insert query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
             });
 
             // check there are two sources at least
@@ -432,6 +444,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'sources list select query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
                 expect(this.ids).toBeDefined();
                 expect(this.ids.length).toBeDefined();
                 expect(this.ids.length).toBeGreaterThan(1);
@@ -454,16 +467,15 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'sources select query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
 
                 expect(this.source1).toBeDefined();
-                expect(this.source1.id).toBeDefined();
-                expect(this.source1.id()).toEqual(id1);
+                expect(this.source1.id).toEqual(id1);
                 expect(this.source1.name).toBeDefined();
                 expect(this.source1.name).toEqual("name1");
 
                 expect(this.source2).toBeDefined();
-                expect(this.source2.id).toBeDefined();
-                expect(this.source2.id()).toEqual(id2);
+                expect(this.source2.id).toEqual(id2);
                 expect(this.source2.name).toBeDefined();
                 expect(this.source2.name).toEqual("name2");
             });
@@ -496,6 +508,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'sources update query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
             });
 
             // read and verify updates
@@ -515,16 +528,15 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'sources select query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
 
                 expect(this.source1).toBeDefined();
-                expect(this.source1.id).toBeDefined();
-                expect(this.source1.id()).toEqual(id1);
+                expect(this.source1.id).toEqual(id1);
                 expect(this.source1.name).toBeDefined();
                 expect(this.source1.name).toEqual("updatedName1");
 
                 expect(this.source2).toBeDefined();
-                expect(this.source2.id).toBeDefined();
-                expect(this.source2.id()).toEqual(id2);
+                expect(this.source2.id).toEqual(id2);
                 expect(this.source2.name).toBeDefined();
                 expect(this.source2.name).toEqual("updatedName2");
             });
@@ -542,6 +554,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'sources delete query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
             });
 
             // check there are two sources has been deleted
@@ -554,6 +567,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'sources list select query timeout');
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
                 expect(this.ids).toBeDefined();
                 expect(this.ids.length).toBeDefined();
                 expect(this.ids.length).toEqual(this.idsLengthWithTestSources - 2);
@@ -576,7 +590,7 @@ describe("RhoSync", function() {
             waitsForSpies([okHdlr, errHdlr], 'sources select query timeout');
             runs(function(){
                 expect(errHdlr).toHaveBeenCalled();
-                jasmine.log(errHdlr.mostRecentCall.args);
+                if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
                 expect(this.source1).toBeNull();
                 expect(this.source2).toBeNull();
             });

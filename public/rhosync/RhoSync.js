@@ -14,6 +14,7 @@
 			pollinterval: 20
 		};
 
+
 		var config = $.extend({}, defaults, cfg);
 
         var initDbSchemaSQL = ''
@@ -69,37 +70,54 @@
                 +'CREATE INDEX by_src_value ON object_values ("attrib", "source_id", "value");'
                 ;
 
-        function Model(defn) {
-
-            this.name = defn.name;
-            this.fields = defn.fields;
-
-            this.newObject = function(attribs) {};
-            this.createObject = function(attributes) {};
+        function SyncObject(attribs) {
         }
 
-        function Object(attributes) {
-            this.id = function(){return id;}; // is read-only
+        function Model(defn) {
+            this.source = new Source(defn.sourceId, defn.name);
+
+            this.__defineGetter__('name', function() {
+                return this.source.name;
+            });
+            this.__defineSetter__('name', function(v) {
+                this.source.name = v;
+            });
+
+            this.fields = defn.fields;
+            this.belongsTo = defn.belongsTo;
 
             // Rhom API methods
-            
             this.clearNotifications = function () {};
             this.deleteAll = function(conditions) {};
             this.destroy = function() {};
             this.find = function(args) {};
             this.findAll = function(args) {};
             this.findBySql = function(query) {};
+
+            this.newObject = function(attribs) {
+                return new SyncObject(attribs);
+            };
+
+            this.createObject = function(attribs) {
+                var obj = this.newObject(attribs);
+                obj.save();
+                return obj;
+            };
+
             this.paginate = function(args) {};
             this.sync = function(callback, cbData, showStatusPopup) {};
             this.setNotification = function(url, params) {};
-            this.updateAttributes = function(attributes) {};
+            this.updateAttributes = function(attribs) {};
             this.save = function() {};
             this.canModify = function() {};
             this.isChanged = function() {};
         }
 
-        function Source(id) {
-            this.name = null;
+        function Source(id, name) {
+            this.id = id;
+            this.name = name;
+
+
             this.token = null;
             this.sync_priority = null /*bigint, no default*/;
             this.partition = null /*varchar, no default*/;
@@ -116,11 +134,10 @@
             this.schema_version = null;
             this.associations = null;
             this.blob_attribs = null;
-
-            this.id = function(){return id;}; // is read-only
         }
 
         function Client(id) {
+            this.id = id;
             this.session = null;
             this.token = null;
             this.token_sent = 0;
@@ -128,17 +145,21 @@
             this.port = null;
             this.last_sync_success = null;
             this.sources = {};
-            this.id = function(){return id;}; // is read-only
         }
 
         var storage = function(dbName) {
 
             // low-level functions ========================
 
-            function _open() {
+            function _open(name, version, comment, size) {
                 return $.Deferred(function(dfr){
                     try {
-                        var db = openDatabase(dbName, '1.0', 'RhoSync database', 2 * 1024 * 1024);
+                        var db = openDatabase(
+                                name || dbName,
+                                version || '1.0',
+                                comment || 'RhoSync database',
+                                size || (2*1024*1024)
+                                );
                         dfr.resolve(db);
                     } catch(ex) {
                         dfr.reject(ex);
@@ -150,7 +171,7 @@
                 var readyDfr = $._Deferred();
                 var dfr = $.Deferred();
                 function resolveTx(db) {
-                    if (readWrite) {
+                    if (readWrite && readWrite != "read-only") {
                         db.transaction($.proxy(function(tx){
                             readyDfr.resolve(db, tx);
                         }, this), $.proxy(function (err) {
@@ -180,6 +201,14 @@
                 dfr.promise();
                 dfr.ready = readyDfr.done;
                 return dfr;
+            }
+
+            function _roTx(optionalDb) {
+                return _tx(false, optionalDb);
+            }
+
+            function _rwTx(optionalDb) {
+                return _tx("read-write", optionalDb);
             }
 
             function _executeSQL(sql, values, optionalTx) {
@@ -347,7 +376,7 @@
                         client.reset,
                         client.port,
                         client.last_sync_success,
-                        client.id()], optionalTx).done(function(tx, rs) {
+                        client.id], optionalTx).done(function(tx, rs) {
                         dfr.resolve(tx, client);
                     }).fail(function(obj, err) {
                         dfr.reject(obj, err);
@@ -360,7 +389,7 @@
             }
 
             function deleteClient(clientOrId, optionalTx) {
-                var id = ("object" == typeof clientOrId) ? clientOrId.id() : clientOrId;
+                var id = ("object" == typeof clientOrId) ? clientOrId.id : clientOrId;
                 return $.Deferred(function(dfr){
                     _executeSQL('DELETE FROM client_info WHERE client_id = ?', [id], optionalTx).done(function(tx, rs) {
                             dfr.resolve(tx, null);
@@ -393,8 +422,10 @@
                         if (0 == rs.rows.length) {
                             dfr.reject(id, 'Not found');
                         } else {
-                            var source = new Source(id);
-                            source.name                 = rs.rows.item(0)['name'];
+                            var source = new Source(
+                                    rs.rows.item(0)['source_id'],
+                                    rs.rows.item(0)['name']
+                                    );
                             source.token                = rs.rows.item(0)['token'];
                             source.sync_priority        = rs.rows.item(0)['sync_priority'];
                             source.partition            = rs.rows.item(0)['partition'];
@@ -412,6 +443,45 @@
                             source.associations         = rs.rows.item(0)['associations'];
                             source.blob_attribs         = rs.rows.item(0)['blob_attribs'];
                             dfr.resolve(tx, source);
+                        }
+                    }).fail(function(obj, err) {
+                        dfr.reject(obj, err);
+                    });
+                }).promise();
+            }
+
+            function loadAllSources(optionalTx) {
+                return $.Deferred(function(dfr){
+                    _executeSQL('SELECT * FROM sources', null,
+                            optionalTx).done(function(tx, rs) {
+                        if (0 == rs.rows.length) {
+                            dfr.reject(id, 'Not found');
+                        } else {
+                            var sources = [];
+                            for(var i=0; i<rs.rows.length; i++) {
+                                var source = new Source(
+                                        rs.rows.item(0)['source_id'],
+                                        rs.rows.item(0)['name']
+                                        );
+                                source.token                = rs.rows.item(0)['token'];
+                                source.sync_priority        = rs.rows.item(0)['sync_priority'];
+                                source.partition            = rs.rows.item(0)['partition'];
+                                source.sync_type            = rs.rows.item(0)['sync_type'];
+                                source.metadata             = rs.rows.item(0)['metadata'];
+                                source.last_updated         = rs.rows.item(0)['last_updated'];
+                                source.last_inserted_size   = rs.rows.item(0)['last_inserted_size'];
+                                source.last_deleted_size    = rs.rows.item(0)['last_deleted_size'];
+                                source.last_sync_duration   = rs.rows.item(0)['last_sync_duration'];
+                                source.last_sync_success    = rs.rows.item(0)['last_sync_success'];
+                                source.backend_refresh_time = rs.rows.item(0)['backend_refresh_time'];
+                                source.source_attribs       = rs.rows.item(0)['source_attribs'];
+                                source.schema               = rs.rows.item(0)['schema'];
+                                source.schema_version       = rs.rows.item(0)['schema_version'];
+                                source.associations         = rs.rows.item(0)['associations'];
+                                source.blob_attribs         = rs.rows.item(0)['blob_attribs'];
+                                sources.push(source);
+                            }
+                            dfr.resolve(tx, sources);
                         }
                     }).fail(function(obj, err) {
                         dfr.reject(obj, err);
@@ -478,7 +548,7 @@
                         source.schema_version,
                         source.associations,
                         source.blob_attribs,
-                        source.id()], optionalTx).done(function(tx, rs) {
+                        source.id], optionalTx).done(function(tx, rs) {
                         dfr.resolve(tx, source);
                     }).fail(function(obj, err) {
                         dfr.reject(obj, err);
@@ -491,7 +561,7 @@
             }
 
             function deleteSource(sourceOrId, optionalTx) {
-                var id = ("object" == typeof sourceOrId) ? sourceOrId.id() : sourceOrId;
+                var id = ("object" == typeof sourceOrId) ? sourceOrId.id : sourceOrId;
                 return $.Deferred(function(dfr){
                     _executeSQL('DELETE FROM sources WHERE source_id = ?', [id], optionalTx).done(function(tx, rs) {
                             dfr.resolve(tx, null);
@@ -511,12 +581,15 @@
                 // Client
                 listSourcesId: listSourcesId,
                 loadSource: loadSource,
+                loadAllSources: loadAllSources,
                 storeSource: storeSource,
                 insertSource: insertSource,
                 deleteSource: deleteSource,
                 // low-level
                 open: _open,
                 tx: _tx,
+                roTx: _roTx,
+                rwTx: _rwTx,
                 executeSQL: _executeSQL,
                 executeBatchSQL: _executeBatchSQL,
                 initSchema: _initSchema,
@@ -709,27 +782,243 @@
             }
         }();
 
+
         function _notify(type /*, arg1, arg2, ... argN*/) {
             $(window).trigger(jQuery.Event(type), $.makeArray(arguments).slice(1));
             // fire exact notifications here
         }
 
-        var models = {};
+        var maxConfigSrcId = {
+            'user': 1,
+            'app': 20001,
+            'local': 40001
+        };
 
-        function init(storageType, modelDefns) {
-            function _initModel(defn) {
-                if ('string' == typeof defn.name) {
-                    models[defn.name] = new Model(defn);
-                }
+
+        var rhoConfig = function () {
+
+            var models = {};
+
+            var pubObj = {
+                models: models
+            };
+
+            pubObj.__defineGetter__('sources', function() {
+                var sources = [];
+                $(this.models).each(function(idx, model){
+                    sources.push(model.source);
+                });
+                return sources;
+            });
+
+            return pubObj;
+        }();
+
+        function addLoadedSource(defn) {
+            var model = new Model(defn);
+            model.source.sync_priority = parseInt(defn['sync_priority'] || 1000);
+            model.source.sync_type = defn['sync_type'] || 'none';
+            var partition = (defn['partition'] + '') ||
+                    (model.source.sync_type != 'none' ? 'user' : 'local');
+            model.source.partition = partition;
+            var sourceId = parseInt(defn['source_id'] || null);
+            model.source.id = sourceId;
+            if (sourceId && maxConfigSrcId[partition] < sourceId) {
+                maxConfigSrcId[partition] = sourceId;
+            }
+            rhoConfig.models[defn.name] = model;
+        }
+
+        function getStartId(sources, partition) {
+            var startId = 0;
+            $(sources).each(function(idx, src){
+                if (partition != src.partition) return;
+                startId = (src.id > startId) ? src.id : startId;
+            });
+            if (startId < maxConfigSrcId[partition]) {
+                startId =  maxConfigSrcId[partition] + 2;
+            } else {
+                startId += 1;
+            }
+            return startId;
+        }
+
+        function initDbSources(db, configSources, dbPartition, hashMigrate) {
+            storage.rwTx(db).ready(function(db, tx){
+                storage.loadAllSources(tx).done(function (tx, dbSources) {
+
+                    var startId = getStartId(dbSources, dbPartition);
+
+                    var dbSourceMap = {};
+                    $(dbSources).each(function(idx, src){
+                        dbSourceMap[src.name] = src;
+                    });
+
+                    $(configSources).each(function(idx, cfgSource){
+                        // if source from config is already present in db
+                        var dbSource = dbSourceMap[cfgSource.name];
+                        if (dbSource) { // then update it if needed
+                            var updateNeeded = false;
+
+                            if (dbSource.sync_priority != cfgSource.sync_priority) {
+                                dbSource.sync_priority = cfgSource.sync_priority;
+                                updateNeeded = true;
+                            }
+                            if (dbSource.sync_type != cfgSource.sync_type) {
+                                dbSource.sync_type = cfgSource.sync_type;
+                                updateNeeded = true;
+                            }
+                            if (dbSource.schema_version != cfgSource.schema_version) {
+                                if (dbPartition == cfgSource.partition) {
+                                    hashMigrate[cfgSource.name] = cfgSource.schema_version;
+                                } else {
+                                    dbSource.schema_version = cfgSource.schema_version;
+                                    updateNeeded = true;
+                                }
+                            }
+                            if (dbSource.partition != cfgSource.partition) {
+                                dbSource.partition = cfgSource.partition;
+                                updateNeeded = true;
+                            }
+                            if (dbSource.associations != cfgSource.associations) {
+                                dbSource.associations = cfgSource.associations;
+                                updateNeeded = true;
+                            }
+                            if (dbSource.blob_attribs != cfgSource.blob_attribs) {
+                                dbSource.blob_attribs = cfgSource.blob_attribs;
+                                updateNeeded = true;
+                            }
+                            if (!cfgSource.id) {
+                                cfgSource.id = dbSource.id;
+                                // Rho.rb:707
+                                /*
+                                if !source['source_id']
+                                    source['source_id'] = attribs['source_id'].to_i
+                                    Rho::RhoConfig::sources[name]['source_id'] = attribs['source_id'].to_i
+                                end
+                                 */
+                                //TODO: what for?!!!
+                                rhoConfig.models[cfgSource.name].source.id = dbSource.id;
+                            }
+                            if (updateNeeded) {
+                                storage.storeSource(dbSource, tx);
+                            }
+
+                        } else { // if configured source not in db yet
+                            if (!config.use_bulk_mode) {
+                                if (!cfgSource.id) {
+                                    cfgSource.id = startId;
+                                    startId =+ 1;
+                                }
+                            }
+                            storage.insertSource(cfgSource, tx);
+                        }
+                    });
+                });
+            });
+        }
+
+        function initSchemaSourcesPartition(cfgSources, hashMigrate, partition, optTx) {
+            //TODO: implement
+        }
+
+        function initSyncSourceProperties(cfgSources, optTx){
+            //TODO: implement
+        }
+
+        function loadModel(defn, initDb) {
+            if (defn.isLoaded) return;
+            defn.isLoaded = true;
+
+            initDb = (undefined == initDb) ? true : initDb;
+
+            if ('string' == typeof defn.name) {
+                addLoadedSource(defn)
             }
 
-            if (modelDefns && 'object' == typeof modelDefns) {
-                if ($.isArray(modelDefns)) {
-                    $(modelDefns).each(function(i){_initModel(modelDefns[i])});
+            var partition = defn.partition;
+            var db = dbPartitions[partition];
+
+            if (initDb) {
+                var hashMigrate = {};
+                storage.rwTx(db).ready(function(db, tx) {
+                    var cfgSources = rhoConfig.sources;
+                    //TODO: what for to call it per each model/source ?!
+                    //TODO: which exact db? how to use partition here?
+                    initDbSources(db, cfgSources, partition, hashMigrate);
+                    initSchemaSourcesPartition(cfgSources, hashMigrate, partition, tx);
+                    initSyncSourceProperties(cfgSources, tx);
+                });
+            }
+        }
+
+        var dbPartitions = {};
+
+        var allModelsLoaded = false;
+
+        function initSources() {
+            allModelsLoaded = true;
+
+            $(rhoConfig.sources).each(function(idx, source){
+                source.associations = '';
+            });
+
+            $(rhoConfig.sources).each(function(idx, source){
+                var partition = source.partition;
+                dbPartitions[partition] = dbPartitions[partition] || null;
+
+                $(source.model.belongsTo).each(function(keyAttr, ownerName){
+                    var ownerSrc = rhoConfig.models[ownerName].source;
+                    if (!ownerSrc) {
+                        //TODO: report the error
+                        //puts ( "Error: belongs_to '#{source['name']}' : source name '#{src_name}' does not exist."  )
+                        return;
+                    }
+                    var str = ownerSrc.associations || '';
+                    str += (0 < str.length) ? ', ' : '';
+                    str += (source.name +', ' +keyAttr);
+                    ownerSrc.associations = str;
+                });
+            });
+
+            dbPartitions['user'] = dbPartitions['user'] || null;
+            var hashMigrate = {};
+
+            function _setupPartition(partition, db) {
+                storage.rwTx(db).ready(function(db, tx){
+                    initDbSources(db, rhoConfig.sources, partition, hashMigrate);
+                    initSchemaSourcesPartition(rhoConfig.sources, hashMigrate, partition, tx);
+                    initSyncSourceProperties(rhoConfig.sources, tx);
+                    // SyncEngine.update_blob_attribs(partition, -1 )
+                }).fail(function(obj, err){
+                        //TODO: report the error
+                });
+            }
+
+            $(dbPartitions).each(function(partition, db){
+                if (db) {
+                    _setupPartition(partition, db);
+                } else storage.open('rhoSync_' +partition).done(function(db){
+                    _setupPartition(partition, db);
+                });
+            });
+        }
+
+        function loadAllSources(storageType, modelDefs) {
+            if (allModelsLoaded) return;
+
+            if (modelDefs && 'object' == typeof modelDefs) {
+                if ($.isArray(modelDefs)) {
+                    $(modelDefs).each(function(idx, defn){loadModel(modelDefs[defn], false);});
                 } else {
-                    _initModel(modelDefns);
+                    loadModel(modelDefs, false);
                 }
             }
+            initSources();
+        }
+
+        function init(storageType, modelDefs) {
+            loadAllSources(storageType, modelDefs);
         }
 
 		return {
@@ -740,7 +1029,6 @@
                 storage: storage
 			},
             config: config,
-            models: models,
             init: init
 		}
 	}
