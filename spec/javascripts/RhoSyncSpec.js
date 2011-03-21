@@ -34,8 +34,10 @@ describe("RhoSync", function() {
         expect(rhosync.config.syncserver).toEqual(syncUrl);
     });
 
-/*
-    it("should be define models", function() {
+    it("is able to be initialized with models", function() {
+
+        var okHdlr = jasmine.createSpy('for ok');
+        var errHdlr = jasmine.createSpy('for errors');
 
         expect(rhosync.init).toBeDefined();
 
@@ -54,12 +56,44 @@ describe("RhoSync", function() {
                 ]}
         ];
 
-        rhosync.init('native', models);
+        rhosync.api.protocol.login("lars", "larspass").done(okHdlr).fail(errHdlr);
 
-        expect(rhosync.models.Product).toBeDefined('Product model');
-        expect(rhosync.models.Order).toBeDefined('Order model');
+        waitsForSpies([okHdlr, errHdlr], 'login timeout');
+        runs(function(){
+            expect(errHdlr).not.toHaveBeenCalled();
+            if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
+        });
+
+        rhosync.init('native', models).done(okHdlr).fail(errHdlr);
+
+        waitsForSpies([okHdlr, errHdlr], 'RhoSync init timeout', 3000);
+        runs(function(){
+            expect(errHdlr).not.toHaveBeenCalled();
+            if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
+
+            expect(rhosync.models).toBeDefined('models map');
+            expect(rhosync.api.engine.sources).toBeDefined('sources map');
+
+            expect(rhosync.models.Product).toBeSet('Product model');
+            expect(rhosync.models.Product.name).toBeSet('Product model');
+            expect(rhosync.api.engine.sources.Product).toBeSet('Product model');
+            expect(rhosync.api.engine.sources.Product.name).toBeSet('Product model');
+            expect(rhosync.api.engine.sources.Product.id).toBeGreaterThan(0);
+            expect(rhosync.models.Product.name).toEqual(rhosync.api.engine.sources.Product.name);
+            jasmine.log(rhosync.models.Product.name +' source id = ' +rhosync.api.engine.sources.Product.id);
+
+            expect(rhosync.models.Order).toBeSet('Order model');
+            expect(rhosync.models.Order.name).toBeSet('Order model');
+            expect(rhosync.api.engine.sources.Order).toBeSet('Order model');
+            expect(rhosync.api.engine.sources.Order.name).toBeSet('Order model');
+            expect(rhosync.api.engine.sources.Order.id).toBeGreaterThan(0);
+            expect(rhosync.models.Order.name).toEqual(rhosync.api.engine.sources.Order.name);
+            jasmine.log(rhosync.models.Order.name +' source id = ' +rhosync.api.engine.sources.Order.id);
+
+            expect(rhosync.api.engine.sources.Product.name).not.toEqual(rhosync.api.engine.sources.Order.name);
+            expect(rhosync.api.engine.sources.Product.id).not.toEqual(rhosync.api.engine.sources.Order.id);
+        });
     });
-*/
 
     it("should login ok with proper credentials", function() {
         //fakeAjax({urls: {'/login': {successData: 'login'}}});
@@ -200,7 +234,6 @@ describe("RhoSync", function() {
                 expect(this.names.length).toEqual(4+1);
                 expect(this.names).toContain('sources');
             });
-
         });
 
         it("is able to store clients", function() {

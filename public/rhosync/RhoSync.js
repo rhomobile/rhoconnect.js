@@ -74,7 +74,7 @@
         }
 
         function Model(defn) {
-            this.source = new Source(defn.sourceId, defn.name);
+            this.source = new Source(defn.sourceId, defn.name, this);
 
             this.__defineGetter__('name', function() {
                 return this.source.name;
@@ -113,9 +113,10 @@
             this.isChanged = function() {};
         }
 
-        function Source(id, name) {
+        function Source(id, name, model) {
             this.id = id;
             this.name = name;
+            this.model = model;
 
 
             this.token = null;
@@ -144,7 +145,6 @@
             this.reset = 0;
             this.port = null;
             this.last_sync_success = null;
-            this.sources = {};
         }
 
         var storage = function(dbName) {
@@ -250,7 +250,7 @@
 
                 // Accumulate deferred objects for aggregate
                 // resolving, one per each statement
-                $(statements).each(function(idx, val){
+                $.each(statements, function(idx, val){
                     dfrs.push($.Deferred());
                 });
 
@@ -284,7 +284,7 @@
                 }
 
                 var promises = [];
-                $(dfrs).each(function(idx, dfr){
+                $.each(dfrs, function(idx, dfr){
                     promises.push(dfr.promise());
                 });
 
@@ -308,6 +308,22 @@
                         dfr.resolve(tx, tableNames);
                     }).fail(function(obj, err){
                         dfr.reject(obj, err);
+                    });
+                }).promise();
+            }
+
+            function _init() {
+                return $.Deferred(function(dfr){
+                    _getAllTableNames().done(function(names){
+                        if (4+1 != names.length) {
+                            _initSchema().done(function(){
+                                dfr.resolve("db schema initialized");
+                            }).fail(function(){
+                                dfr.reject("db schema initialization error");
+                            });
+                        }
+                    }).fail(function(){
+                        dfr.reject("db tables read error");
                     });
                 }).promise();
             }
@@ -424,7 +440,8 @@
                         } else {
                             var source = new Source(
                                     rs.rows.item(0)['source_id'],
-                                    rs.rows.item(0)['name']
+                                    rs.rows.item(0)['name'],
+                                    null /*as model*/
                                     );
                             source.token                = rs.rows.item(0)['token'];
                             source.sync_priority        = rs.rows.item(0)['sync_priority'];
@@ -452,37 +469,33 @@
 
             function loadAllSources(optionalTx) {
                 return $.Deferred(function(dfr){
-                    _executeSQL('SELECT * FROM sources', null,
-                            optionalTx).done(function(tx, rs) {
-                        if (0 == rs.rows.length) {
-                            dfr.reject(id, 'Not found');
-                        } else {
-                            var sources = [];
-                            for(var i=0; i<rs.rows.length; i++) {
-                                var source = new Source(
-                                        rs.rows.item(0)['source_id'],
-                                        rs.rows.item(0)['name']
-                                        );
-                                source.token                = rs.rows.item(0)['token'];
-                                source.sync_priority        = rs.rows.item(0)['sync_priority'];
-                                source.partition            = rs.rows.item(0)['partition'];
-                                source.sync_type            = rs.rows.item(0)['sync_type'];
-                                source.metadata             = rs.rows.item(0)['metadata'];
-                                source.last_updated         = rs.rows.item(0)['last_updated'];
-                                source.last_inserted_size   = rs.rows.item(0)['last_inserted_size'];
-                                source.last_deleted_size    = rs.rows.item(0)['last_deleted_size'];
-                                source.last_sync_duration   = rs.rows.item(0)['last_sync_duration'];
-                                source.last_sync_success    = rs.rows.item(0)['last_sync_success'];
-                                source.backend_refresh_time = rs.rows.item(0)['backend_refresh_time'];
-                                source.source_attribs       = rs.rows.item(0)['source_attribs'];
-                                source.schema               = rs.rows.item(0)['schema'];
-                                source.schema_version       = rs.rows.item(0)['schema_version'];
-                                source.associations         = rs.rows.item(0)['associations'];
-                                source.blob_attribs         = rs.rows.item(0)['blob_attribs'];
-                                sources.push(source);
-                            }
-                            dfr.resolve(tx, sources);
+                    _executeSQL('SELECT * FROM sources', null, optionalTx).done(function(tx, rs) {
+                        var sources = [];
+                        for(var i=0; i<rs.rows.length; i++) {
+                            var source = new Source(
+                                    rs.rows.item(0)['source_id'],
+                                    rs.rows.item(0)['name'],
+                                    null /*as model*/
+                                    );
+                            source.token                = rs.rows.item(0)['token'];
+                            source.sync_priority        = rs.rows.item(0)['sync_priority'];
+                            source.partition            = rs.rows.item(0)['partition'];
+                            source.sync_type            = rs.rows.item(0)['sync_type'];
+                            source.metadata             = rs.rows.item(0)['metadata'];
+                            source.last_updated         = rs.rows.item(0)['last_updated'];
+                            source.last_inserted_size   = rs.rows.item(0)['last_inserted_size'];
+                            source.last_deleted_size    = rs.rows.item(0)['last_deleted_size'];
+                            source.last_sync_duration   = rs.rows.item(0)['last_sync_duration'];
+                            source.last_sync_success    = rs.rows.item(0)['last_sync_success'];
+                            source.backend_refresh_time = rs.rows.item(0)['backend_refresh_time'];
+                            source.source_attribs       = rs.rows.item(0)['source_attribs'];
+                            source.schema               = rs.rows.item(0)['schema'];
+                            source.schema_version       = rs.rows.item(0)['schema_version'];
+                            source.associations         = rs.rows.item(0)['associations'];
+                            source.blob_attribs         = rs.rows.item(0)['blob_attribs'];
+                            sources.push(source);
                         }
+                        dfr.resolve(tx, sources);
                     }).fail(function(obj, err) {
                         dfr.reject(obj, err);
                     });
@@ -586,6 +599,7 @@
                 insertSource: insertSource,
                 deleteSource: deleteSource,
                 // low-level
+                init: _init,
                 open: _open,
                 tx: _tx,
                 roTx: _roTx,
@@ -667,11 +681,7 @@
 
             var clientCreate = function() {
                 var dfr = $.Deferred();
-                return _net_call(config.syncserver+'/clientcreate', "", "get", "text/plain").done(function(status, data){
-                    dfr.resolve(data);
-                }).fail(function(status, error){
-                    dfr.reject(error);
-                });
+                return _net_call(config.syncserver+'/clientcreate', "", "get", "text/plain");
             };
 
             return {
@@ -682,26 +692,12 @@
 
         var engine = function(){
 
-            function _initStorage() {
-                return $.Deferred(function(dfr){
-                    storage.getAllTableNames().done(function(names){
-                        if (4+1 != names.length) {
-                            storage.initSchema().done(function(){
-                                dfr.resolve("db schema initialized");
-                            }).fail(function(){
-                                dfr.reject("db schema initialization error");
-                            });
-                        }
-                    }).fail(function(){
-                        dfr.reject("db tables read error");
-                    });
-                }).promise();
-            }
+            var sources = {}; // name->source map
 
             function _createClient() {
                 return $.Deferred(function(dfr){
                     // obtain client id from the server
-                    protocol.clientCreate().done(function(data){
+                    protocol.clientCreate().done(function(status, data){
                         if (data && data.client && data.client.client_id){
                             // persist new client
                             var client = new Client(data.client.client_id);
@@ -716,14 +712,14 @@
                             dfr.reject("server response error");
                             _notify(events.ERROR, 'Server response error in clientCreate');
                         }
-                    }).fail(function(error){
+                    }).fail(function(status, error){
                         dfr.reject("server request error");
                         _notify(events.ERROR, 'Server request error clientCreate');
                     });
                 }).promise();
             }
 
-            function _initClient() {
+            function initClient() {
                 return $.Deferred(function(dfr){
                     storage.listClientsId().done(function(ids){
                         // if any?
@@ -751,34 +747,19 @@
                 }).promise();
             }
 
-            function _run(client) {
+            function run(client) {
                 return $.Deferred(function(dfr){
                 // TODO: to implement the body
-                }).promise();
-            }
-
-            function start() {
-                return $.Deferred(function(dfr){
-                    _initStorage().done(function(){
-                        _initClient().done(function(client){
-                            _run(client).done(function(){
-                                dfr.resolve();
-                            }).fail(function(error){
-                                dfr.reject("engine run error: " +error);
-                            });
-                        }).fail(function(error){
-                            dfr.reject("client initialization error: " +error);
-                        });
-                    }).fail(function(error){
-                        dfr.reject("storage initialization error: " +error);
-                    });
+                    dfr.resolve(client);
                 }).promise();
             }
 
             return {
                 Client: Client,
                 Source: Source,
-                init: init
+                sources: sources,
+                initClient: initClient,
+                run: run
             }
         }();
 
@@ -788,73 +769,55 @@
             // fire exact notifications here
         }
 
-        var maxConfigSrcId = {
-            'user': 1,
-            'app': 20001,
-            'local': 40001
-        };
-
-
-        var rhoConfig = function () {
-
-            var models = {};
-
-            var pubObj = {
-                models: models
-            };
-
-            pubObj.__defineGetter__('sources', function() {
-                var sources = [];
-                $(this.models).each(function(idx, model){
-                    sources.push(model.source);
-                });
-                return sources;
+/*
+        function initSyncSourceProperties(cfgSources, optTx){
+            $.each(cfgSources, function(key, item) {
             });
-
-            return pubObj;
-        }();
-
-        function addLoadedSource(defn) {
-            var model = new Model(defn);
-            model.source.sync_priority = parseInt(defn['sync_priority'] || 1000);
-            model.source.sync_type = defn['sync_type'] || 'none';
-            var partition = (defn['partition'] + '') ||
-                    (model.source.sync_type != 'none' ? 'user' : 'local');
-            model.source.partition = partition;
-            var sourceId = parseInt(defn['source_id'] || null);
-            model.source.id = sourceId;
-            if (sourceId && maxConfigSrcId[partition] < sourceId) {
-                maxConfigSrcId[partition] = sourceId;
-            }
-            rhoConfig.models[defn.name] = model;
+//            uniq_sources.each do|src|
+//                ['pass_through'].each do |prop|
+//                    next unless src.has_key?(prop)
+//                    SyncEngine.set_source_property(src['source_id'], prop, src[prop] ? src[prop].to_s() : '' )
+//                end
+//            end
         }
+*/
 
-        function getStartId(sources, partition) {
+
+        var maxConfigSrcId = 1;
+
+        function getStartId(dbSources) {
             var startId = 0;
-            $(sources).each(function(idx, src){
-                if (partition != src.partition) return;
-                startId = (src.id > startId) ? src.id : startId;
+            $.each(dbSources, function(name, dbSource){
+                startId = (dbSource.id > startId) ? dbSource.id : startId;
             });
-            if (startId < maxConfigSrcId[partition]) {
-                startId =  maxConfigSrcId[partition] + 2;
+            if (startId < maxConfigSrcId) {
+                startId =  maxConfigSrcId + 2;
             } else {
                 startId += 1;
             }
             return startId;
         }
 
-        function initDbSources(db, configSources, dbPartition, hashMigrate) {
-            storage.rwTx(db).ready(function(db, tx){
+        function initDbSources(tx, configSources) {
+            return $.Deferred(function(dfr){
                 storage.loadAllSources(tx).done(function (tx, dbSources) {
 
-                    var startId = getStartId(dbSources, dbPartition);
+                    var startId = getStartId(dbSources);
 
                     var dbSourceMap = {};
-                    $(dbSources).each(function(idx, src){
+                    $.each(dbSources, function(idx, src){
                         dbSourceMap[src.name] = src;
                     });
 
-                    $(configSources).each(function(idx, cfgSource){
+                    var dfrMap = {}; // to resolve/reject each exact item
+                    var dfrs = []; // to watch on all of them
+                    $.each(configSources, function(name, cfgSource){
+                        var dfr = new $.Deferred();
+                        dfrMap[name] = dfr;
+                        dfrs.push(dfr.promise());
+                    });
+
+                    $.each(configSources, function(name, cfgSource){
                         // if source from config is already present in db
                         var dbSource = dbSourceMap[cfgSource.name];
                         if (dbSource) { // then update it if needed
@@ -868,157 +831,142 @@
                                 dbSource.sync_type = cfgSource.sync_type;
                                 updateNeeded = true;
                             }
-                            if (dbSource.schema_version != cfgSource.schema_version) {
-                                if (dbPartition == cfgSource.partition) {
-                                    hashMigrate[cfgSource.name] = cfgSource.schema_version;
-                                } else {
-                                    dbSource.schema_version = cfgSource.schema_version;
-                                    updateNeeded = true;
-                                }
-                            }
-                            if (dbSource.partition != cfgSource.partition) {
-                                dbSource.partition = cfgSource.partition;
-                                updateNeeded = true;
-                            }
                             if (dbSource.associations != cfgSource.associations) {
                                 dbSource.associations = cfgSource.associations;
                                 updateNeeded = true;
                             }
-                            if (dbSource.blob_attribs != cfgSource.blob_attribs) {
-                                dbSource.blob_attribs = cfgSource.blob_attribs;
-                                updateNeeded = true;
-                            }
                             if (!cfgSource.id) {
                                 cfgSource.id = dbSource.id;
-                                // Rho.rb:707
-                                /*
-                                if !source['source_id']
-                                    source['source_id'] = attribs['source_id'].to_i
-                                    Rho::RhoConfig::sources[name]['source_id'] = attribs['source_id'].to_i
-                                end
-                                 */
-                                //TODO: what for?!!!
-                                rhoConfig.models[cfgSource.name].source.id = dbSource.id;
                             }
                             if (updateNeeded) {
-                                storage.storeSource(dbSource, tx);
+                                storage.storeSource(dbSource, tx).done(function(tx, source){
+                                    dfrMap[name].resolve(source);
+                                }).fail(function(obj, err){
+                                    dfrMap[name].reject(obj, err);
+                                });
                             }
-
                         } else { // if configured source not in db yet
-                            if (!config.use_bulk_mode) {
-                                if (!cfgSource.id) {
-                                    cfgSource.id = startId;
-                                    startId =+ 1;
-                                }
+                            if (!cfgSource.id) {
+                                cfgSource.id = startId;
+                                startId =+ 1;
                             }
-                            storage.insertSource(cfgSource, tx);
+                            storage.insertSource(cfgSource, tx).done(function(tx, source){
+                                dfrMap[name].resolve(source);
+                            }).fail(function(obj, err){
+                                dfrMap[name].reject(obj, err);
+                            });
                         }
                     });
+                    $.when(dfrs).done(function(resolvedDfrs){
+                        dfr.resolve();
+                    }).fail(function(obj, err){
+                        dfr.reject(obj, err);
+                    });
+                }).fail(function(obj, err) {
+                    dfr.reject(obj, err);
                 });
-            });
+            }).promise();
         }
 
-        function initSchemaSourcesPartition(cfgSources, hashMigrate, partition, optTx) {
-            //TODO: implement
-        }
-
-        function initSyncSourceProperties(cfgSources, optTx){
-            //TODO: implement
-        }
-
-        function loadModel(defn, initDb) {
-            if (defn.isLoaded) return;
-            defn.isLoaded = true;
-
-            initDb = (undefined == initDb) ? true : initDb;
-
-            if ('string' == typeof defn.name) {
-                addLoadedSource(defn)
-            }
-
-            var partition = defn.partition;
-            var db = dbPartitions[partition];
-
-            if (initDb) {
-                var hashMigrate = {};
-                storage.rwTx(db).ready(function(db, tx) {
-                    var cfgSources = rhoConfig.sources;
-                    //TODO: what for to call it per each model/source ?!
-                    //TODO: which exact db? how to use partition here?
-                    initDbSources(db, cfgSources, partition, hashMigrate);
-                    initSchemaSourcesPartition(cfgSources, hashMigrate, partition, tx);
-                    initSyncSourceProperties(cfgSources, tx);
+        function initSources(sources) {
+            return $.Deferred(function(dfr){
+                $.each(sources, function(name, source){
+                    source.associations = '';
                 });
-            }
+                $.each(sources, function(name, source){
+                    if (!source || !source.model || !source.model.belongsTo) return;
+                    $.each(source.model.belongsTo, function(keyAttr, ownerName){
+                        var ownerSrc = sources[ownerName];
+                        if (!ownerSrc) {
+                            //TODO: report the error
+                            //puts ( "Error: belongs_to '#{source['name']}' : source name '#{src_name}' does not exist."  )
+                            return;
+                        }
+                        var str = ownerSrc.associations || '';
+                        str += (0 < str.length) ? ', ' : '';
+                        str += (source.name +', ' +keyAttr);
+                        ownerSrc.associations = str;
+                    });
+                });
+
+                storage.open().done(function(db){
+                    storage.rwTx(db).ready(function(db, tx){
+                        initDbSources(tx, sources).done(function(){
+                            dfr.resolve();
+                        }).fail(function(obj, err) {
+                            dfr.reject(obj, err);
+                        });
+                        //initSyncSourceProperties(sources, tx);
+                    }).fail(function(obj, err){
+                        //TODO: report the error
+                        dfr.reject(obj, err);
+                    });
+                });
+            }).promise();
         }
 
-        var dbPartitions = {};
+
+        var models = {}; // name->model map
 
         var allModelsLoaded = false;
 
-        function initSources() {
-            allModelsLoaded = true;
+        function loadModels(client, storageType, modelDefs) {
+            if (allModelsLoaded) return $.Deferred().done().promise();
 
-            $(rhoConfig.sources).each(function(idx, source){
-                source.associations = '';
-            });
-
-            $(rhoConfig.sources).each(function(idx, source){
-                var partition = source.partition;
-                dbPartitions[partition] = dbPartitions[partition] || null;
-
-                $(source.model.belongsTo).each(function(keyAttr, ownerName){
-                    var ownerSrc = rhoConfig.models[ownerName].source;
-                    if (!ownerSrc) {
-                        //TODO: report the error
-                        //puts ( "Error: belongs_to '#{source['name']}' : source name '#{src_name}' does not exist."  )
-                        return;
-                    }
-                    var str = ownerSrc.associations || '';
-                    str += (0 < str.length) ? ', ' : '';
-                    str += (source.name +', ' +keyAttr);
-                    ownerSrc.associations = str;
-                });
-            });
-
-            dbPartitions['user'] = dbPartitions['user'] || null;
-            var hashMigrate = {};
-
-            function _setupPartition(partition, db) {
-                storage.rwTx(db).ready(function(db, tx){
-                    initDbSources(db, rhoConfig.sources, partition, hashMigrate);
-                    initSchemaSourcesPartition(rhoConfig.sources, hashMigrate, partition, tx);
-                    initSyncSourceProperties(rhoConfig.sources, tx);
-                    // SyncEngine.update_blob_attribs(partition, -1 )
-                }).fail(function(obj, err){
-                        //TODO: report the error
-                });
+            function _addLoadedModel(client, defn) {
+                var model = new Model(defn);
+                model.source.sync_priority = parseInt(defn['sync_priority'] || 1000);
+                model.source.sync_type = 'incremental';
+                model.source.partition = 'user';
+                var sourceId = defn['source_id'] ? parseInt(defn['source_id']) : null;
+                model.source.id = sourceId;
+                if (sourceId && maxConfigSrcId < sourceId) {
+                    maxConfigSrcId = sourceId;
+                }
+                models[defn.name] = model;
+                engine.sources[defn.name] = model.source;
             }
 
-            $(dbPartitions).each(function(partition, db){
-                if (db) {
-                    _setupPartition(partition, db);
-                } else storage.open('rhoSync_' +partition).done(function(db){
-                    _setupPartition(partition, db);
-                });
-            });
-        }
-
-        function loadAllSources(storageType, modelDefs) {
-            if (allModelsLoaded) return;
+            function _loadModel(defn) {
+                if (!defn || defn.isLoaded) return;
+                defn.isLoaded = true;
+                if ('string' == typeof defn.name) {
+                    _addLoadedModel(client, defn)
+                }
+            }
 
             if (modelDefs && 'object' == typeof modelDefs) {
                 if ($.isArray(modelDefs)) {
-                    $(modelDefs).each(function(idx, defn){loadModel(modelDefs[defn], false);});
+                    $.each(modelDefs, function(idx, defn){_loadModel(defn);});
                 } else {
-                    loadModel(modelDefs, false);
+                    _loadModel(modelDefs);
                 }
             }
-            initSources();
+            allModelsLoaded = true;
+
+            return initSources(engine.sources);
         }
 
         function init(storageType, modelDefs) {
-            loadAllSources(storageType, modelDefs);
+            return $.Deferred(function(dfr){
+                storage.init().done(function(){
+                    engine.initClient().done(function(client){
+                        loadModels(client, storageType, modelDefs).done(function(){
+                            engine.run(client).done(function(client){
+                                dfr.resolve();
+                            }).fail(function(error){
+                                dfr.reject("engine run error: " +error);
+                            });
+                        }).fail(function(obj, error){
+                            dfr.reject("models load error: " +error);
+                        });
+                    }).fail(function(error){
+                        dfr.reject("client initialization error: " +error);
+                    });
+                }).fail(function(error){
+                    dfr.reject("storage initialization error: " +error);
+                });
+            }).promise();
         }
 
 		return {
@@ -1029,6 +977,7 @@
                 storage: storage
 			},
             config: config,
+            models: models,
             init: init
 		}
 	}
