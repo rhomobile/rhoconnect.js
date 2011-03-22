@@ -3,10 +3,17 @@
 
         const SESSION_COOKIE = 'rhosync_session';
 
-        var events = {
+        const events = {
             GENERIC_NOTIFICATION: 'rhoSyncGenericNotification',
             ERROR: 'rhoSyncErrorNotification',
-            CLIENT_CREATED: 'rhoSyncClientCreatedNotification'
+            CLIENT_CREATED: 'rhoSyncClientCreatedNotification',
+            SYNCHRONIZING: 'rhoSyncSourceSynchronizing',
+            SYNC_SOURCE_END: 'rhoSyncSourceSynchronizationEnd'
+        };
+
+        const errors = {
+            ERR_NONE: 'ERR_NONE',
+            ERR_RUNTIME: 'ERR_RUNTIME'
         };
 
         var defaults = {
@@ -70,10 +77,61 @@
                 +'CREATE INDEX by_src_value ON object_values ("attrib", "source_id", "value");'
                 ;
 
-        function SyncObject(attribs) {
+        function SyncObject(defn) {
+            this.id = null;
+            this.fields = defn.fields;
+            this.values = {};
+
+            var isNew = true;
+            this.__defineGetter__('isNew', function() {
+                return isNew;
+            });
+
+            var isChanged = false;
+            this.__defineGetter__('isChanged', function() {
+                return isChanged;
+            });
+
+            var _setValue =  function(name, v) {
+                this.values[name] = v;
+                isChanged = true;
+                // db write goes here
+            };
+
+            this.addField = function(name, type) {
+                this.__defineGetter__(name, function() {
+                    return this.values[name];
+                });
+                this.__defineSetter__(name, function(v) {
+                    _setValue(name, v);
+                });
+            };
+
+            this.deleteField = function(name) {
+                this.__defineGetter__(name, undefined);
+                this.__defineSetter__(name, undefined);
+                delete this.fields[name];
+                delete this.values[name];
+            };
+
+            this.clearNotifications = function () {};
+            this.destroy = function() {};
+
+            this.updateAttributes = function(attribs) {
+                
+                this.save();
+            };
+
+            this.save = function() {
+                // do save in db
+                isNew = false;
+                isChanged = false;
+            };
+
         }
 
         function Model(defn) {
+
             this.source = new Source(defn.sourceId, defn.name, this);
 
             this.__defineGetter__('name', function() {
@@ -83,13 +141,10 @@
                 this.source.name = v;
             });
 
-            this.fields = defn.fields;
             this.belongsTo = defn.belongsTo;
 
             // Rhom API methods
-            this.clearNotifications = function () {};
             this.deleteAll = function(conditions) {};
-            this.destroy = function() {};
             this.find = function(args) {};
             this.findAll = function(args) {};
             this.findBySql = function(query) {};
@@ -107,18 +162,15 @@
             this.paginate = function(args) {};
             this.sync = function(callback, cbData, showStatusPopup) {};
             this.setNotification = function(url, params) {};
-            this.updateAttributes = function(attribs) {};
             this.save = function() {};
             this.canModify = function() {};
-            this.isChanged = function() {};
         }
 
         function Source(id, name, model) {
-            this.id = id;
-            this.name = name;
             this.model = model;
 
-
+            this.id = id;
+            this.name = name;
             this.token = null;
             this.sync_priority = null /*bigint, no default*/;
             this.partition = null /*varchar, no default*/;
@@ -135,6 +187,97 @@
             this.schema_version = null;
             this.associations = null;
             this.blob_attribs = null;
+
+            this.isTokenFromDb = true;
+            this.errCode = errors.ERR_NONE;
+            this.strError = '';
+
+            this.__defineGetter__('isEmptyToken', function() {
+                return this.token == 0;
+            });
+
+            function setToken(token) {
+                this.token = token;
+                this.isTokenFromDb = false;
+            }
+
+            function processToken(token) {
+                return $.Deferred(function(dfr){
+                    if ( token > 1 && this.token == token ){
+                        //Delete non-confirmed records
+                        setToken(token); //For m_bTokenFromDB = false;
+                        //getDB().executeSQL("DELETE FROM object_values where source_id=? and token=?", getID(), token );
+                        //TODO: add special table for id,token
+                        dfr.resolve();
+                    }else
+                    {
+                        setToken(token);
+                        storage.executeSQL("UPDATE sources SET token=? where source_id=?", +this.token, this.id).done(function(){
+                            dfr.resolve();
+                        }).fail(function(obj, err){
+                            dfr.reject(obj, err);
+                        });
+                    }
+                }).promise();
+            }
+
+            function syncServerChanges() {
+                return $.Deferred(function(dfr){
+                    //TODO: to implement
+                }).promise();
+            }
+
+            function syncClientChanges() {
+                return $.Deferred(function(dfr){
+                    //TODO: to implement
+                }).promise();
+            }
+
+            this.sync = function(){
+                return $.Deferred(function(dfr){
+                    var startTime = Date.now();
+
+                    function _finally() {
+                        var endTime = Date.now();
+                        //TODO: to implement
+/*
+                        storage.executeSQL(
+                                "UPDATE sources set last_updated=?,last_inserted_size=?,last_deleted_size=?, "
+                                +"last_sync_duration=?,last_sync_success=?, backend_refresh_time=? WHERE source_id=?",
+                                (endTime/1000), new Integer(getInsertedCount()), new Integer(getDeletedCount()),
+                          new Long((endTime.minus(startTime)).toULong()),
+                          new Integer(m_bGetAtLeastOnePage?1:0), new Integer(m_nRefreshTime), getID() );
+*/
+                    }
+
+                    function _catch(obj, err) {
+                        engine.stopSync();
+                        _finally();
+                        dfr.reject(obj, err);
+                    }
+
+                    _notify(events.SYNCHRONIZING, 'synchronizing' +this.name +'...', this.errCode, this.strError);
+                    if (this.isTokenFromDb && this.token > 1) {
+                        syncServerChanges();
+                    } else {
+                        if (this.token == 0) {
+                            processToken(1).done(function(){
+                                syncClientChanges().done(function(serverSyncDone){
+                                    if (!serverSyncDone) syncServerChanges().done(function(){
+                                        dfr.resolve(); //TODO: params to resolve
+                                    }).fail(function(obj, err){
+                                        _catch(obj, err);
+                                    });
+                                }).fail(function(obj, err){
+                                    _catch(obj, err);
+                                });
+                            }).fail(function(obj, err){
+                                _catch(obj, err);
+                            });
+                        }
+                    }
+                }).promise();
+            };
         }
 
         function Client(id) {
@@ -145,6 +288,32 @@
             this.reset = 0;
             this.port = null;
             this.last_sync_success = null;
+        }
+
+
+        // utility functions ========================
+
+        function DeferredMapOn(obj) {
+            var dfrMap = {}; // to resolve/reject each exact item
+            var dfrs = []; // to watch on all of them
+
+            $.each(obj, function(key, value){
+                var dfr = new $.Deferred();
+                dfrMap[key] = dfr;
+                dfrs.push(dfr.promise());
+            });
+
+            return {
+                resolve: function(name, args) {
+                    if (dfrMap[name]) dfrMap[name].resolve.apply(dfrMap[name], args);
+                },
+                reject: function(name, args) {
+                    if (dfrMap[name]) dfrMap[name].reject.apply(dfrMap[name], args);
+                },
+                when: function() {
+                    return $.when(dfrs);
+                }
+            };
         }
 
         var storage = function(dbName) {
@@ -694,6 +863,25 @@
 
             var sources = {}; // name->source map
 
+
+            const states = {
+                none: 0,
+                syncAllSources: 1,
+                syncSource: 2,
+                search: 3,
+                stop: 4,
+                exit: 5
+            };
+            var syncState = states.none;
+
+/*
+            function run(client) {
+                return $.Deferred(function(dfr){
+                // TODO: to implement the body
+                    dfr.resolve(client);
+                }).promise();
+            }
+*/
             function _createClient() {
                 return $.Deferred(function(dfr){
                     // obtain client id from the server
@@ -719,38 +907,129 @@
                 }).promise();
             }
 
-            function initClient() {
+            function login(login, password) {
                 return $.Deferred(function(dfr){
-                    storage.listClientsId().done(function(ids){
-                        // if any?
-                        if (0 < ids.length) {
-                            // ok, load first (for now)
-                            // TODO: to decide which on to load if there are many stored
-                            storage.loadClient(ids[0]).done(function(client){
-                                dfr.resolve(client);
-                            }).fail(function(){
-                                dfr.reject("db access error");
-                                _notify(events.ERROR, 'Db access error in initClient');
-                            });
-                        } else {
-                            // None of them, going to obtain from the server
-                            _createClient().done(function(client){
-                                dfr.resolve(client);
-                            }).fail(function(error){
-                                dfr.reject("client creation error: " +error);
-                                _notify(events.ERROR, "Client creation error in initClient");
-                            });
-                        }
+                    protocol.login(login, password).done(function(){
+                        storage.listClientsId().done(function(ids){
+                            // if any?
+                            if (0 < ids.length) {
+                                // ok, load first (for now)
+                                // TODO: to decide which on to load if there are many stored
+                                storage.loadClient(ids[0]).done(function(client){
+                                    dfr.resolve(client);
+                                }).fail(function(){
+                                    dfr.reject("db access error");
+                                    _notify(events.ERROR, 'Db access error in initClient');
+                                });
+                            } else {
+                                // None of them, going to obtain from the server
+                                _createClient().done(function(client){
+                                    dfr.resolve(client);
+                                }).fail(function(error){
+                                    dfr.reject("client creation error: " +error);
+                                    _notify(events.ERROR, "Client creation error in initClient");
+                                });
+                            }
+                        }).fail(function(){
+                            dfr.reject("db access error");
+                        });
                     }).fail(function(){
-                        dfr.reject("db access error");
+                        dfr.reject("server login error");
                     });
                 }).promise();
             }
 
-            function run(client) {
+            function isContinueSync() { return syncState != states.exit && syncState != states.stop; }
+            function isSyncing() { return syncState == states.syncAllSources || syncState == states.syncSource; }
+
+            function _cancelRequests() {
+                //TODO: to implement
+                /*
+                if (m_NetRequest!=null)
+                    m_NetRequest.cancel();
+
+                if (m_NetRequestClientID!=null)
+                    m_NetRequestClientID.cancel();
+                */
+            }
+
+            function stopSync() {
+                if (isContinueSync()) {
+                    syncState = states.stop;
+                    _cancelRequests();
+                }
+            }
+            var isStopedByUser = false;
+            function stopSyncByUser() { isStopedByUser = true; stopSync(); }
+            function isStoppedByUser() { return isStopedByUser; }
+
+            function exitSync() {
+                if (isContinueSync()) {
+                    syncState = states.exit;
+                    _cancelRequests();
+                }
+            }
+
+            function getStartSource() {
+                $.each(sources, function(src) {
+                    if (!src.isEmptyToken) return src;
+                });
+                return null;
+            }
+
+            function isSessionExist() {
+                return true; //TODO: to obtain and check cookie from the browser
+            }
+
+            function syncSource(source) {
                 return $.Deferred(function(dfr){
-                // TODO: to implement the body
-                    dfr.resolve(client);
+                    if (isSessionExist() && syncState != states.stop )
+                        source.sync().done(function(){
+                            _notify(events.SYNC_SOURCE_END, source);
+                            dfr.resolve(source);
+                        }).fail(function(obj, error){
+                            if (source.errCode == errors.ERR_NONE) {
+                                source.errCode = errors.ERR_RUNTIME;
+                            }
+                            syncState = states.stop;
+                            _notify(events.SYNC_SOURCE_END, source);
+                            dfr.reject(obj, error);
+                        });
+                }).promise();
+            }
+
+            function syncAllSources() {
+                return $.Deferred(function(dfr){
+                    var dfrMap = DeferredMapOn($.extend({}, sources, {'rhoStartSyncSource': startSrc}));
+                    var syncErrors = [];
+
+                    var startSrc = getStartSource();
+                    if (startSrc) {
+                        syncSource(startSrc).done(function(){
+                            dfrMap.resolve('rhoStartSyncSource', ["ok"]);
+                        }).fail(function(obj, error){
+                            syncErrors.push({source: startSrc.name, errObject: obj, error: error});
+                            dfrMap.resolve('rhoStartSyncSource', ["error", obj, error]);
+                        });
+                    } else {
+                        dfrMap.resolve('rhoStartSyncSource', ["ok"]);
+                    }
+
+                    $.each(sources, function(src) {
+                        syncSource(src).done(function(){
+                            dfrMap.resolve(src.name, ["ok"]);
+                        }).fail(function(obj, error){
+                            syncErrors.push({source: src.name, errObject: obj, error: error});
+                            dfrMap.resolve(src.name, ["error", obj, error]);
+                        });
+                    });
+
+                    dfrMap.when().done(function(){
+                        if (syncErrors.length == 0) dfr.resolve("ok");
+                        else dfr.reject(syncErrors);
+                    }).fail(function(){
+                        dfr.reject(syncErrors);
+                    });
                 }).promise();
             }
 
@@ -758,8 +1037,9 @@
                 Client: Client,
                 Source: Source,
                 sources: sources,
-                initClient: initClient,
-                run: run
+                login: login,
+                syncAllSources: syncAllSources,
+                stopSync: stopSync
             }
         }();
 
@@ -947,10 +1227,10 @@
             return initSources(engine.sources);
         }
 
-        function init(storageType, modelDefs) {
+        function init(login, password, storageType, modelDefs) {
             return $.Deferred(function(dfr){
                 storage.init().done(function(){
-                    engine.initClient().done(function(client){
+                    engine.login(login, password).done(function(client){
                         loadModels(client, storageType, modelDefs).done(function(){
                             engine.run(client).done(function(client){
                                 dfr.resolve();

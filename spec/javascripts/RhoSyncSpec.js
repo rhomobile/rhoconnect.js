@@ -56,15 +56,7 @@ describe("RhoSync", function() {
                 ]}
         ];
 
-        rhosync.api.protocol.login("lars", "larspass").done(okHdlr).fail(errHdlr);
-
-        waitsForSpies([okHdlr, errHdlr], 'login timeout');
-        runs(function(){
-            expect(errHdlr).not.toHaveBeenCalled();
-            if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
-        });
-
-        rhosync.init('native', models).done(okHdlr).fail(errHdlr);
+        rhosync.init("lars", "larspass", 'native', models).done(okHdlr).fail(errHdlr);
 
         waitsForSpies([okHdlr, errHdlr], 'RhoSync init timeout', 3000);
         runs(function(){
