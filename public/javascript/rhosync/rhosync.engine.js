@@ -238,7 +238,7 @@
         return true; //TODO: to obtain and check cookie from the browser
     }
 
-    function syncSource(source) {
+    function syncOneSource(source) {
         return $.Deferred(function(dfr){
             if (isSessionExist() && syncState != states.stop )
                 source.sync().done(function(){
@@ -262,7 +262,7 @@
 
             var startSrc = getStartSource();
             if (startSrc) {
-                syncSource(startSrc).done(function(){
+                syncOneSource(startSrc).done(function(){
                     dfrMap.resolve('rhoStartSyncSource', ["ok"]);
                 }).fail(function(obj, error){
                     syncErrors.push({source: startSrc.name, errObject: obj, error: error});
@@ -273,7 +273,7 @@
             }
 
             $.each(sources, function(src) {
-                syncSource(src).done(function(){
+                syncOneSource(src).done(function(){
                     dfrMap.resolve(src.name, ["ok"]);
                 }).fail(function(obj, error){
                     syncErrors.push({source: src.name, errObject: obj, error: error});
