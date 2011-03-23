@@ -1,37 +1,6 @@
 describe("RhoSync", function() {
-//    var syncUrl = "http://rhodes-store-server.heroku.com/application";
-    var syncUrl = "http://localhost:9292/application";
-
-    function waitsForSpies(spy, msg, timeout) {
-        timeout = timeout || 1000;
-        var spies = $.isArray(spy) ? spy : [spy];
-        for(var i in spies) {
-            spies[i].refCallCount = spies[i].refCallCount || 0;
-            //jasmine.log(spies[i].identity +': ' +spies[i].refCallCount.toString() +' = ' +spies[i].callCount.toString());
-        }
-        waitsFor(function(){
-            for (var i in spies) {
-                //jasmine.log(spies[i].identity +': ' +spies[i].refCallCount.toString() +' <? ' +spies[i].callCount.toString());
-                if (spies[i].refCallCount < spies[i].callCount) {
-                    spies[i].refCallCount = spies[i].callCount;
-                    return true;
-                }
-            }
-            return false;
-        }, msg, timeout);
-    }
-
-	beforeEach(function() {
-		rhosync = RhoSync({syncserver:syncUrl});
-        notified = false;
-        notify = function(evt, obj){
-            jasmine.log(evt.type + ': ' + $.toJSON(obj));
-            notified = true;
-        };
-	});
-  
     it("able to be configured", function() {
-        expect(rhosync.config.syncserver).toEqual(syncUrl);
+        expect(rhosync.api.config.syncServer).toEqual(syncUrl);
     });
 
     it("is able to be initialized with models", function() {
@@ -144,11 +113,8 @@ describe("RhoSync", function() {
     });
 */
 
-    describe("Rhomobile.db.DbStorage", function() {
 
-        beforeEach(function() {
-            rhosync = RhoSync({syncserver:syncUrl});
-        });
+    describe("Rhomobile.api.storage", function() {
 
         it("is able to open database and transaction", function() {
             var okHdlr = jasmine.createSpy('for ok');
@@ -339,6 +305,7 @@ describe("RhoSync", function() {
                 if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
             });
 
+
             // read and verify updates
             runs(function(){
                 jasmine.log('loadClient()');
@@ -346,9 +313,11 @@ describe("RhoSync", function() {
                     $.when(
                             rhosync.api.storage.loadClient(id1, tx).done($.proxy(function(tx, client){
                                 this.client1 = client;
+                                this.c1 = client;
                             }, this)),
                             rhosync.api.storage.loadClient(id2, tx).done($.proxy(function(tx, client){
                                 this.client2 = client;
+                                this.c2 = client;
                             }, this))
                     ).done(okHdlr).fail(errHdlr);
                 }, this)).fail(errHdlr);
@@ -362,11 +331,19 @@ describe("RhoSync", function() {
                 expect(this.client1.id).toEqual(id1);
                 expect(this.client1.session).toBeDefined();
                 expect(this.client1.session).toEqual("updatedSession1");
+                if (this.client1.session != "updatedSession1") {
+//                    debugger;
+//                    alert("sessions aren't equal! " +this.c1);
+                }
 
                 expect(this.client2).toBeDefined();
                 expect(this.client2.id).toEqual(id2);
                 expect(this.client2.session).toBeDefined();
                 expect(this.client2.session).toEqual("updatedSession2");
+                if (this.client2.session != "updatedSession2") {
+//                    debugger;
+//                    alert("sessions aren't equal! " +this.c2);
+                }
             });
 
             // delete them
@@ -543,9 +520,11 @@ describe("RhoSync", function() {
                     $.when(
                             rhosync.api.storage.loadSource(id1, tx).done($.proxy(function(tx, source){
                                 this.source1 = source;
+                                this.s1 = source;
                             }, this)),
                             rhosync.api.storage.loadSource(id2, tx).done($.proxy(function(tx, source){
                                 this.source2 = source;
+                                this.s2 = source;
                             }, this))
                     ).done(okHdlr).fail(errHdlr);
                 }, this)).fail(errHdlr);
@@ -559,11 +538,20 @@ describe("RhoSync", function() {
                 expect(this.source1.id).toEqual(id1);
                 expect(this.source1.name).toBeDefined();
                 expect(this.source1.name).toEqual("updatedName1");
+                if (this.source1.name != "updatedName1") {
+//                    debugger;
+//                    alert("names aren't equal! "+ this.s1);
+                }
 
                 expect(this.source2).toBeDefined();
                 expect(this.source2.id).toEqual(id2);
                 expect(this.source2.name).toBeDefined();
                 expect(this.source2.name).toEqual("updatedName2");
+                expect(this.source2.name).toEqual("updatedName2");
+                if (this.source1.name != "updatedName1") {
+//                    debugger;
+//                    alert("names aren't equal! "+ this.s2);
+                }
             });
 
             // delete them

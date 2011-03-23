@@ -11,12 +11,26 @@
     <!-- include source files here... -->
     <script type="text/javascript" language="javascript" src="../javascript/jquery-1.5.1.js"></script>
     <script type="text/javascript" language="javascript" src="../javascript/json.js"></script>
-    <script type="text/javascript" language="javascript" src="../javascript/rhosync/RhoSync.js"></script>
+
+    <script type="text/javascript">
+        var syncUrl = "http://localhost:9292/application";
+        RhoConfig = {
+            syncServer: syncUrl
+        };
+    </script>
+
+    <script type="text/javascript" language="javascript" src="../javascript/rhosync/rhosync.main.js"></script>
+    <script type="text/javascript" language="javascript" src="../javascript/rhosync/rhosync.protocol.js"></script>
+    <script type="text/javascript" language="javascript" src="../javascript/rhosync/rhosync.domain.js"></script>
+    <script type="text/javascript" language="javascript" src="../javascript/rhosync/rhosync.storage.js"></script>
+    <script type="text/javascript" language="javascript" src="../javascript/rhosync/rhosync.engine.js"></script>
 
     <!-- include spec files here... -->
     <!--<script type="text/javascript" src="helpers/jasmine-fake-ajax.js"></script>-->
     <script type="text/javascript" src="helpers/SpecHelper.js"></script>
-    <script type="text/javascript" src="RhoSyncSpec.js"></script>
+
+    <script type="text/javascript" src="spec.rhosync.common.js"></script>
+    <script type="text/javascript" src="spec.rhosync.js"></script>
 
 </head>
 <body>
