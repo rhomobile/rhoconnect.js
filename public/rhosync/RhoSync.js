@@ -214,9 +214,7 @@
                         setToken(token);
                         storage.executeSQL("UPDATE sources SET token=? where source_id=?", +this.token, this.id).done(function(){
                             dfr.resolve();
-                        }).fail(function(obj, err){
-                            dfr.reject(obj, err);
-                        });
+                        }).fail(passRejectTo(dfr));
                     }
                 }).promise();
             }
@@ -265,15 +263,9 @@
                                 syncClientChanges().done(function(serverSyncDone){
                                     if (!serverSyncDone) syncServerChanges().done(function(){
                                         dfr.resolve(); //TODO: params to resolve
-                                    }).fail(function(obj, err){
-                                        _catch(obj, err);
-                                    });
-                                }).fail(function(obj, err){
-                                    _catch(obj, err);
-                                });
-                            }).fail(function(obj, err){
-                                _catch(obj, err);
-                            });
+                                    }).fail(_catch);
+                                }).fail(_catch);
+                            }).fail(_catch);
                         }
                     }
                 }).promise();
@@ -292,6 +284,15 @@
 
 
         // utility functions ========================
+
+        function passRejectTo(dfr, doReport) {
+            return function() {
+                if (doReport) {
+                    //TODO: some log output
+                }
+                dfr.reject(arguments);
+            };
+        }
 
         function DeferredMapOn(obj) {
             var dfrMap = {}; // to resolve/reject each exact item
@@ -315,6 +316,8 @@
                 }
             };
         }
+
+        // storage class ========================
 
         var storage = function(dbName) {
 
@@ -919,7 +922,7 @@
                                     dfr.resolve(client);
                                 }).fail(function(){
                                     dfr.reject("db access error");
-                                    _notify(events.ERROR, 'Db access error in initClient');
+                                    _notify(events.ERROR, 'Db access error in engine.login');
                                 });
                             } else {
                                 // None of them, going to obtain from the server
@@ -927,7 +930,7 @@
                                     dfr.resolve(client);
                                 }).fail(function(error){
                                     dfr.reject("client creation error: " +error);
-                                    _notify(events.ERROR, "Client creation error in initClient");
+                                    _notify(events.ERROR, "Client creation error in engine.login");
                                 });
                             }
                         }).fail(function(){
@@ -1190,10 +1193,10 @@
 
         var allModelsLoaded = false;
 
-        function loadModels(client, storageType, modelDefs) {
+        function loadModels(storageType, modelDefs) {
             if (allModelsLoaded) return $.Deferred().done().promise();
 
-            function _addLoadedModel(client, defn) {
+            function _addLoadedModel(defn) {
                 var model = new Model(defn);
                 model.source.sync_priority = parseInt(defn['sync_priority'] || 1000);
                 model.source.sync_type = 'incremental';
@@ -1211,7 +1214,7 @@
                 if (!defn || defn.isLoaded) return;
                 defn.isLoaded = true;
                 if ('string' == typeof defn.name) {
-                    _addLoadedModel(client, defn)
+                    _addLoadedModel(defn)
                 }
             }
 
@@ -1227,21 +1230,27 @@
             return initSources(engine.sources);
         }
 
-        function init(login, password, storageType, modelDefs) {
+        function login(login, password) {
+            return $.Deferred(function(dfr){
+                engine.login(login, password).done(function(client){
+                    engine.run(client).done(function(client){
+                        dfr.resolve();
+                    }).fail(function(error){
+                        dfr.reject("engine run error: " +error);
+                    });
+                }).fail(function(error){
+                    dfr.reject("client initialization error: " +error);
+                });
+            }).promise();
+        }
+
+        function init(storageType, modelDefs) {
             return $.Deferred(function(dfr){
                 storage.init().done(function(){
-                    engine.login(login, password).done(function(client){
-                        loadModels(client, storageType, modelDefs).done(function(){
-                            engine.run(client).done(function(client){
-                                dfr.resolve();
-                            }).fail(function(error){
-                                dfr.reject("engine run error: " +error);
-                            });
-                        }).fail(function(obj, error){
-                            dfr.reject("models load error: " +error);
-                        });
-                    }).fail(function(error){
-                        dfr.reject("client initialization error: " +error);
+                    loadModels(storageType, modelDefs).done(function(){
+                        dfr.resolve();
+                    }).fail(function(obj, error){
+                        dfr.reject("models load error: " +error);
                     });
                 }).fail(function(error){
                     dfr.reject("storage initialization error: " +error);

@@ -56,7 +56,7 @@ describe("RhoSync", function() {
                 ]}
         ];
 
-        rhosync.init("lars", "larspass", 'native', models).done(okHdlr).fail(errHdlr);
+        rhosync.init('native', models).done(okHdlr).fail(errHdlr);
 
         waitsForSpies([okHdlr, errHdlr], 'RhoSync init timeout', 3000);
         runs(function(){
