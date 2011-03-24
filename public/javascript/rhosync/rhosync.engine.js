@@ -2,10 +2,15 @@
 
     function publicInterface() {
         return {
+            // classes
             Client: Client,
             Source: Source,
+            // fields
             session: null,
             sources: sources,
+            maxConfigSrcId: 1,
+            // methods
+            getStartSourceId: getStartSourceId,
             login: login,
             syncAllSources: syncAllSources,
             stopSync: stopSync
@@ -151,6 +156,10 @@
             }).promise();
         }
 */
+    function _isTimeout(msg) {
+        return (msg && msg.match(/time(d)?\s+out/i));
+    }
+
     function _createClient() {
         return $.Deferred(function(dfr){
             // obtain client id from the server
@@ -160,18 +169,15 @@
                     var client = new Client(data.client.client_id);
                     rho.storage.insertClient(client).done(function(tx, client){
                         dfr.resolve(client);
-                        rho.notify(rho.events.CLIENT_CREATED, client);
                     }).fail(function(tx, error){
-                        dfr.reject("db access error");
-                        rho.notify(rho.events.ERROR, 'Db access error in clientCreate');
+                        dfr.reject(rho.errors.ERR_RUNTIME, "db access error" +error);
                     });
                 } else {
-                    dfr.reject("server response error");
-                    rho.notify(rho.events.ERROR, 'Server response error in clientCreate');
+                    dfr.reject(rho.errors.ERR_UNEXPECTEDSERVERRESPONSE, data);
                 }
             }).fail(function(status, error){
-                dfr.reject("server request error");
-                rho.notify(rho.events.ERROR, 'Server request error clientCreate');
+                var errCode = _isTimeout(error) ? rho.errors.ERR_NOSERVERRESPONSE : rho.errors.ERR_NETWORK;
+                dfr.reject(errCode, error);
             });
         }).promise();
     }
@@ -186,26 +192,38 @@
                         // TODO: to decide which on to load if there are many stored
                         rho.storage.loadClient(ids[0]).done(function(tx, client){
                             dfr.resolve(client);
-                        }).fail(function(){
-                            dfr.reject("db access error");
-                            rho.notify(rho.events.ERROR, 'Db access error in engine.login');
+                        }).fail(function(tx, error){
+                            dfr.reject(rho.errors.ERR_RUNTIME, "db access error" +error);
                         });
                     } else {
                         // None of them, going to obtain from the server
                         _createClient().done(function(client){
                             dfr.resolve(client);
-                        }).fail(function(error){
-                            dfr.reject("client creation error: " +error);
-                            rho.notify(rho.events.ERROR, "Client creation error in engine.login");
+                        }).fail(function(errCode, errMsg){
+                            dfr.reject(errCode, errMsg);
                         });
                     }
-                }).fail(function(){
-                    dfr.reject("db access error");
+                }).fail(function(tx, error){
+                    dfr.reject(rho.errors.ERR_RUNTIME, "db access error" +error);
                 });
-            }).fail(function(){
-                dfr.reject("server login error");
+            }).fail(function(status, error){
+                var errCode = _isTimeout(error) ? rho.errors.ERR_NOSERVERRESPONSE : rho.errors.ERR_NETWORK;
+                dfr.reject(errCode, error);
             });
         }).promise();
+    }
+
+    function getStartSourceId(dbSources) {
+        var startId = 0;
+        $.each(dbSources, function(name, dbSource){
+            startId = (dbSource.id > startId) ? dbSource.id : startId;
+        });
+        if (startId < rho.engine.maxConfigSrcId) {
+            startId =  rho.engine.maxConfigSrcId + 2;
+        } else {
+            startId += 1;
+        }
+        return startId;
     }
 
     function isContinueSync() { return syncState != states.exit && syncState != states.stop; }

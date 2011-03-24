@@ -1,60 +1,154 @@
-describe("RhoSync use cases", function() {
+describe("RhoSync use cases", function(){
 
+    describe("API", function(){
+        it("should have methods defined", function() {
+            expect(rhosync.isLoggedIn).toBeDefined();
+            expect(rhosync.login).toBeDefined();
+            expect(rhosync.logout).toBeDefined();
+        });
 
-    it("is able to be initialized with models", function() {
-        var okHdlr = jasmine.createSpy('for ok');
-        var errHdlr = jasmine.createSpy('for errors');
+    });
 
-        expect(rhosync.init).toBeDefined();
+    describe("USE CASE: User initialize API with model definitions", function(){
 
-        var models = [
-            {name: 'Product', fields: [
-                {name: 'name',      type: 'string'},
-                {name: 'price',     type: 'int'},
-                {name: 'available', type: 'boolean', defaultValue: true}
-                ]},
-            {name: 'Order', fields: [
-                {name: 'unmber',       type: 'int'},
-                {name: 'productName',  type: 'string'},
-                {name: 'customerName', type: 'string'},
-                {name: 'address',      type: 'string'},
-                {name: 'phone',        type: 'string'}
-                ]}
-        ];
+        it("should be initialized with models", function() {
+            var okHdlr = jasmine.createSpy('for ok');
+            var errHdlr = jasmine.createSpy('for errors');
 
-        rhosync.init(models/*, 'native'*/).done(okHdlr).fail(errHdlr);
+            expect(rhosync.init).toBeDefined();
 
-        waitsForSpies([okHdlr, errHdlr], 'RhoSync init timeout', 3000);
-        runs(function(){
-            expect(errHdlr).not.toHaveBeenCalled();
-            if(0 < errHdlr.callCount) {
-                jasmine.log('errHdlr called with:');
-                jasmine.log(errHdlr.mostRecentCall.args);
-            }
+            var models = [
+                {name: 'Product', fields: [
+                    {name: 'name',      type: 'string'},
+                    {name: 'price',     type: 'int'},
+                    {name: 'available', type: 'boolean', defaultValue: true}
+                    ]},
+                {name: 'Order', fields: [
+                    {name: 'unmber',       type: 'int'},
+                    {name: 'productName',  type: 'string'},
+                    {name: 'customerName', type: 'string'},
+                    {name: 'address',      type: 'string'},
+                    {name: 'phone',        type: 'string'}
+                    ]}
+            ];
 
-            expect(rhosync.rho.models).toBeDefined('models map');
-            expect(rhosync.rho.engine.sources).toBeDefined('sources map');
+            rhosync.init(models/*, 'native'*/).done(okHdlr).fail(errHdlr);
 
-            expect(rhosync.rho.models.Product).toBeSet('Product model');
-            expect(rhosync.rho.models.Product.name).toBeSet('Product model');
-            expect(rhosync.rho.engine.sources.Product).toBeSet('Product model');
-            expect(rhosync.rho.engine.sources.Product.name).toBeSet('Product model');
-            expect(rhosync.rho.engine.sources.Product.id).toBeGreaterThan(0);
-            expect(rhosync.rho.models.Product.name).toEqual(rhosync.rho.engine.sources.Product.name);
-            jasmine.log(rhosync.rho.models.Product.name +' source id = ' +rhosync.rho.engine.sources.Product.id);
+            waitsForSpies([okHdlr, errHdlr], 'RhoSync init timeout', 3000);
+            runs(function(){
+                expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) {
+                    jasmine.log('errHdlr called with:');
+                    jasmine.log(errHdlr.mostRecentCall.args);
+                }
 
-            expect(rhosync.rho.models.Order).toBeSet('Order model');
-            expect(rhosync.rho.models.Order.name).toBeSet('Order model');
-            expect(rhosync.rho.engine.sources.Order).toBeSet('Order model');
-            expect(rhosync.rho.engine.sources.Order.name).toBeSet('Order model');
-            expect(rhosync.rho.engine.sources.Order.id).toBeGreaterThan(0);
-            expect(rhosync.rho.models.Order.name).toEqual(rhosync.rho.engine.sources.Order.name);
-            jasmine.log(rhosync.rho.models.Order.name +' source id = ' +rhosync.rho.engine.sources.Order.id);
+                expect(rhosync.rho.models).toBeDefined('models map');
+                expect(rhosync.rho.engine.sources).toBeDefined('sources map');
 
-            expect(rhosync.rho.engine.sources.Product.name).not.toEqual(rhosync.rho.engine.sources.Order.name);
-            expect(rhosync.rho.engine.sources.Product.id).not.toEqual(rhosync.rho.engine.sources.Order.id);
+                expect(rhosync.rho.models.Product).toBeSet('Product model');
+                expect(rhosync.rho.models.Product.name).toBeSet('Product model');
+                expect(rhosync.rho.engine.sources.Product).toBeSet('Product model');
+                expect(rhosync.rho.engine.sources.Product.name).toBeSet('Product model');
+                expect(rhosync.rho.engine.sources.Product.id).toBeGreaterThan(0);
+                expect(rhosync.rho.models.Product.name).toEqual(rhosync.rho.engine.sources.Product.name);
+                jasmine.log(rhosync.rho.models.Product.name +' source id = ' +rhosync.rho.engine.sources.Product.id);
+
+                expect(rhosync.rho.models.Order).toBeSet('Order model');
+                expect(rhosync.rho.models.Order.name).toBeSet('Order model');
+                expect(rhosync.rho.engine.sources.Order).toBeSet('Order model');
+                expect(rhosync.rho.engine.sources.Order.name).toBeSet('Order model');
+                expect(rhosync.rho.engine.sources.Order.id).toBeGreaterThan(0);
+                expect(rhosync.rho.models.Order.name).toEqual(rhosync.rho.engine.sources.Order.name);
+                jasmine.log(rhosync.rho.models.Order.name +' source id = ' +rhosync.rho.engine.sources.Order.id);
+
+                expect(rhosync.rho.engine.sources.Product.name).not.toEqual(rhosync.rho.engine.sources.Order.name);
+                expect(rhosync.rho.engine.sources.Product.id).not.toEqual(rhosync.rho.engine.sources.Order.id);
+            });
         });
     });
+
+/*
+    describe("USE CASE: User login with proper credentials", function(){
+        beforeEach(function(){
+            rhosync.logout();
+        });
+
+        it("should login ok with proper credentials", function() {
+            var okHdlr = jasmine.createSpy('for ok');
+            var errHdlr = jasmine.createSpy('for errors');
+
+            expect(rhosync.isLoggedIn()).not.toBeTruthy();
+
+            rhosync.login("lars", "larspass").done(okHdlr).fail(errHdlr);
+
+            waitsForSpies([okHdlr, errHdlr], 'login timeout');
+            runs(function(){
+                expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) {
+                    jasmine.log('errHdlr called with:');
+                    jasmine.log(errHdlr.mostRecentCall.args);
+                }
+                expect(okHdlr).toHaveBeenCalled();
+                expect(rhosync.isLoggedIn()).toBeTruthy();
+            });
+        });
+    });
+
+    describe("USE CASE: User login with wrong credentials", function(){
+        beforeEach(function(){
+            rhosync.logout();
+        });
+
+        it("should fail", function() {
+            var okHdlr = jasmine.createSpy('for ok');
+            var errHdlr = jasmine.createSpy('for errors');
+
+            expect(rhosync.isLoggedIn()).not.toBeTruthy();
+
+            rhosync.login("not_lars", "not_larspass").done(okHdlr).fail(errHdlr);
+
+            waitsForSpies([okHdlr, errHdlr], 'login timeout');
+            runs(function(){
+                expect(okHdlr).not.toHaveBeenCalled();
+                if(0 < okHdlr.callCount) {
+                    jasmine.log('okHdlr called with:');
+                    jasmine.log(okHdlr.mostRecentCall.args);
+                }
+                expect(errHdlr).toHaveBeenCalled();
+                expect(rhosync.isLoggedIn()).not.toBeTruthy();
+            });
+        });
+    });
+
+    describe("USE CASE: User logout", function(){
+        beforeEach(function(){
+            //runs(function(){
+                rhosync.login("lars", "larspass");
+            //});
+        });
+
+        it("should logout ok", function() {
+            var okHdlr = jasmine.createSpy('for ok');
+            var errHdlr = jasmine.createSpy('for errors');
+
+            runs(function(){
+                expect(rhosync.isLoggedIn()).toBeTruthy();
+                rhosync.logout().done(okHdlr).fail(errHdlr);
+            });
+
+            waitsForSpies([okHdlr, errHdlr], 'logout timeout');
+            runs(function(){
+                expect(errHdlr).not.toHaveBeenCalled();
+                if(0 < errHdlr.callCount) {
+                    jasmine.log('errHdlr called with:');
+                    jasmine.log(errHdlr.mostRecentCall.args);
+                }
+                expect(okHdlr).toHaveBeenCalled();
+                expect(rhosync.isLoggedIn()).not.toBeTruthy();
+            });
+        });
+    });
+*/
 
     it("should login ok with proper credentials", function() {
         var okHdlr = jasmine.createSpy('for ok');
@@ -83,7 +177,7 @@ describe("RhoSync use cases", function() {
         var okHdlr = jasmine.createSpy('for ok');
         var errHdlr = jasmine.createSpy('for errors');
 
-        expect(rhosync.login).toBeDefined();
+        expect(rhosync.logout).toBeDefined();
         expect(rhosync.isLoggedIn).toBeDefined();
 
         runs(function(){

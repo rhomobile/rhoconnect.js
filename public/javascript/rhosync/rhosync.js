@@ -16,7 +16,6 @@ var RhoSync = (function($) {
         pollInterval: 20
     };
 
-
     const errors = {
         ERR_NONE: 'ERR_NONE',
         ERR_NETWORK: 'ERR_NETWORK',
@@ -41,26 +40,51 @@ var RhoSync = (function($) {
         SYNC_SOURCE_END: 'rhoSyncSourceSynchronizationEnd'
     };
 
-    var maxConfigSrcId = 1;
-
-    function getStartId(dbSources) {
-        var startId = 0;
-        $.each(dbSources, function(name, dbSource){
-            startId = (dbSource.id > startId) ? dbSource.id : startId;
-        });
-        if (startId < maxConfigSrcId) {
-            startId =  maxConfigSrcId + 2;
-        } else {
-            startId += 1;
-        }
-        return startId;
+    function init(modelDefs, storageType) {
+        return $.Deferred(function(dfr){
+            rho.storage.init().done(function(){
+                _loadModels(storageType, modelDefs).done(function(){
+                    dfr.resolve();
+                }).fail(function(obj, error){
+                    dfr.reject("models load error: " +error);
+                });
+            }).fail(function(error){
+                dfr.reject("storage initialization error: " +error);
+            });
+        }).promise();
     }
 
-    function initDbSources(tx, configSources) {
+    function login(login, password) {
+        return $.Deferred(function(dfr){
+            rho.engine.login(login, password).done(function(){
+                dfr.resolve();
+                rho.engine.session = rho.protocol.getSession();
+            }).fail(function(errCode, errMsg){
+                dfr.reject(errCode, errMsg);
+            });
+        }).promise();
+    }
+
+    function logout() {
+        return $.Deferred(function(dfr){
+            rho.storage.executeSQL( "UPDATE client_info SET session = NULL").done(function() {
+                rho.engine.session = null;
+                dfr.resolve();
+            }).fail(function(tx, error) {
+                dfr.reject(errors.ERR_RUNTIME, "db access error: " +error);
+            });
+        }).promise();
+    }
+
+    function isLoggedIn() {
+        return rho.engine.session ? true : false;
+    }
+
+    function _initDbSources(tx, configSources) {
         return $.Deferred(function(dfr){
             rho.storage.loadAllSources(tx).done(function (tx, dbSources) {
 
-                var startId = getStartId(dbSources);
+                var startId = rho.engine.getStartSourceId(dbSources);
 
                 var dbSourceMap = {};
                 $.each(dbSources, function(idx, src){
@@ -126,7 +150,7 @@ var RhoSync = (function($) {
         }).promise();
     }
 
-    function initSources(sources) {
+    function _initSources(sources) {
         return $.Deferred(function(dfr){
             $.each(sources, function(name, source){
                 source.associations = '';
@@ -149,7 +173,7 @@ var RhoSync = (function($) {
 
             rho.storage.open().done(function(db){
                 rho.storage.rwTx(db).ready(function(db, tx){
-                    initDbSources(tx, sources).done(function(){
+                    _initDbSources(tx, sources).done(function(){
                         dfr.resolve();
                     }).fail(function(obj, err) {
                         dfr.reject(obj, err);
@@ -168,7 +192,7 @@ var RhoSync = (function($) {
 
     var allModelsLoaded = false;
 
-    function loadModels(storageType, modelDefs) {
+    function _loadModels(storageType, modelDefs) {
         if (allModelsLoaded) return $.Deferred().done().promise();
 
         function _addLoadedModel(defn) {
@@ -178,8 +202,8 @@ var RhoSync = (function($) {
             model.source.partition = 'user';
             var sourceId = defn['source_id'] ? parseInt(defn['source_id']) : null;
             model.source.id = sourceId;
-            if (sourceId && maxConfigSrcId < sourceId) {
-                maxConfigSrcId = sourceId;
+            if (sourceId && rho.engine.maxConfigSrcId < sourceId) {
+                rho.engine.maxConfigSrcId = sourceId;
             }
             models[defn.name] = model;
             rho.engine.sources[defn.name] = model.source;
@@ -202,47 +226,7 @@ var RhoSync = (function($) {
         }
         allModelsLoaded = true;
 
-        return initSources(rho.engine.sources);
-    }
-
-    function init(modelDefs, storageType) {
-        return $.Deferred(function(dfr){
-            rho.storage.init().done(function(){
-                loadModels(storageType, modelDefs).done(function(){
-                    dfr.resolve();
-                }).fail(function(obj, error){
-                    dfr.reject("models load error: " +error);
-                });
-            }).fail(function(error){
-                dfr.reject("storage initialization error: " +error);
-            });
-        }).promise();
-    }
-
-    function login(login, password) {
-        return $.Deferred(function(dfr){
-            rho.engine.login(login, password).done(function(){
-                dfr.resolve();
-                rho.engine.session = rho.protocol.getSession();
-            }).fail(function(errCode, errMsg){
-                dfr.reject(errCode, errMsg);
-            });
-        }).promise();
-    }
-
-    function logout() {
-        return $.Deferred(function(dfr){
-            rho.storage.executeSQL( "UPDATE client_info SET session = NULL").done(function() {
-                rho.engine.session = null;
-                dfr.resolve();
-            }).fail(function() {
-                dfr.reject(errors.ERR_RUNTIME, "session deletion error");
-            });
-        }).promise();
-    }
-
-    function isLoggedIn() {
-        return rho.engine.session ? true : false;
+        return _initSources(rho.engine.sources);
     }
 
     // rhosync internal parts we _have_to_ make a public
