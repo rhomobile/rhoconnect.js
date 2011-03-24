@@ -10,6 +10,29 @@ var RhoSync = (function($) {
         };
     }
 
+    const defaults = {
+        dbName: 'rhoSyncDb',
+        syncServer: '',
+        pollInterval: 20
+    };
+
+
+    const errors = {
+        ERR_NONE: 'ERR_NONE',
+        ERR_NETWORK: 'ERR_NETWORK',
+        ERR_REMOTESERVER: 'ERR_REMOTESERVER',
+        ERR_RUNTIME: 'ERR_RUNTIME',
+        ERR_UNEXPECTEDSERVERRESPONSE: 'ERR_UNEXPECTEDSERVERRESPONSE',
+        ERR_DIFFDOMAINSINSYNCSRC: 'ERR_DIFFDOMAINSINSYNCSRC',
+        ERR_NOSERVERRESPONSE: 'ERR_NOSERVERRESPONSE',
+        ERR_CLIENTISNOTLOGGEDIN: 'ERR_CLIENTISNOTLOGGEDIN',
+        ERR_CUSTOMSYNCSERVER: 'ERR_CUSTOMSYNCSERVER',
+        ERR_UNATHORIZED: 'ERR_UNATHORIZED',
+        ERR_CANCELBYUSER: 'ERR_CANCELBYUSER',
+        ERR_SYNCVERSION: 'ERR_SYNCVERSION',
+        ERR_GEOLOCATION: 'ERR_GEOLOCATION'
+    };
+
     const SESSION_COOKIE = 'rhosync_session';
 
     const events = {
@@ -18,17 +41,6 @@ var RhoSync = (function($) {
         CLIENT_CREATED: 'rhoSyncClientCreatedNotification',
         SYNCHRONIZING: 'rhoSyncSourceSynchronizing',
         SYNC_SOURCE_END: 'rhoSyncSourceSynchronizationEnd'
-    };
-
-    const errors = {
-        ERR_NONE: 'ERR_NONE',
-        ERR_RUNTIME: 'ERR_RUNTIME'
-    };
-
-    const defaults = {
-        dbName: 'rhoSyncDb',
-        syncServer: '',
-        pollInterval: 20
     };
 
     var maxConfigSrcId = 1;
