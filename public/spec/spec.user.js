@@ -60,11 +60,14 @@ describe("RhoSync use cases", function() {
         var okHdlr = jasmine.createSpy('for ok');
         var errHdlr = jasmine.createSpy('for errors');
 
+        expect(rhosync.login).toBeDefined();
+        expect(rhosync.isLoggedIn).toBeDefined();
+
         runs(function(){
             rhosync.login("lars", "larspass").done(okHdlr).fail(errHdlr);
         });
 
-        waitsForSpies([okHdlr, errHdlr], 'login timeout3', 5000);
+        waitsForSpies([okHdlr, errHdlr], 'login timeout');
         runs(function(){
             expect(errHdlr).not.toHaveBeenCalled();
             if(0 < errHdlr.callCount) {
@@ -72,16 +75,54 @@ describe("RhoSync use cases", function() {
                 jasmine.log(errHdlr.mostRecentCall.args);
             }
             expect(okHdlr).toHaveBeenCalled();
-//            if(0 < okHdlr.callCount) {
-//                jasmine.log('okHdlr called with:');
-//                jasmine.log(okHdlr.mostRecentCall.args);
-//            }
+            expect(rhosync.isLoggedIn()).toBeTruthy();
+        });
+    });
+
+    it("should logout ok", function() {
+        var okHdlr = jasmine.createSpy('for ok');
+        var errHdlr = jasmine.createSpy('for errors');
+
+        expect(rhosync.login).toBeDefined();
+        expect(rhosync.isLoggedIn).toBeDefined();
+
+        runs(function(){
+            rhosync.login("lars", "larspass").done(okHdlr).fail(errHdlr);
+        });
+
+        waitsForSpies([okHdlr, errHdlr], 'login timeout');
+        runs(function(){
+            expect(errHdlr).not.toHaveBeenCalled();
+            if(0 < errHdlr.callCount) {
+                jasmine.log('errHdlr called with:');
+                jasmine.log(errHdlr.mostRecentCall.args);
+            }
+            expect(okHdlr).toHaveBeenCalled();
+            expect(rhosync.isLoggedIn()).toBeTruthy();
+        });
+
+        runs(function(){
+            rhosync.logout().done(okHdlr).fail(errHdlr);
+        });
+
+        waitsForSpies([okHdlr, errHdlr], 'logout timeout');
+        runs(function(){
+            expect(errHdlr).not.toHaveBeenCalled();
+            if(0 < errHdlr.callCount) {
+                jasmine.log('errHdlr called with:');
+                jasmine.log(errHdlr.mostRecentCall.args);
+            }
+            expect(okHdlr).toHaveBeenCalled();
+            expect(rhosync.isLoggedIn()).not.toBeTruthy();
         });
     });
 
     it("should fail to login with wrong credentials", function() {
         var okHdlr = jasmine.createSpy('for ok');
         var errHdlr = jasmine.createSpy('for errors');
+
+        expect(rhosync.login).toBeDefined();
+        expect(rhosync.isLoggedIn).toBeDefined();
 
         rhosync.login("not_lars", "not_larspass").done(okHdlr).fail(errHdlr);
 
@@ -93,10 +134,7 @@ describe("RhoSync use cases", function() {
                 jasmine.log(okHdlr.mostRecentCall.args);
             }
             expect(errHdlr).toHaveBeenCalled();
-            if(0 < errHdlr.callCount) {
-                jasmine.log('errHdlr called with:');
-                jasmine.log(errHdlr.mostRecentCall.args);
-            }
+            expect(rhosync.isLoggedIn()).not.toBeTruthy();
         });
     });
 

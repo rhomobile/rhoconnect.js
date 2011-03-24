@@ -6,7 +6,7 @@ var RhoSync = (function($) {
             init: init,
             login: login,
             logout: logout,
-            loggedIn: loggedIn
+            isLoggedIn: isLoggedIn
         };
     }
 
@@ -32,8 +32,6 @@ var RhoSync = (function($) {
         ERR_SYNCVERSION: 'ERR_SYNCVERSION',
         ERR_GEOLOCATION: 'ERR_GEOLOCATION'
     };
-
-    const SESSION_COOKIE = 'rhosync_session';
 
     const events = {
         GENERIC_NOTIFICATION: 'rhoSyncGenericNotification',
@@ -223,21 +221,28 @@ var RhoSync = (function($) {
 
     function login(login, password) {
         return $.Deferred(function(dfr){
-            rho.engine.login(login, password).done(function(client){
+            rho.engine.login(login, password).done(function(){
                 dfr.resolve();
-            }).fail(function(error){
-                dfr.reject("client initialization error: " +error);
+                rho.engine.session = rho.protocol.getSession();
+            }).fail(function(errCode, errMsg){
+                dfr.reject(errCode, errMsg);
             });
         }).promise();
     }
 
     function logout() {
         return $.Deferred(function(dfr){
+            rho.storage.executeSQL( "UPDATE client_info SET session = NULL").done(function() {
+                rho.engine.session = null;
+                dfr.resolve();
+            }).fail(function() {
+                dfr.reject(errors.ERR_RUNTIME, "session deletion error");
+            });
         }).promise();
     }
 
-    function loggedIn() {
-        return true;
+    function isLoggedIn() {
+        return rho.engine.session ? true : false;
     }
 
     // rhosync internal parts we _have_to_ make a public

@@ -4,6 +4,7 @@
         return {
             Client: Client,
             Source: Source,
+            session: null,
             sources: sources,
             login: login,
             syncAllSources: syncAllSources,

@@ -2,12 +2,19 @@
 
     function publicInterface() {
         return {
+            getSession: _getSession,
             login: login,
             clientCreate: clientCreate
         };
     }
 
     var rho = RhoSync.rho;
+
+    const SESSION_COOKIE = 'rhosync_session';
+
+    function _getSession() {
+        return _getCookie(SESSION_COOKIE);
+    }
 
     function _setCookie(name, value, days, path, domain, secure) {
         if (days) {
