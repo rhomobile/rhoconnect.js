@@ -1,4 +1,14 @@
-(function($) {
+var RhoSync = (function($) {
+
+    function publicInterface() {
+        return {
+            errors: errors,
+            init: init,
+            login: login,
+            logout: logout,
+            loggedIn: loggedIn
+        };
+    }
 
     const SESSION_COOKIE = 'rhosync_session';
 
@@ -21,79 +31,6 @@
         pollInterval: 20
     };
 
-    var api = {
-        config: $.extend({}, defaults, RhoConfig),
-        events: events,
-        errors: errors,
-
-        domain: null,
-        protocol: null,
-        engine: null,
-        storage: null,
-
-        internal: {
-            deferredMapOn: _deferredMapOn,
-            passRejectTo: _passRejectTo,
-            notify: _notify
-        }
-    };
-
-
-    function _notify(type /*, arg1, arg2, ... argN*/) {
-        $(window).trigger(jQuery.Event(type), $.makeArray(arguments).slice(1));
-        // fire exact notifications here
-    }
-
-    // utility functions ========================
-
-    function _passRejectTo(dfr, doReport) {
-        return function() {
-            if (doReport) {
-                //TODO: some log output
-            }
-            dfr.reject(arguments);
-        };
-    }
-
-    function _deferredMapOn(obj) {
-        var dfrMap = {}; // to resolve/reject each exact item
-        var dfrs = []; // to watch on all of them
-
-        $.each(obj, function(key, value){
-            var dfr = new $.Deferred();
-            dfrMap[key] = dfr;
-            dfrs.push(dfr.promise());
-        });
-
-        return {
-            resolve: function(name, args) {
-                if (dfrMap[name]) dfrMap[name].resolve.apply(dfrMap[name], args);
-            },
-            reject: function(name, args) {
-                if (dfrMap[name]) dfrMap[name].reject.apply(dfrMap[name], args);
-            },
-            when: function() {
-                return $.when(dfrs);
-            }
-        };
-    }
-
-
-
-/*
-    function initSyncSourceProperties(cfgSources, optTx){
-        $.each(cfgSources, function(key, item) {
-        });
-//            uniq_sources.each do|src|
-//                ['pass_through'].each do |prop|
-//                    next unless src.has_key?(prop)
-//                    SyncEngine.set_source_property(src['source_id'], prop, src[prop] ? src[prop].to_s() : '' )
-//                end
-//            end
-    }
-*/
-
-
     var maxConfigSrcId = 1;
 
     function getStartId(dbSources) {
@@ -111,7 +48,7 @@
 
     function initDbSources(tx, configSources) {
         return $.Deferred(function(dfr){
-            api.storage.loadAllSources(tx).done(function (tx, dbSources) {
+            rho.storage.loadAllSources(tx).done(function (tx, dbSources) {
 
                 var startId = getStartId(dbSources);
 
@@ -150,7 +87,7 @@
                             cfgSource.id = dbSource.id;
                         }
                         if (updateNeeded) {
-                            api.storage.storeSource(dbSource, tx).done(function(tx, source){
+                            rho.storage.storeSource(dbSource, tx).done(function(tx, source){
                                 dfrMap[name].resolve(source);
                             }).fail(function(obj, err){
                                 dfrMap[name].reject(obj, err);
@@ -161,7 +98,7 @@
                             cfgSource.id = startId;
                             startId =+ 1;
                         }
-                        api.storage.insertSource(cfgSource, tx).done(function(tx, source){
+                        rho.storage.insertSource(cfgSource, tx).done(function(tx, source){
                             dfrMap[name].resolve(source);
                         }).fail(function(obj, err){
                             dfrMap[name].reject(obj, err);
@@ -200,8 +137,8 @@
                 });
             });
 
-            api.storage.open().done(function(db){
-                api.storage.rwTx(db).ready(function(db, tx){
+            rho.storage.open().done(function(db){
+                rho.storage.rwTx(db).ready(function(db, tx){
                     initDbSources(tx, sources).done(function(){
                         dfr.resolve();
                     }).fail(function(obj, err) {
@@ -225,7 +162,7 @@
         if (allModelsLoaded) return $.Deferred().done().promise();
 
         function _addLoadedModel(defn) {
-            var model = new api.domain.Model(defn);
+            var model = new rho.domain.Model(defn);
             model.source.sync_priority = parseInt(defn['sync_priority'] || 1000);
             model.source.sync_type = 'incremental';
             model.source.partition = 'user';
@@ -235,7 +172,7 @@
                 maxConfigSrcId = sourceId;
             }
             models[defn.name] = model;
-            api.engine.sources[defn.name] = model.source;
+            rho.engine.sources[defn.name] = model.source;
         }
 
         function _loadModel(defn) {
@@ -255,26 +192,12 @@
         }
         allModelsLoaded = true;
 
-        return initSources(api.engine.sources);
+        return initSources(rho.engine.sources);
     }
 
-    function login(login, password) {
+    function init(modelDefs, storageType) {
         return $.Deferred(function(dfr){
-            api.engine.login(login, password).done(function(client){
-                api.engine.run(client).done(function(client){
-                    dfr.resolve();
-                }).fail(function(error){
-                    dfr.reject("engine run error: " +error);
-                });
-            }).fail(function(error){
-                dfr.reject("client initialization error: " +error);
-            });
-        }).promise();
-    }
-
-    function init(storageType, modelDefs) {
-        return $.Deferred(function(dfr){
-            api.storage.init().done(function(){
+            rho.storage.init().done(function(){
                 loadModels(storageType, modelDefs).done(function(){
                     dfr.resolve();
                 }).fail(function(obj, error){
@@ -286,10 +209,37 @@
         }).promise();
     }
 
-    RhoSync = {
-        api: api,
+    function login(login, password) {
+        return $.Deferred(function(dfr){
+            rho.engine.login(login, password).done(function(client){
+                dfr.resolve();
+            }).fail(function(error){
+                dfr.reject("client initialization error: " +error);
+            });
+        }).promise();
+    }
+
+    function logout() {
+        return $.Deferred(function(dfr){
+        }).promise();
+    }
+
+    function loggedIn() {
+        return true;
+    }
+
+    // rhosync internal parts we _have_to_ make a public
+    var rho = {
+        config: $.extend({}, defaults, RhoConfig),
+        events: events,
         models: models,
-        init: init
+
+        domain: null,
+        protocol: null,
+        engine: null,
+        storage: null
     };
+
+    return $.extend(publicInterface(), {rho: rho});
 
 })(jQuery);

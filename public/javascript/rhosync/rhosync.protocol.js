@@ -1,6 +1,13 @@
 (function($) {
 
-    var api = RhoSync.api;
+    function publicInterface() {
+        return {
+            login: login,
+            clientCreate: clientCreate
+        };
+    }
+
+    var rho = RhoSync.rho;
 
     function _setCookie(name, value, days, path, domain, secure) {
         if (days) {
@@ -45,17 +52,17 @@
                  data: $.toJSON(data),
                 dataType: 'json'
             }).done(function(data, status, xhr){
-                api.internal.notify(api.events.GENERIC_NOTIFICATION, status, data, xhr);
+                rho.notify(rho.events.GENERIC_NOTIFICATION, status, data, xhr);
                 dfr.resolve(status, data, xhr);
             }).fail(function(xhr, status, error){
-                api.internal.notify(api.events.GENERIC_NOTIFICATION, status, error, xhr);
+                rho.notify(rho.events.GENERIC_NOTIFICATION, status, error, xhr);
                 dfr.reject(status, error, xhr);
             });
         }).promise();
     }
 
     function login(login, password) {
-        return _net_call(api.config.syncServer+'/clientlogin', {login:login, password:password, rememberme: 1});
+        return _net_call(rho.config.syncServer+'/clientlogin', {login:login, password:password, rememberme: 1});
     }
 
     /*
@@ -70,14 +77,9 @@
 
     var clientCreate = function() {
         var dfr = $.Deferred();
-        return _net_call(api.config.syncServer+'/clientcreate', "", "get", "text/plain");
+        return _net_call(rho.config.syncServer+'/clientcreate', "", "get", "text/plain");
     };
 
-    api.protocol = {
-        login: login,
-        clientCreate: clientCreate
-    };
+    $.extend(rho, {protocol: publicInterface()});
 
 })(jQuery);
-
-

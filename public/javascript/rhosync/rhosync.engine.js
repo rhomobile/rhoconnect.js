@@ -1,6 +1,17 @@
 (function($) {
 
-    var api = RhoSync.api;
+    function publicInterface() {
+        return {
+            Client: Client,
+            Source: Source,
+            sources: sources,
+            login: login,
+            syncAllSources: syncAllSources,
+            stopSync: stopSync
+        };
+    }
+
+    var rho = RhoSync.rho;
 
     var sources = {}; // name->source map
 
@@ -38,7 +49,7 @@
         this.blob_attribs = null;
 
         this.isTokenFromDb = true;
-        this.errCode = api.errors.ERR_NONE;
+        this.errCode = rho.errors.ERR_NONE;
         this.strError = '';
 
         this.__defineGetter__('isEmptyToken', function() {
@@ -61,9 +72,9 @@
                 }else
                 {
                     setToken(token);
-                    api.storage.executeSQL("UPDATE sources SET token=? where source_id=?", +this.token, this.id).done(function(){
+                    rho.storage.executeSQL("UPDATE sources SET token=? where source_id=?", +this.token, this.id).done(function(){
                         dfr.resolve();
-                    }).fail(api.internal.passRejectTo(dfr));
+                    }).fail(rho.passRejectTo(dfr));
                 }
             }).promise();
         }
@@ -88,7 +99,7 @@
                     var endTime = Date.now();
                     //TODO: to implement
 /*
-                    api.storage.executeSQL(
+                    rho.storage.executeSQL(
                             "UPDATE sources set last_updated=?,last_inserted_size=?,last_deleted_size=?, "
                             +"last_sync_duration=?,last_sync_success=?, backend_refresh_time=? WHERE source_id=?",
                             (endTime/1000), new Integer(getInsertedCount()), new Integer(getDeletedCount()),
@@ -103,7 +114,7 @@
                     dfr.reject(obj, err);
                 }
 
-                api.internal.notify(api.events.SYNCHRONIZING, 'synchronizing' +this.name +'...', this.errCode, this.strError);
+                rho.notify(rho.events.SYNCHRONIZING, 'synchronizing' +this.name +'...', this.errCode, this.strError);
                 if (this.isTokenFromDb && this.token > 1) {
                     syncServerChanges();
                 } else {
@@ -142,41 +153,41 @@
     function _createClient() {
         return $.Deferred(function(dfr){
             // obtain client id from the server
-            api.protocol.clientCreate().done(function(status, data){
+            rho.protocol.clientCreate().done(function(status, data){
                 if (data && data.client && data.client.client_id){
                     // persist new client
                     var client = new Client(data.client.client_id);
-                    api.storage.insertClient(client).done(function(tx, client){
+                    rho.storage.insertClient(client).done(function(tx, client){
                         dfr.resolve(client);
-                        api.internal.notify(api.events.CLIENT_CREATED, client);
+                        rho.notify(rho.events.CLIENT_CREATED, client);
                     }).fail(function(tx, error){
                         dfr.reject("db access error");
-                        api.internal.notify(api.events.ERROR, 'Db access error in clientCreate');
+                        rho.notify(rho.events.ERROR, 'Db access error in clientCreate');
                     });
                 } else {
                     dfr.reject("server response error");
-                    api.internal.notify(api.events.ERROR, 'Server response error in clientCreate');
+                    rho.notify(rho.events.ERROR, 'Server response error in clientCreate');
                 }
             }).fail(function(status, error){
                 dfr.reject("server request error");
-                api.internal.notify(api.events.ERROR, 'Server request error clientCreate');
+                rho.notify(rho.events.ERROR, 'Server request error clientCreate');
             });
         }).promise();
     }
 
     function login(login, password) {
         return $.Deferred(function(dfr){
-            api.protocol.login(login, password).done(function(){
-                api.storage.listClientsId().done(function(ids){
+            rho.protocol.login(login, password).done(function(){
+                rho.storage.listClientsId().done(function(tx, ids){
                     // if any?
                     if (0 < ids.length) {
                         // ok, load first (for now)
                         // TODO: to decide which on to load if there are many stored
-                        api.storage.loadClient(ids[0]).done(function(client){
+                        rho.storage.loadClient(ids[0]).done(function(tx, client){
                             dfr.resolve(client);
                         }).fail(function(){
                             dfr.reject("db access error");
-                            api.internal.notify(api.events.ERROR, 'Db access error in engine.login');
+                            rho.notify(rho.events.ERROR, 'Db access error in engine.login');
                         });
                     } else {
                         // None of them, going to obtain from the server
@@ -184,7 +195,7 @@
                             dfr.resolve(client);
                         }).fail(function(error){
                             dfr.reject("client creation error: " +error);
-                            api.internal.notify(api.events.ERROR, "Client creation error in engine.login");
+                            rho.notify(rho.events.ERROR, "Client creation error in engine.login");
                         });
                     }
                 }).fail(function(){
@@ -242,14 +253,14 @@
         return $.Deferred(function(dfr){
             if (isSessionExist() && syncState != states.stop )
                 source.sync().done(function(){
-                    api.internal.notify(api.events.SYNC_SOURCE_END, source);
+                    rho.notify(rho.events.SYNC_SOURCE_END, source);
                     dfr.resolve(source);
                 }).fail(function(obj, error){
-                    if (source.errCode == api.errors.ERR_NONE) {
-                        source.errCode = api.errors.ERR_RUNTIME;
+                    if (source.errCode == rho.errors.ERR_NONE) {
+                        source.errCode = rho.errors.ERR_RUNTIME;
                     }
                     syncState = states.stop;
-                    api.internal.notify(api.events.SYNC_SOURCE_END, source);
+                    rho.notify(rho.events.SYNC_SOURCE_END, source);
                     dfr.reject(obj, error);
                 });
         }).promise();
@@ -257,7 +268,7 @@
 
     function syncAllSources() {
         return $.Deferred(function(dfr){
-            var dfrMap = api.internal.deferredMapOn($.extend({}, sources, {'rhoStartSyncSource': startSrc}));
+            var dfrMap = rho.deferredMapOn($.extend({}, sources, {'rhoStartSyncSource': startSrc}));
             var syncErrors = [];
 
             var startSrc = getStartSource();
@@ -290,15 +301,6 @@
         }).promise();
     }
 
-    api.engine = {
-        Client: Client,
-        Source: Source,
-        sources: sources,
-        login: login,
-        syncAllSources: syncAllSources,
-        stopSync: stopSync
-    };
+    $.extend(rho, {engine: publicInterface()});
 
 })(jQuery);
-
-

@@ -1,6 +1,13 @@
 (function($) {
 
-    var api = RhoSync.api;
+    function publicInterface() {
+        return {
+            SyncObject: SyncObject,
+            Model: Model
+        };
+    }
+
+    var rho = RhoSync.rho;
 
     function SyncObject(defn) {
         this.id = null;
@@ -57,7 +64,7 @@
 
     function Model(defn) {
 
-        this.source = new api.engine.Source(defn.sourceId, defn.name, this);
+        this.source = new rho.engine.Source(defn.sourceId, defn.name, this);
 
         this.__defineGetter__('name', function() {
             return this.source.name;
@@ -91,11 +98,6 @@
         this.canModify = function() {};
     }
 
-    api.domain = {
-        SyncObject: SyncObject,
-        Model: Model
-    };
+    $.extend(rho, {domain: publicInterface()});
 
 })(jQuery);
-
-

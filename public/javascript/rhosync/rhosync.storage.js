@@ -1,6 +1,34 @@
 (function($) {
 
-    var api = RhoSync.api;
+    function publicInterface() {
+        return {
+        // Client
+        listClientsId: listClientsId,
+        loadClient: loadClient,
+        storeClient: storeClient,
+        insertClient: insertClient,
+        deleteClient: deleteClient,
+        // Client
+        listSourcesId: listSourcesId,
+        loadSource: loadSource,
+        loadAllSources: loadAllSources,
+        storeSource: storeSource,
+        insertSource: insertSource,
+        deleteSource: deleteSource,
+        // low-level
+        init: _init,
+        open: _open,
+        tx: _tx,
+        roTx: _roTx,
+        rwTx: _rwTx,
+        executeSQL: _executeSQL,
+        executeBatchSQL: _executeBatchSQL,
+        initSchema: _initSchema,
+        getAllTableNames: _getAllTableNames
+        };
+    }
+
+    var rho = RhoSync.rho;
 
     var initDbSchemaSQL = ''
         +'DROP TABLE IF EXISTS client_info;'
@@ -61,7 +89,7 @@
         return $.Deferred(function(dfr){
             try {
                 var db = openDatabase(
-                        name || api.config.dbName,
+                        name || rho.config.dbName,
                         version || '1.0',
                         comment || 'RhoSync database',
                         size || (2*1024*1024)
@@ -257,7 +285,7 @@
                 if (0 == rs.rows.length) {
                     dfr.reject(id, 'Not found');
                 } else {
-                    var client = new api.engine.Client(id);
+                    var client = new rho.engine.Client(id);
                     client.session           = rs.rows.item(0)['session'];
                     client.token             = rs.rows.item(0)['token'];
                     client.token_sent        = rs.rows.item(0)['token_sent'];
@@ -344,7 +372,7 @@
                 if (0 == rs.rows.length) {
                     dfr.reject(id, 'Not found');
                 } else {
-                    var source = new api.engine.Source(
+                    var source = new rho.engine.Source(
                             rs.rows.item(0)['source_id'],
                             rs.rows.item(0)['name'],
                             null /*as model*/
@@ -378,7 +406,7 @@
             _executeSQL('SELECT * FROM sources', null, optionalTx).done(function(tx, rs) {
                 var sources = [];
                 for(var i=0; i<rs.rows.length; i++) {
-                    var source = api.engine.Source(
+                    var source = rho.engine.Source(
                             rs.rows.item(0)['source_id'],
                             rs.rows.item(0)['name'],
                             null /*as model*/
@@ -490,32 +518,6 @@
         }).promise();
     }
 
-    api.storage = {
-        // Client
-        listClientsId: listClientsId,
-        loadClient: loadClient,
-        storeClient: storeClient,
-        insertClient: insertClient,
-        deleteClient: deleteClient,
-        // Client
-        listSourcesId: listSourcesId,
-        loadSource: loadSource,
-        loadAllSources: loadAllSources,
-        storeSource: storeSource,
-        insertSource: insertSource,
-        deleteSource: deleteSource,
-        // low-level
-        init: _init,
-        open: _open,
-        tx: _tx,
-        roTx: _roTx,
-        rwTx: _rwTx,
-        executeSQL: _executeSQL,
-        executeBatchSQL: _executeBatchSQL,
-        initSchema: _initSchema,
-        getAllTableNames: _getAllTableNames
-    };
+    $.extend(rho, {storage: publicInterface()});
 
 })(jQuery);
-
-
