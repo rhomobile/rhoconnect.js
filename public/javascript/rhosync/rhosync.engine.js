@@ -6,14 +6,20 @@
             Client: Client,
             Source: Source,
             // fields
+            states: states,
             session: null,
             sources: sources,
             maxConfigSrcId: 1,
             // methods
-            getStartSourceId: getStartSourceId,
             login: login,
-            syncAllSources: syncAllSources,
-            stopSync: stopSync
+            getState: getState,
+            isSearch: isInSearch,
+            doSyncAllSources: doSyncAllSources,
+            stopSync: stopSync,
+            getStartSourceId: getStartSourceId,
+            isNoThreadedMode: isNoThreadedMode,
+            isSessionExist: isSessionExist,
+            isStopedByUser: function() {return isStopedByUser}
         };
     }
 
@@ -29,8 +35,217 @@
         stop: 4,
         exit: 5
     };
-
+    
     var syncState = states.none;
+    var isSearch = false;
+
+    function getState() {
+        return syncState;
+    }
+
+    function isInSearch() {
+        return isSearch;
+    }
+
+    function login(login, password) {
+        return $.Deferred(function(dfr){
+            rho.protocol.login(login, password).done(function(){
+                rho.storage.listClientsId().done(function(tx, ids){
+                    // if any?
+                    if (0 < ids.length) {
+                        // ok, load first (for now)
+                        // TODO: to decide which on to load if there are many stored
+                        rho.storage.loadClient(ids[0]).done(function(tx, client){
+                            dfr.resolve(client);
+                        }).fail(function(tx, error){
+                            dfr.reject(rho.errors.ERR_RUNTIME, "db access error" +error);
+                        });
+                    } else {
+                        // None of them, going to obtain from the server
+                        _createClient().done(function(client){
+                            dfr.resolve(client);
+                        }).fail(function(errCode, errMsg){
+                            dfr.reject(errCode, errMsg);
+                        });
+                    }
+                }).fail(function(tx, error){
+                    dfr.reject(rho.errors.ERR_RUNTIME, "db access error" +error);
+                });
+            }).fail(function(status, error){
+                var errCode = _isTimeout(error) ? rho.errors.ERR_NOSERVERRESPONSE : rho.errors.ERR_NETWORK;
+                dfr.reject(errCode, error);
+            });
+        }).promise();
+    }
+
+    function _createClient() {
+        return $.Deferred(function(dfr){
+            // obtain client id from the server
+            rho.protocol.clientCreate().done(function(status, data){
+                if (data && data.client && data.client.client_id){
+                    // persist new client
+                    var client = new Client(data.client.client_id);
+                    rho.storage.insertClient(client).done(function(tx, client){
+                        dfr.resolve(client);
+                    }).fail(function(tx, error){
+                        dfr.reject(rho.errors.ERR_RUNTIME, "db access error" +error);
+                    });
+                } else {
+                    dfr.reject(rho.errors.ERR_UNEXPECTEDSERVERRESPONSE, data);
+                }
+            }).fail(function(status, error){
+                var errCode = _isTimeout(error) ? rho.errors.ERR_NOSERVERRESPONSE : rho.errors.ERR_NETWORK;
+                dfr.reject(errCode, error);
+            });
+        }).promise();
+    }
+
+    function _isTimeout(msg) {
+        return (msg && msg.match(/time(d)?\s+out/i));
+    }
+
+    function doSyncAllSources() {
+        function _finally(){
+            if (syncState != states.exit) {
+                syncState = states.none;
+            }
+        }
+        return syncAllSources().fail(function(errCode, errMsg){
+            rho.notify(rho.events.ERROR, "Sync failed", errMsg);
+        }).then(_finally, _finally);
+        //TODO: ? getNotify().cleanCreateObjectErrors();
+    }
+
+    function syncAllSources() {
+        return $.Deferred(function(dfr){
+            var dfrMap = rho.deferredMapOn($.extend({}, sources, {'rhoStartSyncSource': startSrc}));
+            var syncErrors = [];
+
+            var startSrc = _getStartSource();
+            if (startSrc) {
+                _syncOneSource(startSrc).done(function(){
+                    dfrMap.resolve('rhoStartSyncSource', ["ok"]);
+                }).fail(function(obj, error){
+                    syncErrors.push({source: startSrc.name, errObject: obj, error: error});
+                    dfrMap.resolve('rhoStartSyncSource', ["error", obj, error]);
+                });
+            } else {
+                dfrMap.resolve('rhoStartSyncSource', ["ok"]);
+            }
+
+            $.each(sources, function(src) {
+                _syncOneSource(src).done(function(){
+                    dfrMap.resolve(src.name, ["ok"]);
+                }).fail(function(obj, error){
+                    syncErrors.push({source: src.name, errObject: obj, error: error});
+                    dfrMap.resolve(src.name, ["error", obj, error]);
+                });
+            });
+
+            //if ( !bError && !isSchemaChanged() )
+            //    getNotify().fireSyncNotification(null, true, RhoAppAdapter.ERR_NONE, RhoAppAdapter.getMessageText("sync_completed"));
+
+            dfrMap.when().done(function(){
+                if (syncErrors.length == 0) {
+                    dfr.resolve(rho.errors.NONE, "Sync completed");
+                }
+                else dfr.reject(syncErrors);
+            }).fail(function(){
+                dfr.reject(syncErrors);
+            });
+        }).promise();
+    }
+
+    function _getStartSource() {
+        $.each(sources, function(src) {
+            if (!src.isEmptyToken) return src;
+        });
+        return null;
+    }
+
+    function _syncOneSource(source) {
+        return $.Deferred(function(dfr){
+            if ( source.sync_type == "bulk_sync_only") {
+                dfr.resolve(null); //TODO: do resolve it as a source?
+            } else if (isSessionExist() && syncState != states.stop ) {
+                source.sync().done(function(){
+                    rho.notify(rho.events.SYNC_SOURCE_END, source);
+                    dfr.resolve(source);
+                }).fail(function(obj, error){
+                    if (source.errCode == rho.errors.ERR_NONE) {
+                        source.errCode = rho.errors.ERR_RUNTIME;
+                    }
+                    syncState = states.stop;
+                    rho.notify(rho.events.SYNC_SOURCE_END, source);
+                    dfr.reject(rho.errors.ERR_RUNTIME, "sync is stopped: " +error);
+                });
+            } else {
+                dfr.reject(rho.errors.ERR_RUNTIME, "sync is stopped");
+            }
+        }).promise();
+    }
+
+    function stopSync() {
+        if (_isContinueSync()) {
+            syncState = states.stop;
+            _cancelRequests();
+        }
+    }
+
+    function _isContinueSync() { return syncState != states.exit && syncState != states.stop; }
+    function isSyncing() { return syncState == states.syncAllSources || syncState == states.syncSource; }
+
+    function _cancelRequests() {
+        //TODO: to implement
+        /*
+        if (m_NetRequest!=null)
+            m_NetRequest.cancel();
+
+        if (m_NetRequestClientID!=null)
+            m_NetRequestClientID.cancel();
+        */
+    }
+
+    function getStartSourceId(dbSources) {
+        var startId = 0;
+        $.each(dbSources, function(name, dbSource){
+            startId = (dbSource.id > startId) ? dbSource.id : startId;
+        });
+        if (startId < rho.engine.maxConfigSrcId) {
+            startId =  rho.engine.maxConfigSrcId + 2;
+        } else {
+            startId += 1;
+        }
+        return startId;
+    }
+
+    function isNoThreadedMode() {
+        return false;
+    }
+
+    function isSessionExist() {
+        return rho.engine.session ? true : false;
+    }
+
+/*
+        function run(client) {
+            return $.Deferred(function(dfr){
+            // TODO: to implement the body
+                dfr.resolve(client);
+            }).promise();
+        }
+*/
+
+    var isStopedByUser = false;
+    function _stopSyncByUser() { isStopedByUser = true; stopSync(); }
+    function _isStoppedByUser() { return isStopedByUser; }
+
+    function _exitSync() {
+        if (_isContinueSync()) {
+            syncState = states.exit;
+            _cancelRequests();
+        }
+    }
 
     function Source(id, name, model) {
         this.model = model;
@@ -56,7 +271,7 @@
 
         this.isTokenFromDb = true;
         this.errCode = rho.errors.ERR_NONE;
-        this.strError = '';
+        this.error = '';
 
         this.__defineGetter__('isEmptyToken', function() {
             return this.token == 0;
@@ -120,7 +335,7 @@
                     dfr.reject(obj, err);
                 }
 
-                rho.notify(rho.events.SYNCHRONIZING, 'synchronizing' +this.name +'...', this.errCode, this.strError);
+                rho.notify(rho.events.SYNCHRONIZING, 'synchronizing' +this.name +'...', this.errCode, this.error);
                 if (this.isTokenFromDb && this.token > 1) {
                     syncServerChanges();
                 } else {
@@ -146,178 +361,6 @@
         this.reset = 0;
         this.port = null;
         this.last_sync_success = null;
-    }
-
-/*
-        function run(client) {
-            return $.Deferred(function(dfr){
-            // TODO: to implement the body
-                dfr.resolve(client);
-            }).promise();
-        }
-*/
-    function _isTimeout(msg) {
-        return (msg && msg.match(/time(d)?\s+out/i));
-    }
-
-    function _createClient() {
-        return $.Deferred(function(dfr){
-            // obtain client id from the server
-            rho.protocol.clientCreate().done(function(status, data){
-                if (data && data.client && data.client.client_id){
-                    // persist new client
-                    var client = new Client(data.client.client_id);
-                    rho.storage.insertClient(client).done(function(tx, client){
-                        dfr.resolve(client);
-                    }).fail(function(tx, error){
-                        dfr.reject(rho.errors.ERR_RUNTIME, "db access error" +error);
-                    });
-                } else {
-                    dfr.reject(rho.errors.ERR_UNEXPECTEDSERVERRESPONSE, data);
-                }
-            }).fail(function(status, error){
-                var errCode = _isTimeout(error) ? rho.errors.ERR_NOSERVERRESPONSE : rho.errors.ERR_NETWORK;
-                dfr.reject(errCode, error);
-            });
-        }).promise();
-    }
-
-    function login(login, password) {
-        return $.Deferred(function(dfr){
-            rho.protocol.login(login, password).done(function(){
-                rho.storage.listClientsId().done(function(tx, ids){
-                    // if any?
-                    if (0 < ids.length) {
-                        // ok, load first (for now)
-                        // TODO: to decide which on to load if there are many stored
-                        rho.storage.loadClient(ids[0]).done(function(tx, client){
-                            dfr.resolve(client);
-                        }).fail(function(tx, error){
-                            dfr.reject(rho.errors.ERR_RUNTIME, "db access error" +error);
-                        });
-                    } else {
-                        // None of them, going to obtain from the server
-                        _createClient().done(function(client){
-                            dfr.resolve(client);
-                        }).fail(function(errCode, errMsg){
-                            dfr.reject(errCode, errMsg);
-                        });
-                    }
-                }).fail(function(tx, error){
-                    dfr.reject(rho.errors.ERR_RUNTIME, "db access error" +error);
-                });
-            }).fail(function(status, error){
-                var errCode = _isTimeout(error) ? rho.errors.ERR_NOSERVERRESPONSE : rho.errors.ERR_NETWORK;
-                dfr.reject(errCode, error);
-            });
-        }).promise();
-    }
-
-    function getStartSourceId(dbSources) {
-        var startId = 0;
-        $.each(dbSources, function(name, dbSource){
-            startId = (dbSource.id > startId) ? dbSource.id : startId;
-        });
-        if (startId < rho.engine.maxConfigSrcId) {
-            startId =  rho.engine.maxConfigSrcId + 2;
-        } else {
-            startId += 1;
-        }
-        return startId;
-    }
-
-    function isContinueSync() { return syncState != states.exit && syncState != states.stop; }
-    function isSyncing() { return syncState == states.syncAllSources || syncState == states.syncSource; }
-
-    function _cancelRequests() {
-        //TODO: to implement
-        /*
-        if (m_NetRequest!=null)
-            m_NetRequest.cancel();
-
-        if (m_NetRequestClientID!=null)
-            m_NetRequestClientID.cancel();
-        */
-    }
-
-    function stopSync() {
-        if (isContinueSync()) {
-            syncState = states.stop;
-            _cancelRequests();
-        }
-    }
-    var isStopedByUser = false;
-    function stopSyncByUser() { isStopedByUser = true; stopSync(); }
-    function isStoppedByUser() { return isStopedByUser; }
-
-    function exitSync() {
-        if (isContinueSync()) {
-            syncState = states.exit;
-            _cancelRequests();
-        }
-    }
-
-    function getStartSource() {
-        $.each(sources, function(src) {
-            if (!src.isEmptyToken) return src;
-        });
-        return null;
-    }
-
-    function isSessionExist() {
-        return true; //TODO: to obtain and check cookie from the browser
-    }
-
-    function syncOneSource(source) {
-        return $.Deferred(function(dfr){
-            if (isSessionExist() && syncState != states.stop )
-                source.sync().done(function(){
-                    rho.notify(rho.events.SYNC_SOURCE_END, source);
-                    dfr.resolve(source);
-                }).fail(function(obj, error){
-                    if (source.errCode == rho.errors.ERR_NONE) {
-                        source.errCode = rho.errors.ERR_RUNTIME;
-                    }
-                    syncState = states.stop;
-                    rho.notify(rho.events.SYNC_SOURCE_END, source);
-                    dfr.reject(obj, error);
-                });
-        }).promise();
-    }
-
-    function syncAllSources() {
-        return $.Deferred(function(dfr){
-            var dfrMap = rho.deferredMapOn($.extend({}, sources, {'rhoStartSyncSource': startSrc}));
-            var syncErrors = [];
-
-            var startSrc = getStartSource();
-            if (startSrc) {
-                syncOneSource(startSrc).done(function(){
-                    dfrMap.resolve('rhoStartSyncSource', ["ok"]);
-                }).fail(function(obj, error){
-                    syncErrors.push({source: startSrc.name, errObject: obj, error: error});
-                    dfrMap.resolve('rhoStartSyncSource', ["error", obj, error]);
-                });
-            } else {
-                dfrMap.resolve('rhoStartSyncSource', ["ok"]);
-            }
-
-            $.each(sources, function(src) {
-                syncOneSource(src).done(function(){
-                    dfrMap.resolve(src.name, ["ok"]);
-                }).fail(function(obj, error){
-                    syncErrors.push({source: src.name, errObject: obj, error: error});
-                    dfrMap.resolve(src.name, ["error", obj, error]);
-                });
-            });
-
-            dfrMap.when().done(function(){
-                if (syncErrors.length == 0) dfr.resolve("ok");
-                else dfr.reject(syncErrors);
-            }).fail(function(){
-                dfr.reject(syncErrors);
-            });
-        }).promise();
     }
 
     $.extend(rho, {engine: publicInterface()});

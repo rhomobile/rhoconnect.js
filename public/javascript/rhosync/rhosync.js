@@ -6,7 +6,8 @@ var RhoSync = (function($) {
             init: init,
             login: login,
             logout: logout,
-            isLoggedIn: isLoggedIn
+            isLoggedIn: isLoggedIn,
+            syncAllSources: syncAllSources
         };
     }
 
@@ -77,7 +78,11 @@ var RhoSync = (function($) {
     }
 
     function isLoggedIn() {
-        return rho.engine.session ? true : false;
+        return rho.engine.isSessionExist();
+    }
+
+    function syncAllSources() {
+        return rho.engine.doSyncAllSources();
     }
 
     function _initDbSources(tx, configSources) {
@@ -238,6 +243,7 @@ var RhoSync = (function($) {
         domain: null,
         protocol: null,
         engine: null,
+        notify: null,
         storage: null
     };
 

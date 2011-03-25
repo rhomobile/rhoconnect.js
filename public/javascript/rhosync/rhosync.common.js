@@ -3,20 +3,20 @@
     function publicInterface() {
         return {
             errors: RhoSync.errors,
-            deferredMapOn: _deferredMapOn,
-            passRejectTo: _passRejectTo,
-            notify: _notify
+            deferredMapOn: deferredMapOn,
+            passRejectTo: passRejectTo,
+            notify: notify
         };
     }
 
     var rho = RhoSync.rho;
 
-    function _notify(type /*, arg1, arg2, ... argN*/) {
+    function notify(type /*, arg1, arg2, ... argN*/) {
         $(window).trigger(jQuery.Event(type), $.makeArray(arguments).slice(1));
         // fire exact notifications here
     }
 
-    function _passRejectTo(dfr, doReport) {
+    function passRejectTo(dfr, doReport) {
         return function() {
             if (doReport) {
                 //TODO: some log output
@@ -25,7 +25,7 @@
         };
     }
 
-    function _deferredMapOn(obj) {
+    function deferredMapOn(obj) {
         var dfrMap = {}; // to resolve/reject each exact item
         var dfrs = []; // to watch on all of them
 
