@@ -52,8 +52,8 @@ To deploy your rhosync.js web application on existing [RhoSync server](http://rh
 Use RhoSync global object with it methods as the API:
 
     // all API methods return deferred object to watch on
-    RhoSync.login("lars", "larspass").done(successCallback).fail(errorCallback);
-    RhoSync.syncAllSources("lars", "larspass").done(successCallback).fail(errorCallback);
+    RhoSync.login("username", "password").done(successCallback).fail(errorCallback);
+    RhoSync.syncAllSources().done(successCallback).fail(errorCallback);
 
 ## Meta
 Created and maintained by Dmitry Prokhorov.
