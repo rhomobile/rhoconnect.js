@@ -19,8 +19,12 @@
         this.url = url || '';
         this.params = params || '';
         this.removeAfterFire = removeAfterFire || false;
-        if (!url) {
+        if (url) {
             url = __canonizeRhoUrl(url);
+        }
+
+        this.toString = function() {
+            //TODO: to implement
         }
     }
 
@@ -74,7 +78,7 @@
         }
 
         function processSingleObject() {
-            if (!singleObjectSrcName.length) return;
+            if (!singleObjectSrcName) return;
 
             var src = engine.sources[singleObjectSrcName];
             if (src) {
@@ -178,11 +182,11 @@
             }
         }
 
-        function setSearchNotification(strUrl, strParams ) {
+        function setSearchNotification(url, params) {
             //LOG.INFO( "Set search notification. Url :" + strUrl + "; Params: " + strParams );
-            var strFullUrl = __resolveUrl(strUrl);
-            if (strFullUrl) {
-                searchNotification = new SyncNotification(strFullUrl, strParams, true);
+            var fullUrl = __resolveUrl(url);
+            if (fullUrl) {
+                searchNotification = new SyncNotification(fullUrl, params, true);
                 //LOG.INFO( " Done Set search notification. Url :" + strFullUrl + "; Params: " + strParams );
             }
         }
@@ -199,7 +203,7 @@
                     status = __getErrorText(errCode);
                 } else {
                     details = details || __getErrorText(errCode);
-                    status += (details.length() > 0 ? __getMessageText("details") + details: "");
+                    status += (details ? __getMessageText("details")+details : "");
                 }
                 //LOG.INFO("Status: "+strStatus); //TODO: to implement log
                 //syncStatusListener.reportStatus(status, errCode); //TODO: to implement statusListener
@@ -245,9 +249,9 @@
         function fireSyncNotification(src, isFinish, errCode, message ) {
             if (engine.getState() == engine.states.exit) return;
 
-            if (message.length() > 0 || errCode != rho.errors.ERR_NONE) {
+            if (message || errCode != rho.errors.ERR_NONE) {
                 if (!engine.isSearch()) {
-                    if (src != null && (message==null || message.length() == 0) )
+                    if (src != null && !message)
                         message = __getMessageText("sync_failed_for") + src.getName() + ".";
 
                     reportSyncStatus(message, errCode, src != null ? src.error : "");
@@ -268,8 +272,88 @@
             return sn != null ? sn : emptyNotify;
         }
 
-        function doFireSyncNotification(src, bFinish, nErrCode, strError, strParams, strServerError) {
-            //TODO: to implement
+        function doFireSyncNotification(src, isFinish, errCode, error, params, serverError) {
+            if (engine.isStopedByUser()) return;
+
+            try {
+                var pSN = null;
+
+                var strBody = "";
+                var bRemoveAfterFire = isFinish;
+                {
+                    pSN = getSyncNotifyBySrc(src);
+                    if (!pSN) return;
+
+                    strBody = "";
+
+                    if (src) {
+                        strBody += "total_count=" + src.totalCount;
+                        strBody += "&processed_count=" + src.curPageCount;
+                        strBody += "&processed_objects_count=" + getLastSyncObjectCount(src.id);
+                        strBody += "&cumulative_count=" + src.serverObjectsCount;
+                        strBody += "&source_id=" + src.id;
+                        strBody += "&source_name=" + src.getName();
+                    }
+
+                    strBody += (strBody ? "&" : "") +(params || "sync_type=incremental");
+
+                    strBody += "&status=";
+                    if (isFinish) {
+                        if (errCode == rho.errors.ERR_NONE) {
+                            //if (engine.isSchemaChanged()) {
+                            //    strBody += "schema_changed";
+                            //} else {
+                                strBody += (!src && !params) ? "complete" : "ok";
+                            //}
+                        } else {
+                            if (engine.isStopedByUser()) {
+                                errCode = rho.errors.ERR_CANCELBYUSER;
+                            }
+
+                            strBody += "error";
+                            strBody += "&error_code=" + errCode;
+
+                            if (error) {
+                                strBody += "&error_message=" + __urlEncode(error);
+                            } else if (src) {
+                                strBody += "&error_message=" + __urlEncode(src.error);
+                            }
+
+                            if (serverError) {
+                                strBody += "&" + serverError;
+                            } else if (src && src.serverError) {
+                                strBody += "&" + src.serverError;
+                            }
+                        }
+
+                        if (src) {
+                            strBody += makeCreateObjectErrorBody(src.id);
+                        }
+                    } else {
+                        strBody += "in_progress";
+                    }
+
+                    strBody += "&rho_callback=1";
+                    if (pSN.params) {
+                        if (!pSN.params.match(/^&/)) {
+                            strBody += "&";
+                        }
+                        strBody += pSN.params;
+                    }
+
+                    bRemoveAfterFire = bRemoveAfterFire && pSN.removeAfterFire;
+                }
+                if (bRemoveAfterFire) {
+                    clearNotification(src);
+                }
+                //LOG.INFO("Fire notification. Source : " + (src ? src.name : "") +"; " +pSN.toString());
+
+                if (callNotify(pSN, strBody)) {
+                    clearNotification(src);
+                }
+            } catch(exc) {
+                //LOG.ERROR("Fire notification failed.", exc);
+            }
         }
 
         function callNotify(oNotify, strBody) {

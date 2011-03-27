@@ -63,7 +63,7 @@ describe("RhoSync", function() {
 
         $(window).bind(rhosync.rho.events.GENERIC_NOTIFICATION, null, notify);
 
-        rhosync.rho.protocol.login("lars", "larspass").done(function(data, response){
+        rhosync.rho.protocol.login(userlogin, userpass).done(function(data, response){
             okHdlr("success", response);
         }).fail(function(data, response){
             okHdlr("error", response);
@@ -84,7 +84,7 @@ describe("RhoSync", function() {
 
         $(window).bind(rhosync.rho.events.GENERIC_NOTIFICATION, null, notify);
 
-        rhosync.rho.protocol.login("not_lars", "not_larspass").done(function(data, response){
+        rhosync.rho.protocol.login(userlogin, wrongpass).done(function(data, response){
             okHdlr("success", response);
         }).fail(function(data, response){
             okHdlr("error", response);

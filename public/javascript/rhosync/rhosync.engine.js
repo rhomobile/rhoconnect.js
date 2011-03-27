@@ -272,6 +272,11 @@
         this.isTokenFromDb = true;
         this.errCode = rho.errors.ERR_NONE;
         this.error = '';
+        this.serverError = '';
+
+        this.totalCount = 0;
+        this.curPageCount = 0;
+        this.serverObjectsCount = 0;
 
         this.__defineGetter__('isEmptyToken', function() {
             return this.token == 0;

@@ -79,7 +79,7 @@ describe("RhoSync use cases", function(){
 
             expect(rhosync.isLoggedIn()).not.toBeTruthy();
 
-            rhosync.login("lars", "larspass").done(okHdlr).fail(errHdlr);
+            rhosync.login(userlogin, userpass).done(okHdlr).fail(errHdlr);
 
             waitsForSpies([okHdlr, errHdlr], 'login timeout');
             runs(function(){
@@ -105,7 +105,7 @@ describe("RhoSync use cases", function(){
 
             expect(rhosync.isLoggedIn()).not.toBeTruthy();
 
-            rhosync.login("not_lars", "not_larspass").done(okHdlr).fail(errHdlr);
+            rhosync.login(userlogin, wrongpass).done(okHdlr).fail(errHdlr);
 
             waitsForSpies([okHdlr, errHdlr], 'login timeout');
             runs(function(){
@@ -123,7 +123,7 @@ describe("RhoSync use cases", function(){
     describe("USE CASE: User logout", function(){
         beforeEach(function(){
             //runs(function(){
-                rhosync.login("lars", "larspass");
+                rhosync.login(userlogin, userpass);
             //});
         });
 
@@ -158,7 +158,7 @@ describe("RhoSync use cases", function(){
         expect(rhosync.isLoggedIn).toBeDefined();
 
         runs(function(){
-            rhosync.login("lars", "larspass").done(okHdlr).fail(errHdlr);
+            rhosync.login(userlogin, userpass).done(okHdlr).fail(errHdlr);
         });
 
         waitsForSpies([okHdlr, errHdlr], 'login timeout');
@@ -181,7 +181,7 @@ describe("RhoSync use cases", function(){
         expect(rhosync.isLoggedIn).toBeDefined();
 
         runs(function(){
-            rhosync.login("lars", "larspass").done(okHdlr).fail(errHdlr);
+            rhosync.login(userlogin, userpass).done(okHdlr).fail(errHdlr);
         });
 
         waitsForSpies([okHdlr, errHdlr], 'login timeout');
@@ -218,7 +218,7 @@ describe("RhoSync use cases", function(){
         expect(rhosync.login).toBeDefined();
         expect(rhosync.isLoggedIn).toBeDefined();
 
-        rhosync.login("not_lars", "not_larspass").done(okHdlr).fail(errHdlr);
+        rhosync.login(userlogin, wrongpass).done(okHdlr).fail(errHdlr);
 
         waitsForSpies([okHdlr, errHdlr], 'login timeout');
         runs(function(){

@@ -20,6 +20,11 @@ function waitsForSpies(spy, msg, timeout) {
 }
 
 beforeEach(function() {
+
+    userlogin = "testUserToFailAuth";
+    userpass = "userpass";
+    wrongpass = "wrongpass";
+
     rhosync = RhoSync;
     notified = false;
     notify = function(evt, obj){
