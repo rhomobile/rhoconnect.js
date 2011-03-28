@@ -30,6 +30,8 @@
 
     function SyncNotify(engine) {
 
+        var LOG = new rho.Logger('SyncNotify');
+
         var srcIDAndObject = {};
         var singleObjectSrcName = '';
         var singleObjectID = '';
@@ -174,7 +176,7 @@
         }
 
         function setSyncNotification(srcId, notification) {
-            //LOG.INFO("Set notification. Source ID: " + source_id + ";" + (pNotify != null? pNotify.toString() : "") );
+            LOG.info("Set notification. Source ID: " +srcId +";" +(notification ? notification.toString() : ""));
             if (srcId == -1) {
                 allNotification = notification;
             } else {
@@ -183,18 +185,17 @@
         }
 
         function setSearchNotification(url, params) {
-            //LOG.INFO( "Set search notification. Url :" + strUrl + "; Params: " + strParams );
+            LOG.info( "Set search notification. Url: " +url +"; Params: " +params );
             var fullUrl = __resolveUrl(url);
             if (fullUrl) {
                 searchNotification = new SyncNotification(fullUrl, params, true);
-                //LOG.INFO( " Done Set search notification. Url :" + strFullUrl + "; Params: " + strParams );
+                LOG.info( "Done Set search notification. Url :" +fullUrl +"; Params: " +params );
             }
         }
 
         function setSyncStatusListener(listener) {
                 syncStatusListener = listener;
         }
-
 
         function reportSyncStatus(status, errCode, details) {
             if (syncStatusListener != null
@@ -205,7 +206,7 @@
                     details = details || __getErrorText(errCode);
                     status += (details ? __getMessageText("details")+details : "");
                 }
-                //LOG.INFO("Status: "+strStatus); //TODO: to implement log
+                LOG.info("Status: " +status);
                 //syncStatusListener.reportStatus(status, errCode); //TODO: to implement statusListener
             }
         }
@@ -346,13 +347,13 @@
                 if (bRemoveAfterFire) {
                     clearNotification(src);
                 }
-                //LOG.INFO("Fire notification. Source : " + (src ? src.name : "") +"; " +pSN.toString());
+                LOG.info("Fire notification. Source: " +(src ? src.name : "") +"; " +pSN.toString());
 
                 if (callNotify(pSN, strBody)) {
                     clearNotification(src);
                 }
             } catch(exc) {
-                //LOG.ERROR("Fire notification failed.", exc);
+                LOG.error("Fire notification failed.", exc);
             }
         }
 
@@ -366,7 +367,7 @@
             //TODO: implement real notification here!
             //NetResponse resp = getNet().pushData( oNotify.m_strUrl, strBody, null );
             //if ( !resp.isOK() )
-            //    LOG.ERROR( "Fire object notification failed. Code: " + resp.getRespCode() + "; Error body: " + resp.getCharData() );
+            //    LOG.error( "Fire object notification failed. Code: " + resp.getRespCode() + "; Error body: " + resp.getCharData() );
             //else
             //{
             //    String szData = resp.getCharData();
@@ -377,15 +378,15 @@
         }
 
         function clearNotification(src) {
-            //LOG.INFO( "Clear notification. Source : " + (src != null ? src.name() : "" ) );
+            LOG.info("Clear notification. Source: " +(src ? src.name() : ""));
             if (engine.isSearch()) searchNotification = null;
             else syncNotifications[src.id] = null;
         }
 
-        function clearSyncNotification(source_id) {
-            //LOG.INFO( "Clear notification. Source ID: " + source_id );
-            if (source_id == -1) allNotification = null; //Clear all
-            else syncNotifications[source_id] = null;
+        function clearSyncNotification(srcId) {
+            LOG.info("Clear notification. Source ID: " +srcId);
+            if (srcId == -1) allNotification = null; //Clear all
+            else syncNotifications[srcId] = null;
         }
 
         function cleanLastSyncObjectCount() {
@@ -416,11 +417,11 @@
                 strBody += "&error_message=" + __urlEncode(strMessage != null? strMessage : "");
                 strBody += "&rho_callback=1";
 
-                //LOG.INFO( "Login callback: " + oNotify.toString() + ". Body: "+ strBody );
+                LOG.info("Login callback: " +oNotify.toString() +". Body: " +strBody);
 
                 callNotify(oNotify, strBody);
             //} catch (Exception exc) {
-            //    //LOG.ERROR("Call Login callback failed.", exc);
+            //    LOG.error("Call Login callback failed.", exc);
             //}
         }
 
