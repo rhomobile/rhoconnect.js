@@ -2,6 +2,7 @@
 
     function publicInterface() {
         return {
+            Logger: Logger,
             errors: RhoSync.errors,
             deferredMapOn: deferredMapOn,
             passRejectTo: passRejectTo,
@@ -10,6 +11,75 @@
     }
 
     var rho = RhoSync.rho;
+
+    function Logger(name) {
+
+        var levels = {
+            trace: 0,
+            info: 1,
+            warning: 2,
+            error: 3,
+            fatal: 4
+        };
+
+        var level = parseLogLevel(rho.config.logLevel);
+
+        this.trace = function(message) {
+            var l = levels.trace;
+            if (level > l) return;
+            withConsole(function(c){
+                c.info(buildMsg(l, message))
+            });
+        };
+
+        this.info = function(message) {
+            var l = levels.info;
+            if (level > l) return;
+            withConsole(function(c){
+                c.info(buildMsg(l, message))
+            });
+        };
+
+        this.warning = function(message) {
+            var l = levels.warning;
+            if (level > l) return;
+            withConsole(function(c){
+                c.warn(buildMsg(l, message))
+            });
+        };
+
+        this.error = function(message) {
+            var l = levels.trace;
+            if (level > l) return;
+            withConsole(function(c){
+                c.error(buildMsg(l, message))
+            });
+        };
+
+        this.fatal = function(message) {
+            var l = levels.trace;
+            if (level > l) return;
+            withConsole(function(c){
+                c.error(buildMsg(l, message))
+            });
+        };
+
+        function parseLogLevel(name) {
+            var isValid = ("string" == typeof name && name.toLowerCase() in levels);
+            return isValid ? levels[name.toLowerCase()] : levels.warning;
+        }
+
+        function withConsole(callback) {
+          if (window.console) {
+            callback(window.console)
+          }
+        }
+
+        function buildMsg(severity, text) {
+            var date = Date().replace(/\S+\s(.*?)\sGMT\+.*$/, '$1');
+            return date +' [' +severity +'] ' +' (' +name +') ' +text;
+        }
+    }
 
     function notify(type /*, arg1, arg2, ... argN*/) {
         $(window).trigger(jQuery.Event(type), $.makeArray(arguments).slice(1));
