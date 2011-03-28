@@ -5,8 +5,7 @@
             Logger: Logger,
             errors: RhoSync.errors,
             deferredMapOn: deferredMapOn,
-            passRejectTo: passRejectTo,
-            notify: notify
+            passRejectTo: passRejectTo
         };
     }
 
@@ -21,6 +20,7 @@
             error: 3,
             fatal: 4
         };
+        var levelTag = ['Trace', 'Info', 'Warning', 'Error', 'Fatal'];
 
         var level = parseLogLevel(rho.config.logLevel);
 
@@ -28,7 +28,7 @@
             var l = levels.trace;
             if (level > l) return;
             withConsole(function(c){
-                c.info(buildMsg(l, message))
+                c.info(buildMsg(l, message));
             });
         };
 
@@ -36,31 +36,40 @@
             var l = levels.info;
             if (level > l) return;
             withConsole(function(c){
-                c.info(buildMsg(l, message))
+                c.info(buildMsg(l, message));
             });
         };
 
-        this.warning = function(message) {
+        this.warning = function(message, exception) {
             var l = levels.warning;
             if (level > l) return;
             withConsole(function(c){
-                c.warn(buildMsg(l, message))
+                c.warn(buildMsg(l, message));
+                if (exception) {
+                    c.warn('EXCEPTION: ' +exception);
+                }
             });
         };
 
-        this.error = function(message) {
-            var l = levels.trace;
+        this.error = function(message, exception) {
+            var l = levels.error;
             if (level > l) return;
             withConsole(function(c){
-                c.error(buildMsg(l, message))
+                c.error(buildMsg(l, message));
+                if (exception) {
+                    c.error('EXCEPTION: ' +exception);
+                }
             });
         };
 
-        this.fatal = function(message) {
-            var l = levels.trace;
+        this.fatal = function(message, exception) {
+            var l = levels.fatal;
             if (level > l) return;
             withConsole(function(c){
-                c.error(buildMsg(l, message))
+                c.error(buildMsg(l, message));
+                if (exception) {
+                    c.error('EXCEPTION: ' +exception);
+                }
             });
         };
 
@@ -77,13 +86,8 @@
 
         function buildMsg(severity, text) {
             var date = Date().replace(/\S+\s(.*?)\sGMT\+.*$/, '$1');
-            return date +' [' +severity +'] ' +' (' +name +') ' +text;
+            return date +' [' +levelTag[severity] +']' +' (' +name +') ' +text;
         }
-    }
-
-    function notify(type /*, arg1, arg2, ... argN*/) {
-        $(window).trigger(jQuery.Event(type), $.makeArray(arguments).slice(1));
-        // fire exact notifications here
     }
 
     function passRejectTo(dfr, doReport) {

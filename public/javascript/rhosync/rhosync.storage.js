@@ -5,6 +5,7 @@
         // Client
         listClientsId: listClientsId,
         loadClient: loadClient,
+        loadAllClients: loadAllClients,
         storeClient: storeClient,
         insertClient: insertClient,
         deleteClient: deleteClient,
@@ -300,6 +301,27 @@
         }).promise();
     }
 
+    function loadAllClients(optionalTx) {
+        return $.Deferred(function(dfr){
+            _executeSQL('SELECT * FROM client_info', null, optionalTx).done(function(tx, rs) {
+                var clients = [];
+                for(var i=0; i<rs.rows.length; i++) {
+                    var client = new rho.engine.Client(id);
+                    client.session           = rs.rows.item(i)['session'];
+                    client.token             = rs.rows.item(i)['token'];
+                    client.token_sent        = rs.rows.item(i)['token_sent'];
+                    client.reset             = rs.rows.item(i)['reset'];
+                    client.port              = rs.rows.item(i)['port'];
+                    client.last_sync_success = rs.rows.item(i)['last_sync_success'];
+                    clients.push(client);
+                }
+                dfr.resolve(tx, clients);
+            }).fail(function(obj, err) {
+                dfr.reject(obj, err);
+            });
+        }).promise();
+    }
+
     function storeClient(client, optionalTx, isNew) {
         var updateQuery = 'UPDATE client_info SET'
             +' session = ?,'
@@ -375,7 +397,9 @@
                     var source = new rho.engine.Source(
                             rs.rows.item(0)['source_id'],
                             rs.rows.item(0)['name'],
-                            null /*as model*/
+                            rs.rows.item(0)['sync_type'],
+                            rho.storage,
+                            rho.engine
                             );
                     source.token                = rs.rows.item(0)['token'];
                     source.sync_priority        = rs.rows.item(0)['sync_priority'];
@@ -393,6 +417,7 @@
                     source.schema_version       = rs.rows.item(0)['schema_version'];
                     source.associations         = rs.rows.item(0)['associations'];
                     source.blob_attribs         = rs.rows.item(0)['blob_attribs'];
+                    source.parseAssociations();
                     dfr.resolve(tx, source);
                 }
             }).fail(function(obj, err) {
@@ -403,30 +428,33 @@
 
     function loadAllSources(optionalTx) {
         return $.Deferred(function(dfr){
-            _executeSQL('SELECT * FROM sources', null, optionalTx).done(function(tx, rs) {
+            _executeSQL('SELECT * FROM sources ORDER BY sync_priority', null, optionalTx).done(function(tx, rs) {
                 var sources = [];
                 for(var i=0; i<rs.rows.length; i++) {
-                    var source = rho.engine.Source(
-                            rs.rows.item(0)['source_id'],
-                            rs.rows.item(0)['name'],
-                            null /*as model*/
+                    var source = new rho.engine.Source(
+                            rs.rows.item(i)['source_id'],
+                            rs.rows.item(i)['name'],
+                            rs.rows.item(i)['sync_type'],
+                            rho.storage,
+                            rho.engine
                             );
-                    source.token                = rs.rows.item(0)['token'];
-                    source.sync_priority        = rs.rows.item(0)['sync_priority'];
-                    source.partition            = rs.rows.item(0)['partition'];
-                    source.sync_type            = rs.rows.item(0)['sync_type'];
-                    source.metadata             = rs.rows.item(0)['metadata'];
-                    source.last_updated         = rs.rows.item(0)['last_updated'];
-                    source.last_inserted_size   = rs.rows.item(0)['last_inserted_size'];
-                    source.last_deleted_size    = rs.rows.item(0)['last_deleted_size'];
-                    source.last_sync_duration   = rs.rows.item(0)['last_sync_duration'];
-                    source.last_sync_success    = rs.rows.item(0)['last_sync_success'];
-                    source.backend_refresh_time = rs.rows.item(0)['backend_refresh_time'];
-                    source.source_attribs       = rs.rows.item(0)['source_attribs'];
-                    source.schema               = rs.rows.item(0)['schema'];
-                    source.schema_version       = rs.rows.item(0)['schema_version'];
-                    source.associations         = rs.rows.item(0)['associations'];
-                    source.blob_attribs         = rs.rows.item(0)['blob_attribs'];
+                    source.token                = rs.rows.item(i)['token'];
+                    source.sync_priority        = rs.rows.item(i)['sync_priority'];
+                    source.partition            = rs.rows.item(i)['partition'];
+                    source.sync_type            = rs.rows.item(i)['sync_type'];
+                    source.metadata             = rs.rows.item(i)['metadata'];
+                    source.last_updated         = rs.rows.item(i)['last_updated'];
+                    source.last_inserted_size   = rs.rows.item(i)['last_inserted_size'];
+                    source.last_deleted_size    = rs.rows.item(i)['last_deleted_size'];
+                    source.last_sync_duration   = rs.rows.item(i)['last_sync_duration'];
+                    source.last_sync_success    = rs.rows.item(i)['last_sync_success'];
+                    source.backend_refresh_time = rs.rows.item(i)['backend_refresh_time'];
+                    source.source_attribs       = rs.rows.item(i)['source_attribs'];
+                    source.schema               = rs.rows.item(i)['schema'];
+                    source.schema_version       = rs.rows.item(i)['schema_version'];
+                    source.associations         = rs.rows.item(i)['associations'];
+                    source.blob_attribs         = rs.rows.item(i)['blob_attribs'];
+                    source.parseAssociations();
                     sources.push(source);
                 }
                 dfr.resolve(tx, sources);

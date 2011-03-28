@@ -35,8 +35,9 @@ var RhoSync = (function($) {
 
     const events = {
         GENERIC_NOTIFICATION: 'rhoSyncGenericNotification',
-        ERROR: 'rhoSyncErrorNotification',
-        CLIENT_CREATED: 'rhoSyncClientCreatedNotification',
+        ERROR: 'rhoSyncError',
+        CLIENT_CREATED: 'rhoSyncClientCreated',
+        STATUS_CHANGED: 'rhoSyncStatusChanged',
         SYNCHRONIZING: 'rhoSyncSourceSynchronizing',
         SYNC_SOURCE_END: 'rhoSyncSourceSynchronizationEnd'
     };

@@ -4,7 +4,8 @@
         return {
             getSession: _getSession,
             login: login,
-            clientCreate: clientCreate
+            clientCreate: clientCreate,
+            clientReset: clientReset
         };
     }
 
@@ -59,10 +60,10 @@
                  data: $.toJSON(data),
                 dataType: 'json'
             }).done(function(data, status, xhr){
-                rho.notify(rho.events.GENERIC_NOTIFICATION, status, data, xhr);
+                rho.notify.byEvent(rho.events.GENERIC_NOTIFICATION, status, data, xhr);
                 dfr.resolve(status, data, xhr);
             }).fail(function(xhr, status, error){
-                rho.notify(rho.events.GENERIC_NOTIFICATION, status, error, xhr);
+                rho.notify.byEvent(rho.events.GENERIC_NOTIFICATION, status, error, xhr);
                 dfr.reject(status, error, xhr);
             });
         }).promise();
@@ -83,8 +84,12 @@
     */
 
     var clientCreate = function() {
-        var dfr = $.Deferred();
         return _net_call(rho.config.syncServer+'/clientcreate', "", "get", "text/plain");
+    };
+
+    var clientReset = function(id) {
+        // Request: GET /application/clientreset?client_id=7771137f497b4a8789e62da321117f50
+        return _net_call(rho.config.syncServer+'/clientreset', {client_id: id}, "get", "text/plain");
     };
 
     $.extend(rho, {protocol: publicInterface()});

@@ -19,12 +19,12 @@
         this.url = url || '';
         this.params = params || '';
         this.removeAfterFire = removeAfterFire || false;
-        if (url) {
-            url = __canonizeRhoUrl(url);
+        if (this.url) {
+            this.url = __canonizeRhoUrl(this.url);
         }
 
         this.toString = function() {
-            //TODO: to implement
+            return "SyncNotification('" +this.url +"', '" +this.params +"', " +this.removeAfterFire +")";
         }
     }
 
@@ -56,7 +56,7 @@
             if ("string" == typeof source) { // if source by name
                 singleObjectSrcName = source;
                 singleObjectID = objectId.match(/^\{/) ? objectId.substring(1, objectId.length-2) : objectId ;
-            } else { // if source by id or by reference
+            } else { // else it is source by id or by reference
                 var srcId = ("number" == typeof source) ? source : /*then it is an object*/ source.id;
                 if (srcId) {
                     var hashObject = srcIDAndObject[srcId];
@@ -98,7 +98,7 @@
 
             strUrl = __resolveUrl(this.objectNotifyUrl);
 
-            $.each(srcIDAndObject, function(nSrcID, hashObject){
+            $.each(srcIDAndObject, function(srcId, hashObject){
                 $.each(hashObject, function(strObject, nNotifyType){
 
                     if (nNotifyType == action.none) return;
@@ -109,13 +109,13 @@
 
                     if (nNotifyType == action['delete']) {
                         strBody += "deleted[][object]=" + strObject;
-                        strBody += "&deleted[][source_id]=" + nSrcID;
+                        strBody += "&deleted[][source_id]=" + srcId;
                     } else if (nNotifyType == action.update) {
                         strBody += "updated[][object]=" + strObject;
-                        strBody += "&updated[][source_id]=" + nSrcID;
+                        strBody += "&updated[][source_id]=" + srcId;
                     } else if (nNotifyType == action.create) {
                         strBody += "created[][object]=" + strObject;
-                        strBody += "&created[][source_id]=" + nSrcID;
+                        strBody += "&created[][source_id]=" + srcId;
                     }
 
                     hashObject[strObject] = action.none;
@@ -126,14 +126,14 @@
             callNotify(new SyncNotification(strUrl,"",false), strBody);
         }
 
-         function onObjectChanged(srcId, objectId, type) {
+         function onObjectChanged(srcId, objectId, actionType) {
             processSingleObject();
 
             var hashObject = srcIDAndObject[srcId];
             if (!hashObject) return;
 
             if(objectId in hashObject) {
-                hashObject[objectId] = type;
+                hashObject[objectId] = actionType;
             }
         }
 
@@ -146,8 +146,8 @@
             hashErrors[objectId] = error;
         }
 
-        function makeCreateObjectErrorBody(nSrcID) {
-            var hashErrors = hashCreateObjectErrors[nSrcID];
+        function makeCreateObjectErrorBody(srcId) {
+            var hashErrors = hashCreateObjectErrors[srcId];
             if (!hashErrors) return "";
 
             var strBody = "";
@@ -207,7 +207,7 @@
                     status += (details ? __getMessageText("details")+details : "");
                 }
                 LOG.info("Status: " +status);
-                //syncStatusListener.reportStatus(status, errCode); //TODO: to implement statusListener
+                rho.notify.byEvent(rho.events.STATUS_CHANGED, status, errCode);
             }
         }
 
@@ -232,7 +232,7 @@
         }
 */
 
-        function fireAllSyncNotifications(isFinish, errCode, error, serverError ) {
+        this.fireAllSyncNotifications = function(isFinish, errCode, error, serverError ) {
             if (engine.getState() == engine.states.exit) return;
 
             if(errCode != rho.errors.ERR_NONE) {
@@ -247,7 +247,7 @@
             }
         }
 
-        function fireSyncNotification(src, isFinish, errCode, message ) {
+        this.fireSyncNotification = function(src, isFinish, errCode, message ) {
             if (engine.getState() == engine.states.exit) return;
 
             if (message || errCode != rho.errors.ERR_NONE) {
@@ -259,7 +259,7 @@
                 }
             }
             doFireSyncNotification(src, isFinish, errCode, "", "", "" );
-        }
+        };
 
         function getSyncNotifyBySrc(src) {
             var sn = null; // sync notification
@@ -389,21 +389,21 @@
             else syncNotifications[srcId] = null;
         }
 
-        function cleanLastSyncObjectCount() {
+        this.cleanLastSyncObjectCount = function() {
             hashSrcObjectCount = {};
-        }
+        };
 
-        function incLastSyncObjectCount(nSrcID) {
-            var nCount = hashSrcObjectCount[nSrcID] || 0;
+        function incLastSyncObjectCount(srcId) {
+            var nCount = hashSrcObjectCount[srcId] || 0;
             nCount += 1;
 
-            hashSrcObjectCount[nSrcID] = nCount;
+            hashSrcObjectCount[srcId] = nCount;
 
             return nCount || 0;
         }
 
-        function getLastSyncObjectCount(nSrcID) {
-            return hashSrcObjectCount[nSrcID] || 0;
+        function getLastSyncObjectCount(srcId) {
+            return hashSrcObjectCount[srcId] || 0;
         }
 
 
@@ -469,6 +469,14 @@
     function __urlEncode(param) {
     }
 
-    $.extend(rho, {notify: publicInterface()});
+    function notifyByEvent(type /*, arg1, arg2, ... argN*/) {
+        $(window).trigger(jQuery.Event(type), $.makeArray(arguments).slice(1));
+        // fire exact notifications here
+    }
+
+    $.extend(rho, {
+        notify: publicInterface(),
+        byEvent: notifyByEvent
+    });
 
 })(jQuery);
