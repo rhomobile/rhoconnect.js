@@ -2,7 +2,9 @@
 
     function publicInterface() {
         return {
-            SyncNotify: SyncNotify
+            SyncNotify: SyncNotify,
+            SyncNotification: SyncNotification,
+            byEvent: notifyByEvent
         };
     }
 
@@ -75,9 +77,9 @@
             srcIDAndObject = {};
         }
 
-        function cleanCreateObjectErrors() {
+        this.cleanCreateObjectErrors = function() {
             hashCreateObjectErrors = {};
-        }
+        };
 
         function processSingleObject() {
             if (!singleObjectSrcName) return;
@@ -158,8 +160,8 @@
             return strBody;
         }
 
-         function onSyncSourceEnd(nSrc, sources) {
-            var src = sources[nSrc];
+         this.onSyncSourceEnd = function(nSrc, sourcesArray) {
+            var src = sourcesArray[nSrc];
 
             if (engine.getState() == engine.states.stop && src.errCode != rho.errors.ERR_NONE) {
                 var pSN = getSyncNotifyBySrc(src);
@@ -173,7 +175,7 @@
                 fireSyncNotification(src, true, src.errCode, "");
 
             cleanCreateObjectErrors();
-        }
+        };
 
         function setSyncNotification(srcId, notification) {
             LOG.info("Set notification. Source ID: " +srcId +";" +(notification ? notification.toString() : ""));
@@ -245,7 +247,7 @@
             if (sn) {
                 doFireSyncNotification(null, isFinish, errCode, error, "", serverError);
             }
-        }
+        };
 
         this.fireSyncNotification = function(src, isFinish, errCode, message ) {
             if (engine.getState() == engine.states.exit) return;
@@ -407,9 +409,9 @@
         }
 
 
-        function callLoginCallback(oNotify, nErrCode, strMessage) {
+        this.callLoginCallback = function(oNotify, nErrCode, strMessage) {
             //try {
-                if (engine.isStopedByUser())
+                if (engine.isStoppedByUser())
                     return;
 
                 var strBody = "error_code=" + nErrCode;
@@ -423,7 +425,7 @@
             //} catch (Exception exc) {
             //    LOG.error("Call Login callback failed.", exc);
             //}
-        }
+        };
 
         function isReportingEnabled() {
             return enableReporting && enableReportingGlobal;
@@ -475,8 +477,7 @@
     }
 
     $.extend(rho, {
-        notify: publicInterface(),
-        byEvent: notifyByEvent
+        notify: publicInterface()
     });
 
 })(jQuery);

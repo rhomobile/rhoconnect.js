@@ -22,8 +22,8 @@
         tx: _tx,
         roTx: _roTx,
         rwTx: _rwTx,
-        executeSQL: _executeSQL,
-        executeBatchSQL: _executeBatchSQL,
+        executeSql: _executeSql,
+        executeBatchSql: _executeBatchSql,
         initSchema: _initSchema,
         getAllTableNames: _getAllTableNames
         };
@@ -146,7 +146,7 @@
         return _tx("read-write", optionalDb);
     }
 
-    function _executeSQL(sql, values, optionalTx) {
+    function _executeSql(sql, values, optionalTx) {
         return $.Deferred(function(dfr){
             function execInTx(tx, sql, values) {
                 tx.executeSql(sql, values, $.proxy(function(tx, rs){
@@ -171,7 +171,7 @@
         }).promise();
     }
 
-    function _executeBatchSQL(sql, optionalTx)
+    function _executeBatchSql(sql, optionalTx)
     {
         var statements = sql.replace(/^\s+|;\s*$/, '').split(";");
 
@@ -194,7 +194,7 @@
             if (0 < sqlArray.length) {
                 var sql = sqlArray.shift();
                 // execute current statement
-                _executeSQL(sql, null, tx).done(function(tx, rs){
+                _executeSql(sql, null, tx).done(function(tx, rs){
                     // so far, so good
                     dfr.resolve(tx, rs, sql);
                     // execute next statement recursively
@@ -228,13 +228,13 @@
 
     function _initSchema()
     {
-        return _executeBatchSQL(initDbSchemaSQL);
+        return _executeBatchSql(initDbSchemaSQL);
     }
 
     function _getAllTableNames(optionalTx)
     {
         return $.Deferred(function(dfr){
-            _executeSQL("SELECT name FROM sqlite_master WHERE type='table'",
+            _executeSql("SELECT name FROM sqlite_master WHERE type='table'",
                     null, optionalTx).done(function(tx, rs){
                 var tableNames = [];
                 for(var i=0; i<rs.rows.length; i++) {
@@ -267,7 +267,7 @@
 
     function listClientsId(optionalTx) {
         return $.Deferred(function(dfr){
-            _executeSQL('SELECT client_id FROM client_info', null, optionalTx).done(function(tx, rs) {
+            _executeSql('SELECT client_id FROM client_info', null, optionalTx).done(function(tx, rs) {
                 var ids = [];
                 for(var i=0; i<rs.rows.length; i++) {
                     ids.push(rs.rows.item(i)['client_id']);
@@ -281,7 +281,7 @@
 
     function loadClient(id, optionalTx) {
         return $.Deferred(function(dfr){
-            _executeSQL('SELECT * FROM client_info WHERE client_id = ?', [id],
+            _executeSql('SELECT * FROM client_info WHERE client_id = ?', [id],
                     optionalTx).done(function(tx, rs) {
                 if (0 == rs.rows.length) {
                     dfr.reject(id, 'Not found');
@@ -303,10 +303,10 @@
 
     function loadAllClients(optionalTx) {
         return $.Deferred(function(dfr){
-            _executeSQL('SELECT * FROM client_info', null, optionalTx).done(function(tx, rs) {
+            _executeSql('SELECT * FROM client_info', null, optionalTx).done(function(tx, rs) {
                 var clients = [];
                 for(var i=0; i<rs.rows.length; i++) {
-                    var client = new rho.engine.Client(id);
+                    var client = new rho.engine.Client(rs.rows.item(i)['client_id']);
                     client.session           = rs.rows.item(i)['session'];
                     client.token             = rs.rows.item(i)['token'];
                     client.token_sent        = rs.rows.item(i)['token_sent'];
@@ -341,7 +341,7 @@
             +' client_id'
             +' ) VALUES (?, ?, ?, ?, ?, ?, ?)';
         return $.Deferred(function(dfr){
-            _executeSQL(isNew ? insertQuery : updateQuery, [
+            _executeSql(isNew ? insertQuery : updateQuery, [
                 client.session,
                 client.token,
                 client.token_sent,
@@ -363,7 +363,7 @@
     function deleteClient(clientOrId, optionalTx) {
         var id = ("object" == typeof clientOrId) ? clientOrId.id : clientOrId;
         return $.Deferred(function(dfr){
-            _executeSQL('DELETE FROM client_info WHERE client_id = ?', [id], optionalTx).done(function(tx, rs) {
+            _executeSql('DELETE FROM client_info WHERE client_id = ?', [id], optionalTx).done(function(tx, rs) {
                     dfr.resolve(tx, null);
             }).fail(function(obj, err) {
                 dfr.reject(obj, err);
@@ -375,7 +375,7 @@
 
     function listSourcesId(optionalTx) {
         return $.Deferred(function(dfr){
-            _executeSQL('SELECT source_id FROM sources', null, optionalTx).done(function(tx, rs) {
+            _executeSql('SELECT source_id FROM sources', null, optionalTx).done(function(tx, rs) {
                 var ids = [];
                 for(var i=0; i<rs.rows.length; i++) {
                     ids.push(rs.rows.item(i)['source_id']);
@@ -389,7 +389,7 @@
 
     function loadSource(id, optionalTx) {
         return $.Deferred(function(dfr){
-            _executeSQL('SELECT * FROM sources WHERE source_id = ?', [id],
+            _executeSql('SELECT * FROM sources WHERE source_id = ?', [id],
                     optionalTx).done(function(tx, rs) {
                 if (0 == rs.rows.length) {
                     dfr.reject(id, 'Not found');
@@ -428,7 +428,7 @@
 
     function loadAllSources(optionalTx) {
         return $.Deferred(function(dfr){
-            _executeSQL('SELECT * FROM sources ORDER BY sync_priority', null, optionalTx).done(function(tx, rs) {
+            _executeSql('SELECT * FROM sources ORDER BY sync_priority', null, optionalTx).done(function(tx, rs) {
                 var sources = [];
                 for(var i=0; i<rs.rows.length; i++) {
                     var source = new rho.engine.Source(
@@ -505,7 +505,7 @@
             +' source_id'
             +' ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
         return $.Deferred(function(dfr){
-            _executeSQL(isNew ? insertQuery : updateQuery, [
+            _executeSql(isNew ? insertQuery : updateQuery, [
                 source.name,
                 source.token,
                 source.sync_priority,
@@ -538,7 +538,7 @@
     function deleteSource(sourceOrId, optionalTx) {
         var id = ("object" == typeof sourceOrId) ? sourceOrId.id : sourceOrId;
         return $.Deferred(function(dfr){
-            _executeSQL('DELETE FROM sources WHERE source_id = ?', [id], optionalTx).done(function(tx, rs) {
+            _executeSql('DELETE FROM sources WHERE source_id = ?', [id], optionalTx).done(function(tx, rs) {
                     dfr.resolve(tx, null);
             }).fail(function(obj, err) {
                 dfr.reject(obj, err);

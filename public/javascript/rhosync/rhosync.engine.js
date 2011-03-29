@@ -7,11 +7,12 @@
             Source: Source,
             // fields
             states: states,
-            session: null,
+            getSession: function() {return session},
             sources: sources,
             maxConfigSrcId: 1,
             // methods
             login: login,
+            logout: logout,
             getState: getState,
             isSearch: isInSearch,
             doSyncAllSources: doSyncAllSources,
@@ -19,14 +20,14 @@
             getStartSourceId: getStartSourceId,
             isNoThreadedMode: isNoThreadedMode,
             isSessionExist: isSessionExist,
-            isStopedByUser: function() {return isStopedByUser}
+            isStoppedByUser: function() {return isStoppedByUser}
         };
     }
 
     var rho = RhoSync.rho;
 
     var sources = {}; // name->source map
-    // goes to be ordered by priority and associations after checkSourceAssociations() call
+    // to be ordered by priority and associations after checkSourceAssociations() call
     var sourcesArray = [];
 
     const states = {
@@ -38,8 +39,12 @@
         exit: 5
     };
     
-    var notify = new rho.notify.SyncNotify(this);
-
+    var notify = null;
+    function getNotify() {
+        notify = notify || new rho.notify.SyncNotify(rho.engine);
+        return notify;
+    }
+    
     var syncState = states.none;
     var isSearch = false;
     var errCode = rho.errors.ERR_NONE;
@@ -49,6 +54,8 @@
     var session = null;
     var clientId = null;
 
+    var LOG = new rho.Logger('SyncEngine');
+
     function getState() {
         return syncState;
     }
@@ -57,33 +64,117 @@
         return isSearch;
     }
 
-    function login(login, password) {
+    function logout() {
         return $.Deferred(function(dfr){
+            _cancelRequests();
+            rho.storage.executeSql("UPDATE client_info SET session = NULL").done(function(){
+                session = "";
+                dfr.resolve();
+            }).fail(function(obj, error){
+                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
+            });
+            //loadAllSources();
+        }).promise();
+    }
+
+    function login(login, password, oNotify) {
+        return $.Deferred(function(dfr){
+            isStoppedByUser = false;
+            
             rho.protocol.login(login, password).done(function(){
-                rho.storage.listClientsId().done(function(tx, ids){
-                    // if any?
-                    if (0 < ids.length) {
-                        // ok, load first (for now)
-                        // TODO: to decide which on to load if there are many stored
-                        rho.storage.loadClient(ids[0]).done(function(tx, client){
-                            dfr.resolve(client);
-                        }).fail(function(tx, error){
-                            dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
-                        });
-                    } else {
-                        // None of them, going to obtain from the server
-                        _createClient().done(function(client){
-                            dfr.resolve(client);
-                        }).fail(function(errCode, errMsg){
-                            dfr.reject(errCode, errMsg);
-                        });
+                session = rho.protocol.getSession();
+
+                if(!session) {
+                    LOG.error("Return empty session.");
+                    var errCode = rho.errors.ERR_UNEXPECTEDSERVERRESPONSE;
+                    getNotify().callLoginCallback(oNotify, errCode, "" );
+                    dfr.reject(errCode, "");
+                    return;
+                }
+
+                if (isStoppedByUser) {
+                    dfr.reject(rho.errors.ERR_CANCELBYUSER, "Stopped by user");
+                    return;
+                }
+
+                _updateClientSession(rho.protocol.getSession()).done(function(client){
+                    if (rho.config["rho_sync_user"]) {
+                        var strOldUser = rho.config["rho_sync_user"];
+                        if (name != strOldUser) {
+                            //if (isNoThreadedMode()) {
+                            //    // RhoAppAdapter.resetDBOnSyncUserChanged();
+                            //} else {
+                            //    // NetResponse resp1 = getNet().pushData( getNet().resolveUrl("/system/resetDBOnSyncUserChanged"), "", null );
+                            //}
+                        }
                     }
-                }).fail(function(tx, error){
-                    dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
+                    
+                    rho.config["rho_sync_user"] = name;
+                    getNotify().callLoginCallback(oNotify, rho.errors.ERR_NONE, "" );
+
+                    dfr.resolve();
+                }).fail(function(errCode, errMsg){
+                    dfr.reject(errCode, errMsg);
                 });
-            }).fail(function(status, error){
-                var errCode = _isTimeout(error) ? rho.errors.ERR_NOSERVERRESPONSE : rho.errors.ERR_NETWORK;
+            }).fail(function(status, error, xhr){
+                var errCode = rho.protocol.getErrorFromXHR(xhr);
+                if (_isTimeout(error)) {
+                    errCode = rho.errors.ERR_NOSERVERRESPONSE;
+                }
+                if (errCode != rho.errors.ERR_NONE) {
+                    getNotify().callLoginCallback(oNotify, errCode, xhr.responseText);
+                }
                 dfr.reject(errCode, error);
+            });
+        }).promise();
+    }
+
+    function _updateClientSession(session) {
+        return $.Deferred(function(dfr){
+            // obtain client id from the server
+            rho.storage.loadAllClients().done(function(clients){
+                if (0 < clients.length) {
+                    rho.storage.executeSql("UPDATE client_info SET session=?", [session]).done(function(tx, rs){
+                        dfr.resolve(clients[0]);
+                    }).fail(function(tx, error){
+                        dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
+                    });
+                } else {
+                    var client = new Client(null);
+                    client.session = session;
+                    rho.storage.insertClient(client).done(function(tx, client){
+                        dfr.resolve(client);
+                    }).fail(function(tx, error){
+                        dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
+                    });
+                }
+            }).fail(function(obj, error){
+                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
+            });
+        }).promise();
+    }
+
+    function _updateClientId(id) {
+        return $.Deferred(function(dfr){
+            // obtain client id from the server
+            rho.storage.loadAllClients().done(function(clients){
+                if (0 < clients.length) {
+                    rho.storage.executeSql("UPDATE client_info SET client_id=?", [id]).done(function(tx, rs){
+                        dfr.resolve(clients[0]);
+                    }).fail(function(tx, error){
+                        dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
+                    });
+                } else {
+                    var client = new Client(null);
+                    client.id = id;
+                    rho.storage.insertClient(client).done(function(tx, client){
+                        dfr.resolve(client);
+                    }).fail(function(tx, error){
+                        dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
+                    });
+                }
+            }).fail(function(obj, error){
+                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
             });
         }).promise();
     }
@@ -94,11 +185,10 @@
             rho.protocol.clientCreate().done(function(status, data){
                 if (data && data.client && data.client.client_id){
                     // persist new client
-                    var client = new Client(data.client.client_id);
-                    rho.storage.insertClient(client).done(function(tx, client){
+                    _updateClientId(data.client.client_id).done(function(client){
                         dfr.resolve(client);
-                    }).fail(function(tx, error){
-                        dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
+                    }).fail(function(errCode, error){
+                        dfr.reject(errCode, error);
                     });
                 } else {
                     dfr.reject(rho.errors.ERR_UNEXPECTEDSERVERRESPONSE, data);
@@ -114,9 +204,6 @@
         return $.Deferred(function(dfr){
             rho.protocol.clientReset(clientId).done(function(status, data){
                 if (data && data.sources){
-                    //TODO: send client register info in client reset
-                    //if ( ClientRegister.getInstance() != null )
-                    //    strBody += ClientRegister.getInstance().getRegisterBody();
                     dfr.resolve();
                 } else {
                     dfr.reject(rho.errors.ERR_UNEXPECTEDSERVERRESPONSE, data);
@@ -148,68 +235,80 @@
             }).then(_finally, _finally);
         }
 
-        //TODO: ? getNotify().cleanCreateObjectErrors();
+        getNotify().cleanCreateObjectErrors();
     }
 
     function prepareSync(eState, oSrcID) {
         return $.Deferred(function(dfr){
             syncState = eState;
             isSearch =  (eState == states.search);
-            isStopedByUser = false;
+            isStoppedByUser = false;
             errCode = rho.errors.ERR_NONE;
             error = "";
             serverError = "";
             isSchemaChanged = false;
 
             loadAllSources().done(function(){
-
                 loadSession().done(function(s){
                     session = s;
                     if (isSessionExist()) {
-                        loadClientID().done(function(clientId){
-                            notify.cleanLastSyncObjectCount();
-                            //doBulkSync();
-                            dfr.resolve();
+                        loadClientID().done(function(clnId){
+                            clientId = clnId;
+                            if (errCode == rho.errors.ERR_NONE) {
+                                getNotify().cleanLastSyncObjectCount();
+                                //doBulkSync();
+                                dfr.resolve();
+                            }
+                            _localFireErrorNotification();
+                            stopSync();
+                            dfr.reject(errCode, error);
                         }).fail(function(errCode, error){
                             dfr.reject(errCode, error);
                         });
                     }else {
                         errCode = rho.errors.ERR_CLIENTISNOTLOGGEDIN;
-                        dfr.reject(errCode, "Client is not logged in.");
+                        _localFireErrorNotification();
+                        stopSync();
+                        dfr.reject(errCode, error);
                     }
 
-                    //TODO: to implement
-/*
-                    var src = null;
-                    if (oSrcID != null)
-                        src = findSource(oSrcID);
-
-                    if ( src != null ) {
-                        src.errCode = errCode;
-                        src.error = error;
-                        notify.fireSyncNotification(src, true, src.errCode, "");
-                    } else {
-                        notify.fireAllSyncNotifications(true, errCode, error, "");
+                    function _localFireErrorNotification() {
+                        var src = null;
+                        if (oSrcID) {
+                            src = findSourceBy('id', oSrcID);
+                        }
+                        if (src) {
+                            src.errCode = errCode;
+                            src.error = error;
+                            getNotify().fireSyncNotification(src, true, src.errCode, "");
+                        } else {
+                            getNotify().fireAllSyncNotifications(true, errCode, error, "");
+                        }
                     }
 
-                    stopSync();
-*/
-
-                }).fail(function(obj, err){
-                    dfr.reject(obj, err);
+                }).fail(function(errCode, error){
+                    dfr.reject(errCode, error);
                 });
-            }).fail(function(obj, err){
-                dfr.reject(obj, err);
+            }).fail(function(errCode, error){
+                dfr.reject(errCode, error);
             });
         }).promise();
+    }
+
+    function findSourceBy(key, value) {
+        for(var i = 0; i < sourcesArray.length; i++) {
+            if ((sourcesArray[i])[key] == value)
+                return sourcesArray[i];
+        }
+        return null;
     }
 
     function loadSession() {
         return $.Deferred(function(dfr){
             rho.storage.loadAllClients().done(function(tx, clients){
-                dfr.resolve(tx, (0 < clients.length) ? clients[0].session : null);
+                dfr.resolve((0 < clients.length) ? clients[0].session : null);
             }).fail(function(obj, err){
-                dfr.reject(obj, err);
+                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +err);
             });
 
         }).promise();
@@ -217,28 +316,26 @@
 
     function loadClientID() {
         return $.Deferred(function(dfr){
-            var clientId = '';
+            var clnId = '';
             var resetClient = false;
             
             rho.storage.loadAllClients().done(function(tx, clients){
+                var client = null;
+
                 if (0 < clients.length) {
-                    var client = clients[0];
-                    clientId = client.id;
+                    client = clients[0];
+                    clnId = client.id;
                     resetClient = client.reset;
                 }
 
-                if (!clientId) {
+                if (!clnId) {
                     _createClient().done(function(client){
-                        //TODO: to implement
-                        //if (ClientRegister.getInstance() != null ) {
-                        //    ClientRegister.getInstance().startUp();
-                        //}
-                        dfr.resolve(clientId);
+                        dfr.resolve(client.id);
                     }).fail(function(errCode, error){
                         dfr.reject(errCode, error);
                     });
                 } else if (resetClient) {
-                    _resetClient(clientId).done(function(clientId){
+                    _resetClient(clnId).done(function(clientId){
                         client.reset = 0;
                         rho.storage.storeClient(client).done(function(){
                             dfr.resolve(clientId);
@@ -251,10 +348,9 @@
                         dfr.reject(errCode, error);
                     });
                 } else {
-                    dfr.resolve(clientId);
+                    dfr.resolve(clnId);
                 }
             }).fail(function(obj, error){
-                //stopSync(); //TODO: do we need it here?
                 dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
             });
         }).promise();
@@ -267,7 +363,6 @@
             //} else {
             //    // getNet().pushData( getNet().resolveUrl("/system/loadallsyncsources"), "", null );
             //}
-
             sources = {};
 
             rho.storage.loadAllSources().done(function(tx, srcs){
@@ -280,9 +375,8 @@
                 checkSourceAssociations();
                 dfr.resolve();
             }).fail(function(obj, err){
-                dfr.reject(obj, err);
+                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +err);
             });
-
         }).promise();
     }
 
@@ -291,17 +385,9 @@
         var hashPassed = {};
 
         function _insertIntoArray(array, index, value) {
-            var l = array.length;
-            if (index >= l) {
-                array.push(value);
-            } else {
-                if (index < 0) index = 0;
-                for (var i = 0; i < l; i++) {
-                    var val = array.shift();
-                    if (i == index) array.push(value);
-                    array.push(val);
-                }
-            }
+            if (index >= array.length) return array.concat(value);
+            if (index < 0) index = 0;
+            return array.slice(0, index).concat(value, array.slice(index));
         }
 
         function _findSrcIndex(srcArray, strSrcName) {
@@ -355,67 +441,93 @@
 
     function syncAllSources() {
         return $.Deferred(function(dfr){
-            var dfrMap = rho.deferredMapOn($.extend({}, sources, {'rhoStartSyncSource': startSrc}));
+            var isError = false;
+
+            // The sources field may be inconsistent with sourceArray
+            // field after checkSourceAssociations(), so we cannot
+            // rely on it here. Going to build new map for deferred objects handling.
+            var srcMap = {};
+            $.each(sourcesArray, function(idx, src){
+                srcMap[src.name] = src;
+            });
+
+            var dfrMap = rho.deferredMapOn($.extend({}, srcMap, {'rhoStartSyncSource': startSrc}));
+
             var syncErrors = [];
 
-            var startSrc = _getStartSource();
-            if (startSrc) {
-                _syncOneSource(startSrc).done(function(){
+            var startSrcIndex = _getStartSourceIndex();
+            var startSrc = (0 <= startSrcIndex ? sourcesArray[startSrcIndex] : null);
+            if (0 <= startSrcIndex) {
+                _syncOneSource(startSrcIndex).done(function(){
                     dfrMap.resolve('rhoStartSyncSource', ["ok"]);
-                }).fail(function(obj, error){
-                    syncErrors.push({source: startSrc.name, errObject: obj, error: error});
-                    dfrMap.resolve('rhoStartSyncSource', ["error", obj, error]);
+                }).fail(function(errCode, error){
+                    isError = true;
+                    syncErrors.push({source: startSrc.name, errCode: errCode, error: error});
+                    // We shouldn't stop the whole sync process on current source error,
+                    // so resolve it instead of reject. Error is handled later.
+                    dfrMap.resolve('rhoStartSyncSource', ["error", errCode, error]);
                 });
             } else {
                 dfrMap.resolve('rhoStartSyncSource', ["ok"]);
             }
 
-            $.each(sources, function(src) {
-                _syncOneSource(src).done(function(){
+            for(var i=0; i<sourcesArray.length; i++) {
+                var src = sourcesArray[i];
+                _syncOneSource(i).done(function(){
                     dfrMap.resolve(src.name, ["ok"]);
-                }).fail(function(obj, error){
-                    syncErrors.push({source: src.name, errObject: obj, error: error});
-                    dfrMap.resolve(src.name, ["error", obj, error]);
+                }).fail(function(errCode, error){
+                    isError = true;
+                    syncErrors.push({source: startSrc.name, errCode: errCode, error: error});
+                    // We shouldn't stop the whole sync process on current source error,
+                    // so resolve it instead of reject. Error is handled later.
+                    dfrMap.resolve('rhoStartSyncSource', ["error", errCode, error]);
                 });
-            });
+            }
 
-            //if ( !bError && !isSchemaChanged() )
-            //    getNotify().fireSyncNotification(null, true, RhoAppAdapter.ERR_NONE, RhoAppAdapter.getMessageText("sync_completed"));
+            if (!isError && !isSchemaChanged()) {
+                getNotify().fireSyncNotification(null, true, rho.errors.ERR_NONE, "sync_completed");
+            }
 
             dfrMap.when().done(function(){
                 if (syncErrors.length == 0) {
                     dfr.resolve(rho.errors.NONE, "Sync completed");
+                } else {
+                    dfr.reject(syncErrors);
                 }
-                else dfr.reject(syncErrors);
             }).fail(function(){
+                // it shouldn't happen, because we resolving on errors
+                LOG.error('Implementation error in SyncEngine.syncAllSources: some source has been rejected!');
                 dfr.reject(syncErrors);
             });
         }).promise();
     }
 
-    function _getStartSource() {
-        $.each(sources, function(src) {
-            if (!src.isEmptyToken) return src;
-        });
-        return null;
+    function _getStartSourceIndex() {
+        for(var i=0; i<sourcesArray.length; i++) {
+            if (!sourcesArray[i].isEmptyToken) return i;
+        }
+        return -1;
     }
 
-    function _syncOneSource(source) {
+    function _syncOneSource(index) {
         return $.Deferred(function(dfr){
+            var source = sourcesArray[index];
+            
             if ( source.sync_type == "bulk_sync_only") {
                 dfr.resolve(null); //TODO: do resolve it as a source?
             } else if (isSessionExist() && syncState != states.stop ) {
                 source.sync().done(function(){
-                    rho.notify.byEvent(rho.events.SYNC_SOURCE_END, source);
                     dfr.resolve(source);
                 }).fail(function(obj, error){
                     if (source.errCode == rho.errors.ERR_NONE) {
                         source.errCode = rho.errors.ERR_RUNTIME;
                     }
                     syncState = states.stop;
-                    rho.notify.byEvent(rho.events.SYNC_SOURCE_END, source);
                     dfr.reject(rho.errors.ERR_RUNTIME, "sync is stopped: " +error);
-                });
+                }).then(_finally, _finally);
+                function _finally() {
+                    getNotify().onSyncSourceEnd(index, sourcesArray);
+                }
             } else {
                 dfr.reject(rho.errors.ERR_RUNTIME, "sync is stopped");
             }
@@ -461,23 +573,13 @@
     }
 
     function isSessionExist() {
-        return rho.engine.session ? true : false;
+        return session ? true : false;
     }
 
-/*
-        function run(client) {
-            return $.Deferred(function(dfr){
-            // TODO: to implement the body
-                dfr.resolve(client);
-            }).promise();
-        }
-*/
-
-    var isStopedByUser = false;
-    function _isStoppedByUser() { return isStopedByUser; }
+    var isStoppedByUser = false;
 
     function _stopSyncByUser() {
-        isStopedByUser = true;
+        isStoppedByUser = true;
         stopSync();
     }
 
@@ -550,7 +652,7 @@
                 }else
                 {
                     setToken(token);
-                    this.storage.executeSQL("UPDATE sources SET token=? where source_id=?", +this.token, this.id).done(function(){
+                    this.storage.executeSql("UPDATE sources SET token=? where source_id=?", +this.token, this.id).done(function(){
                         dfr.resolve();
                     }).fail(rho.passRejectTo(dfr));
                 }
@@ -591,7 +693,7 @@
                     var endTime = Date.now();
                     //TODO: to implement
 /*
-                    this.storage.executeSQL(
+                    this.storage.executeSql(
                             "UPDATE sources set last_updated=?,last_inserted_size=?,last_deleted_size=?, "
                             +"last_sync_duration=?,last_sync_success=?, backend_refresh_time=? WHERE source_id=?",
                             (endTime/1000), new Integer(getInsertedCount()), new Integer(getDeletedCount()),

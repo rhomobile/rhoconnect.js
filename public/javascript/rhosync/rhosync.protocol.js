@@ -2,7 +2,8 @@
 
     function publicInterface() {
         return {
-            getSession: _getSession,
+            getErrorFromXHR: getErrorFromXHR,
+            getSession: getSession,
             login: login,
             clientCreate: clientCreate,
             clientReset: clientReset
@@ -13,7 +14,31 @@
 
     const SESSION_COOKIE = 'rhosync_session';
 
-    function _getSession() {
+    var respCodes = {
+        HTTP_OK: 200,
+        HTTP_PARTIAL_CONTENT: 206,
+        HTTP_MOVED_TEMPORARILY: 302,
+        HTTP_MOVED_PERMANENTLY: 301,
+        HTTP_MOVED_PERM: 301,
+        HTTP_BAD_REQUEST: 400,
+        HTTP_NOT_FOUND: 404,
+        HTTP_UNAUTHORIZED: 401,
+        HTTP_RANGENOTSATISFY: 416,
+        HTTP_INTERNAL_ERROR: 500,
+        HTTP_NOTMODIFIED: 304
+    };
+
+    function getErrorFromXHR(xhr) {
+
+        switch(xhr.status) {
+            case respCodes.HTTP_UNAUTHORIZED: return rho.errors.ERR_UNATHORIZED;
+            case respCodes.HTTP_OK: return rho.errors.ERR_NONE;
+            case respCodes.HTTP_PARTIAL_CONTENT: return rho.errors.ERR_NONE;
+            default: return rho.errors.ERR_REMOTESERVER;
+        }
+    }
+
+    function getSession() {
         return _getCookie(SESSION_COOKIE);
     }
 

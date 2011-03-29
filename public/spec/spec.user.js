@@ -2,6 +2,7 @@ describe("RhoSync use cases", function(){
 
     describe("API", function(){
         it("should have methods defined", function() {
+            expect(rhosync.rho.notify.SyncNotification).toBeDefined();
             expect(rhosync.isLoggedIn).toBeDefined();
             expect(rhosync.login).toBeDefined();
             expect(rhosync.logout).toBeDefined();
@@ -79,7 +80,7 @@ describe("RhoSync use cases", function(){
 
             expect(rhosync.isLoggedIn()).not.toBeTruthy();
 
-            rhosync.login(userlogin, userpass).done(okHdlr).fail(errHdlr);
+            rhosync.login(userlogin, userpass, new rhosync.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
 
             waitsForSpies([okHdlr, errHdlr], 'login timeout');
             runs(function(){
@@ -105,7 +106,7 @@ describe("RhoSync use cases", function(){
 
             expect(rhosync.isLoggedIn()).not.toBeTruthy();
 
-            rhosync.login(userlogin, wrongpass).done(okHdlr).fail(errHdlr);
+            rhosync.login(userlogin, wrongpass, new rhosync.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
 
             waitsForSpies([okHdlr, errHdlr], 'login timeout');
             runs(function(){
@@ -123,7 +124,7 @@ describe("RhoSync use cases", function(){
     describe("USE CASE: User logout", function(){
         beforeEach(function(){
             //runs(function(){
-                rhosync.login(userlogin, userpass);
+                rhosync.login(userlogin, userpass, new rhosync.rho.notify.SyncNotification());
             //});
         });
 
@@ -154,11 +155,12 @@ describe("RhoSync use cases", function(){
         var okHdlr = jasmine.createSpy('for ok');
         var errHdlr = jasmine.createSpy('for errors');
 
+        expect(rhosync.rho.notify.SyncNotification).toBeDefined();
         expect(rhosync.login).toBeDefined();
         expect(rhosync.isLoggedIn).toBeDefined();
 
         runs(function(){
-            rhosync.login(userlogin, userpass).done(okHdlr).fail(errHdlr);
+            rhosync.login(userlogin, userpass, new rhosync.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
         });
 
         waitsForSpies([okHdlr, errHdlr], 'login timeout');
@@ -181,7 +183,8 @@ describe("RhoSync use cases", function(){
         expect(rhosync.isLoggedIn).toBeDefined();
 
         runs(function(){
-            rhosync.login(userlogin, userpass).done(okHdlr).fail(errHdlr);
+            jasmine.log('login');
+            rhosync.login(userlogin, userpass, new rhosync.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
         });
 
         waitsForSpies([okHdlr, errHdlr], 'login timeout');
@@ -196,6 +199,7 @@ describe("RhoSync use cases", function(){
         });
 
         runs(function(){
+            jasmine.log('logout');
             rhosync.logout().done(okHdlr).fail(errHdlr);
         });
 
@@ -215,10 +219,11 @@ describe("RhoSync use cases", function(){
         var okHdlr = jasmine.createSpy('for ok');
         var errHdlr = jasmine.createSpy('for errors');
 
+        expect(rhosync.rho.notify.SyncNotification).toBeDefined();
         expect(rhosync.login).toBeDefined();
         expect(rhosync.isLoggedIn).toBeDefined();
 
-        rhosync.login(userlogin, wrongpass).done(okHdlr).fail(errHdlr);
+        rhosync.login(userlogin, wrongpass, new rhosync.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
 
         waitsForSpies([okHdlr, errHdlr], 'login timeout');
         runs(function(){

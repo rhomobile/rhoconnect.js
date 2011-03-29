@@ -132,8 +132,8 @@ describe("RhoSync", function() {
             var okHdlr = jasmine.createSpy('for ok');
             var errHdlr = jasmine.createSpy('for errors');
 
-            expect(rhosync.rho.storage.executeSQL).toBeDefined();
-            rhosync.rho.storage.executeSQL("SELECT name FROM sqlite_master WHERE type='table'", null).done(function(){
+            expect(rhosync.rho.storage.executeSql).toBeDefined();
+            rhosync.rho.storage.executeSql("SELECT name FROM sqlite_master WHERE type='table'", null).done(function(){
                 okHdlr(arguments);
             }).fail(function(){
                 errHdlr(arguments);

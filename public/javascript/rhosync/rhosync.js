@@ -56,11 +56,10 @@ var RhoSync = (function($) {
         }).promise();
     }
 
-    function login(login, password) {
+    function login(login, password, oNotify) {
         return $.Deferred(function(dfr){
-            rho.engine.login(login, password).done(function(){
+            rho.engine.login(login, password, oNotify).done(function(){
                 dfr.resolve();
-                rho.engine.session = rho.protocol.getSession();
             }).fail(function(errCode, errMsg){
                 dfr.reject(errCode, errMsg);
             });
@@ -68,14 +67,7 @@ var RhoSync = (function($) {
     }
 
     function logout() {
-        return $.Deferred(function(dfr){
-            rho.storage.executeSQL( "UPDATE client_info SET session = NULL").done(function() {
-                rho.engine.session = null;
-                dfr.resolve();
-            }).fail(function(tx, error) {
-                dfr.reject(errors.ERR_RUNTIME, "db access error: " +error);
-            });
-        }).promise();
+        return rho.engine.logout();
     }
 
     function isLoggedIn() {
