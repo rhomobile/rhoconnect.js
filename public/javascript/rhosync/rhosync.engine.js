@@ -20,6 +20,7 @@
             getSyncPageSize:  function() {return syncPageSize},
             getClientId:  function() {return clientId},
             getStartSourceId: getStartSourceId,
+            findSourceBy: findSourceBy,
             getSourceOptions: getSourceOptions,
             isNoThreadedMode: isNoThreadedMode,
             isSessionExist: isSessionExist,
@@ -102,9 +103,7 @@
             rho.storage.executeSql("UPDATE client_info SET session = NULL").done(function(){
                 session = "";
                 dfr.resolve();
-            }).fail(function(obj, error){
-                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
-            });
+            }).fail(_rejectOnDbAccessEror(dfr));
             //loadAllSources();
         }).promise();
     }
@@ -145,9 +144,7 @@
                     getNotify().callLoginCallback(oNotify, rho.errors.ERR_NONE, "" );
 
                     dfr.resolve();
-                }).fail(function(errCode, errMsg){
-                    dfr.reject(errCode, errMsg);
-                });
+                }).fail(_rejectPassThrough(dfr));
             }).fail(function(status, error, xhr){
                 var errCode = rho.protocol.getErrCodeFromXHR(xhr);
                 if (_isTimeout(error)) {
@@ -168,21 +165,15 @@
                 if (0 < clients.length) {
                     rho.storage.executeSql("UPDATE client_info SET session=?", [session]).done(function(tx, rs){
                         dfr.resolve(clients[0]);
-                    }).fail(function(tx, error){
-                        dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
-                    });
+                    }).fail(_rejectOnDbAccessEror(dfr));
                 } else {
                     var client = new Client(null);
                     client.session = session;
                     rho.storage.insertClient(client).done(function(tx, client){
                         dfr.resolve(client);
-                    }).fail(function(tx, error){
-                        dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
-                    });
+                    }).fail(_rejectOnDbAccessEror(dfr));
                 }
-            }).fail(function(obj, error){
-                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
-            });
+            }).fail(_rejectOnDbAccessEror(dfr));
         }).promise();
     }
 
@@ -193,21 +184,15 @@
                 if (0 < clients.length) {
                     rho.storage.executeSql("UPDATE client_info SET client_id=?", [id]).done(function(tx, rs){
                         dfr.resolve(clients[0]);
-                    }).fail(function(tx, error){
-                        dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
-                    });
+                    }).fail(_rejectOnDbAccessEror(dfr));
                 } else {
                     var client = new Client(null);
                     client.id = id;
                     rho.storage.insertClient(client).done(function(tx, client){
                         dfr.resolve(client);
-                    }).fail(function(tx, error){
-                        dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
-                    });
+                    }).fail(_rejectOnDbAccessEror(dfr));
                 }
-            }).fail(function(obj, error){
-                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
-            });
+            }).fail(_rejectOnDbAccessEror(dfr));
         }).promise();
     }
 
@@ -219,9 +204,7 @@
                     // persist new client
                     _updateClientId(data.client.client_id).done(function(client){
                         dfr.resolve(client);
-                    }).fail(function(errCode, error){
-                        dfr.reject(errCode, error);
-                    });
+                    }).fail(_rejectPassThrough(dfr));
                 } else {
                     dfr.reject(rho.errors.ERR_UNEXPECTEDSERVERRESPONSE, data);
                 }
@@ -294,9 +277,7 @@
                             _localFireErrorNotification();
                             stopSync();
                             dfr.reject(errCode, error);
-                        }).fail(function(errCode, error){
-                            dfr.reject(errCode, error);
-                        });
+                        }).fail(_rejectPassThrough(dfr));
                     }else {
                         errCode = rho.errors.ERR_CLIENTISNOTLOGGEDIN;
                         _localFireErrorNotification();
@@ -318,12 +299,8 @@
                         }
                     }
 
-                }).fail(function(errCode, error){
-                    dfr.reject(errCode, error);
-                });
-            }).fail(function(errCode, error){
-                dfr.reject(errCode, error);
-            });
+                }).fail(_rejectPassThrough(dfr));
+            }).fail(_rejectPassThrough(dfr));
         }).promise();
     }
 
@@ -339,9 +316,7 @@
         return $.Deferred(function(dfr){
             rho.storage.loadAllClients().done(function(tx, clients){
                 dfr.resolve((0 < clients.length) ? clients[0].session : null);
-            }).fail(function(obj, err){
-                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +err);
-            });
+            }).fail(_rejectOnDbAccessEror(dfr));
 
         }).promise();
     }
@@ -363,17 +338,15 @@
                 if (!clnId) {
                     _createClient().done(function(client){
                         dfr.resolve(client.id);
-                    }).fail(function(errCode, error){
-                        dfr.reject(errCode, error);
-                    });
+                    }).fail(_rejectPassThrough(dfr));
                 } else if (resetClient) {
                     _resetClient(clnId).done(function(clientId){
                         client.reset = 0;
                         rho.storage.storeClient(client).done(function(){
                             dfr.resolve(clientId);
-                        }).fail(function(obj, error){
+                        }).fail(function(obj, err){
                             stopSync();
-                            dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
+                            _rejectOnDbAccessEror(dfr)(obj, err);
                         });
                     }).fail(function(errCode, error){
                         stopSync();
@@ -382,9 +355,7 @@
                 } else {
                     dfr.resolve(clnId);
                 }
-            }).fail(function(obj, error){
-                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
-            });
+            }).fail(_rejectOnDbAccessEror(dfr));
         }).promise();
     }
 
@@ -406,9 +377,7 @@
                 });
                 checkSourceAssociations();
                 dfr.resolve();
-            }).fail(function(obj, err){
-                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +err);
-            });
+            }).fail(_rejectOnDbAccessEror(dfr));
         }).promise();
     }
 
@@ -710,9 +679,7 @@
                     setToken(token);
                     this.storage.executeSql("UPDATE sources SET token=? where source_id=?", +this.token, this.id).done(function(){
                         dfr.resolve();
-                    }).fail(function(obj, error){
-                            dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
-                    });
+                    }).fail(_rejectOnDbAccessEror(dfr));
                 }
             }).promise();
         }
@@ -756,9 +723,7 @@
                             if (this.engine.getSourceOptions().getBoolProperty(this.id, "pass_through")) {
                                 processToken(0).done(function(){
                                     _localNextIfContinued();
-                                }).fail(function(errCode, error){
-                                    dfr.reject(errCode, error);
-                                });
+                                }).fail(_rejectPassThrough(dfr));
                             } else {_localNextIfContinued();}
 
                             function _localNextIfContinued() {
@@ -770,9 +735,7 @@
                                 }
                             }
 
-                        }).fail(function(errCode, error){
-                            dfr.reject(errCode, error);
-                        });
+                        }).fail(_rejectPassThrough(dfr));
                     }).fail(function(status, error, xhr){
                         this.engine.stopSync();
                         this.errCode = rho.protocol.getErrCodeFromXHR(xhr);
@@ -861,9 +824,7 @@
                         //oo conflicts
                         rho.storage.executeSql("DELETE FROM changed_values where source_id=? and sent>=3", this.id).done(function(){
                             _localAfterTokenIsZero();
-                        }).fail(function(){
-                            dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
-                        });
+                        }).fail(_rejectOnDbAccessEror(dfr));
                         //
                     } else {_localAfterTokenIsZero();}
 
@@ -888,9 +849,7 @@
                                         } else {
                                             rho.storage.executeSql( "DELETE FROM object_values WHERE source_id=?", [this.id], tx).done(function(tx, rs){
                                                 _localAfterDeleteObjectValues();
-                                            }).fail(function(obj, error){
-                                                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
-                                            });
+                                            }).fail(_rejectOnDbAccessEror(dfr));
                                         }
                                     } else {_localAfterDeleteObjectValues();}
 
@@ -899,29 +858,25 @@
                                             var strMetadata = oCmds["metadata"];
                                             rho.storage.executeSql("UPDATE sources SET metadata=? WHERE source_id=?", [strMetadata, this.id], tx).done(function(){
                                                 _localAfterSourcesUpdate();
-                                            }).fail(function(obj, error){
-                                                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
-                                            });
+                                            }).fail(_rejectOnDbAccessEror(dfr));
                                         } else {_localAfterSourcesUpdate();}
 
                                         function _localAfterSourcesUpdate(){
                                             if (undefined != oCmds["links"] && this.engine.isContinueSync() ) {
-                                                processSyncCommand("links", oCmds["links"], true);
+                                                processSyncCommand("links", oCmds["links"], true, tx);
                                             }
                                             if (undefined != oCmds["delete"] && this.engine.isContinueSync() ) {
-                                                processSyncCommand("delete", oCmds["delete"], true);
+                                                processSyncCommand("delete", oCmds["delete"], true, tx);
                                             }
                                             if (undefined != oCmds["insert"] && this.engine.isContinueSync() ) {
-                                                processSyncCommand("insert", oCmds["insert"], true);
+                                                processSyncCommand("insert", oCmds["insert"], true, tx);
                                             }
 
                                             getNotify().fireObjectsNotification();
                                             _localAfterProcessServerErrors();
                                         }
                                     }
-                                }).fail(function(){
-                                    dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
-                                });
+                                }).fail(_rejectOnDbAccessEror(dfr));
                             } else {_localAfterProcessServerErrors();}
 
                             function _localAfterProcessServerErrors() {
@@ -941,9 +896,10 @@
             }).promise();
         }
 
-        function processSyncCommand(strCmd, oCmdEntry, bCheckUIRequest) {
+        function processSyncCommand(strCmd, oCmdEntry, bCheckUIRequest, tx) {
             return $.Deferred(function(dfr){
 
+                var dfrMap = rho.deferredMapOn(oCmdEntry);
                 $.each(oCmdEntry, function(strObject, attrs){
                     if (!this.engine.isContinueSync()) return;
 
@@ -953,11 +909,11 @@
                         $.each(attrs, function(strAttrib, strValue){
                             if (!this.engine.isContinueSync()) return;
 
-                            processServerCmd_Ver3(strCmd,strObject,strAttrib,strValue).done(function(){
+                            processServerCmd_Ver3(strCmd,strObject,strAttrib,strValue, tx).done(function(){
                                 _localAfterIfSchemaSource();
                             }).fail(function(errCode, error){
                                 LOG.error("Sync of server changes failed for " + getName() + ";object: " + strObject, error);
-                                dfr.reject(errCode, error);
+                                dfrMap.reject(strObject, [errCode, error]);
                             });
 
                         });
@@ -965,7 +921,11 @@
                     } /* else {_localAfterIfSchemaSource()}*/
 
                     function _localAfterIfSchemaSource() {
-                        if (this.sync_type == "none") return;
+                        dfrMap.resolve(strObject, [tx]);
+
+                        if (this.sync_type == "none") {
+                            return;
+                        }
 
                         if (bCheckUIRequest) {
                             var nSyncObjectCount  = getNotify().incLastSyncObjectCount(this.id);
@@ -983,13 +943,165 @@
                         }
                     }
                 });
+                dfrMap.when().done(function(){
+                    dfr.resolve(tx);
+                }).fail(_rejectPassThrough(dfr));
 
             }).promise();
         }
 
-        function processServerCmd_Ver3(strCmd, strObject, strAttrib, strValue) {
-            //TODO: to implement
+        function CAttrValue(strAttrib, strValue) {
+            this.m_strAttrib = strAttrib;
+            this.m_strValue = strValue;
+            this.m_strBlobSuffix = "";
+
+            if ("string" == typeof this.m_strAttrib && this.m_strAttrib.match(/\-rhoblob$/)) {
+                this.m_strBlobSuffix = "-rhoblob";
+                this.m_strAttrib = this.m_strAttrib.substring(0, this.m_strAttrib.length-this.m_strBlobSuffix.length);
+            }
         }
+
+        function processServerCmd_Ver3(strCmd, strObject, strAttrib, strValue, tx) {
+            return $.Deferred(function(dfr){
+
+                var oAttrValue = new CAttrValue(strAttrib,strValue);
+
+                if (strCmd == "insert") {
+
+                    //if ( !processBlob(strCmd,strObject,oAttrValue) )
+                    //    return;
+
+                    //TODO: to implement?
+                    //IDBResult resInsert = getDB().executeSQLReportNonUnique("INSERT INTO object_values "+
+                    //        "(attrib, source_id, object, value) VALUES(?,?,?,?)",
+                    //        oAttrValue.m_strAttrib, getID(), strObject, oAttrValue.m_strValue );
+
+                    rho.storage.executeSql("INSERT INTO object_values "+
+                            "(attrib, source_id, object, value) VALUES(?,?,?,?)",
+                            [oAttrValue.m_strAttrib, this.id, strObject, oAttrValue.m_strValue], tx).done(function(tx, rs){
+
+                        if (true /*resInsert.isNonUnique()*/) { //TODO: to implement?
+                            rho.storage.executeSql("UPDATE object_values " +
+                                "SET value=? WHERE object=? and attrib=? and source_id=?",
+                                 [oAttrValue.m_strValue, strObject, oAttrValue.m_strAttrib, this.id], tx).done(function(tx, rs){
+
+                                if (this.sync_type != "none") {
+                                    // oo conflicts
+                                    rho.storage.executeSql("UPDATE changed_values SET sent=4 where object=? "+
+                                            "and attrib=? and source_id=? and sent>1",
+                                            [strObject, oAttrValue.m_strAttrib, this.id], tx).done(function(tx, rs){
+                                        _localAfterSyncTypeNone();
+                                    }).fail(_rejectOnDbAccessEror(dfr));
+                                    //
+                                } else {_localAfterSyncTypeNone();}
+
+                                function _localAfterSyncTypeNone() {
+                                    _localAfterIsNonUniqueOnInsert();
+                                }
+                            }).fail(_rejectOnDbAccessEror(dfr));
+                        } else {_localAfterIsNonUniqueOnInsert();}
+
+                        function _localAfterIsNonUniqueOnInsert() {
+                            if (this.sync_type != "none") {
+                                getNotify().onObjectChanged(this.id, strObject, rho.notify.actions.update);
+                            }
+                            this.insertedCount++;
+                            dfr.resolve(tx);
+                        }
+                    }).fail(_rejectOnDbAccessEror(dfr));
+
+                } else if (strCmd == "delete") {
+
+                    rho.storage.executeSql("DELETE FROM object_values where object=? and attrib=? and source_id=?",
+                            [strObject, oAttrValue.m_strAttrib, this.id], tx).done(function(tx, rs){
+
+                        if (this.sync_type != "none") {
+                            getNotify().onObjectChanged(this.id, strObject, rho.notify.actions['delete']);
+                            // oo conflicts
+                            rho.storage.executeSql("UPDATE changed_values SET sent=3 where object=? "+
+                                    "and attrib=? and source_id=?",
+                                    [strObject, oAttrValue.m_strAttrib, this.id], tx).done(function(tx, rs){
+                                _localAfterSyncTypeNone();
+                            }).fail(_rejectOnDbAccessEror(dfr));
+                            //
+                        } else {_localAfterSyncTypeNone();}
+
+                        function _localAfterSyncTypeNone() {
+                            this.deletedCount++;
+                            dfr.resolve(tx);
+                        }
+                    }).fail(_rejectOnDbAccessEror(dfr));
+
+                } else if (strCmd == "links") {
+
+                    processAssociations(strObject, oAttrValue.m_strValue, tx).done(function(tx){
+                        rho.storage.executeSql("UPDATE object_values SET object=? where object=? and source_id=?",
+                                [oAttrValue.m_strValue, strObject, this.id], tx).done(function(){
+                            rho.storage.executeSql("UPDATE changed_values SET object=?,sent=3 where object=? "+
+                                    "and source_id=?",
+                                    [oAttrValue.m_strValue, strObject, this.id], tx).done(function(){
+                                getNotify().onObjectChanged(this.id, strObject, rho.notify.actions.create);
+                                dfr.resolve(tx);
+                            }).fail(_rejectOnDbAccessEror(dfr));
+                        }).fail(_rejectOnDbAccessEror(dfr));
+                    }).fail(_rejectPassThrough(dfr));
+                }
+            }).promise();
+        }
+
+        function processAssociations(strOldObject, strNewObject, tx) {
+            return $.Deferred(function(dfr){
+                if (this.associations.length == 0) {
+                    dfr.resolve();
+                    return;
+                }
+
+                var dfrMap = rho.deferredMapOn(this.associations);
+                //TODO: do we need recursion (via .done()) here?
+                for (var i=0; i < this.associations.length; i++) {
+                    var pSrc = engine.findSourceBy('name', (/*(SourceAssociation)*/this.associations[i]).m_strSrcName);
+                    if (pSrc) {
+                        pSrc.updateAssociation(strOldObject, strNewObject,
+                                (/*(SourceAssociation)*/this.associations[i]).m_strAttrib, tx).done(function(){
+                            dfrMap.resolve(i, []);
+                        }).fail(function(errCode, err){
+                            dfrMap.reject(i, [errCode, err]);
+                        });
+                    }
+                }
+                dfrMap.when().done(function(){
+                    dfr.resolve(tx);
+                }).fail(_rejectPassThrough(dfr));
+            }).promise();
+        }
+
+        this.updateAssociation = function (strOldObject, strNewObject, strAttrib, tx) {
+            return $.Deferred(function(dfr){
+                if (this.schemaSource) {
+                    //var strSqlUpdate = "UPDATE ";
+                    //strSqlUpdate += this.name + " SET " + strAttrib + "=? where " + strAttrib + "=?";
+                    //
+                    //rho.storage.executeSql(strSqlUpdate, [strNewObject, strOldObject], tx).done(function(){
+                    //    _localAfterIfSchemaSource();
+                    //}).fail(_rejectOnDbAccessEror(dfr));
+
+                    _localAfterIfSchemaSource(); // because real logic is commented out above
+                } else {
+                    rho.storage.executeSql("UPDATE object_values SET value=? where attrib=? and source_id=? and value=?",
+                        [strNewObject, strAttrib, this.id, strOldObject], tx).done(function(){
+                        _localAfterIfSchemaSource();
+                    }).fail(_rejectOnDbAccessEror(dfr));
+                } /* else {_localAfterIfSchemaSource();}*/
+
+                function _localAfterIfSchemaSource() {
+                    rho.storage.executeSql("UPDATE changed_values SET value=? "+
+                            "where attrib=? and source_id=? and value=?",
+                            [strNewObject, strAttrib, this.id, strOldObject], tx).done(function(){
+                        dfr.resolve(tx);
+                    }).fail(_rejectOnDbAccessEror(dfr));
+                }
+            }).promise();
+        };
 
         function processServerErrors(oCmds) {
             //TODO: to implement
@@ -1063,6 +1175,18 @@
             return this.deletedCount;
         }
 
+    }
+
+    function _rejectOnDbAccessEror(deferred) {
+        return function(obj, err){
+            deferred.reject(rho.errors.ERR_RUNTIME, "db access error: " +err);
+        };
+    }
+
+    function _rejectPassThrough(deferred){
+        return function(errCode, err){
+            deferred.reject(errCode, err);
+        }
     }
 
     function Client(id) {

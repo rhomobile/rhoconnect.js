@@ -2,6 +2,7 @@
 
     function publicInterface() {
         return {
+            actions: actions,
             SyncNotify: SyncNotify,
             SyncNotification: SyncNotification,
             byEvent: notifyByEvent
@@ -10,7 +11,7 @@
 
     var rho = RhoSync.rho;
 
-    const action = {
+    const actions = {
         'none': 0,
         'delete': 1,
         'update': 2,
@@ -66,7 +67,7 @@
                         hashObject = {};
                         srcIDAndObject[srcId] = hashObject;
                     }
-                    hashObject[objectId] = action.none;
+                    hashObject[objectId] = actions.none;
                 }
             }
         }
@@ -103,24 +104,24 @@
             $.each(srcIDAndObject, function(srcId, hashObject){
                 $.each(hashObject, function(strObject, nNotifyType){
 
-                    if (nNotifyType == action.none) return;
+                    if (nNotifyType == actions.none) return;
 
                     if (strBody) {
                         strBody += "&rho_callback=1&";
                     }
 
-                    if (nNotifyType == action['delete']) {
+                    if (nNotifyType == actions['delete']) {
                         strBody += "deleted[][object]=" + strObject;
                         strBody += "&deleted[][source_id]=" + srcId;
-                    } else if (nNotifyType == action.update) {
+                    } else if (nNotifyType == actions.update) {
                         strBody += "updated[][object]=" + strObject;
                         strBody += "&updated[][source_id]=" + srcId;
-                    } else if (nNotifyType == action.create) {
+                    } else if (nNotifyType == actions.create) {
                         strBody += "created[][object]=" + strObject;
                         strBody += "&created[][source_id]=" + srcId;
                     }
 
-                    hashObject[strObject] = action.none;
+                    hashObject[strObject] = actions.none;
                 });
             });
 
@@ -128,7 +129,7 @@
             callNotify(new SyncNotification(strUrl,"",false), strBody);
         };
 
-         function onObjectChanged(srcId, objectId, actionType) {
+         this.onObjectChanged = function(srcId, objectId, actionType) {
             processSingleObject();
 
             var hashObject = srcIDAndObject[srcId];
@@ -137,7 +138,7 @@
             if(objectId in hashObject) {
                 hashObject[objectId] = actionType;
             }
-        }
+        };
 
         function addCreateObjectError(srcId, objectId, error) {
             var hashErrors = hashCreateObjectErrors.get(srcId);

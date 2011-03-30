@@ -110,11 +110,11 @@
         });
 
         return {
-            resolve: function(name, args) {
-                if (dfrMap[name]) dfrMap[name].resolve.apply(dfrMap[name], args);
+            resolve: function(key, args) {
+                if (dfrMap[key]) dfrMap[key].resolve.apply(dfrMap[key], args);
             },
-            reject: function(name, args) {
-                if (dfrMap[name]) dfrMap[name].reject.apply(dfrMap[name], args);
+            reject: function(key, args) {
+                if (dfrMap[key]) dfrMap[key].reject.apply(dfrMap[key], args);
             },
             when: function() {
                 return $.when(dfrs);
