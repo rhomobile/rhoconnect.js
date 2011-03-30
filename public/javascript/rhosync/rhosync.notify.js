@@ -92,7 +92,7 @@
             singleObjectID = "";
         }
 
-         function fireObjectsNotification() {
+         this.fireObjectsNotification = function() {
             var strBody = "";
             var strUrl = "";
 
@@ -126,7 +126,7 @@
 
             if (!strBody) return;
             callNotify(new SyncNotification(strUrl,"",false), strBody);
-        }
+        };
 
          function onObjectChanged(srcId, objectId, actionType) {
             processSingleObject();
@@ -199,7 +199,7 @@
                 syncStatusListener = listener;
         }
 
-        function reportSyncStatus(status, errCode, details) {
+        this.reportSyncStatus = function(status, errCode, details) {
             if (syncStatusListener != null
                     && (isReportingEnabled() || errCode == rho.errors.ERR_SYNCVERSION)) {
                 if (errCode == rho.errors.ERR_SYNCVERSION) {
@@ -211,7 +211,7 @@
                 LOG.info("Status: " +status);
                 rho.notify.byEvent(rho.events.STATUS_CHANGED, status, errCode);
             }
-        }
+        };
 
 /*
         void fireBulkSyncNotification( boolean bFinish, String status, String partition, int nErrCode )
@@ -395,14 +395,14 @@
             hashSrcObjectCount = {};
         };
 
-        function incLastSyncObjectCount(srcId) {
+        this.incLastSyncObjectCount = function(srcId) {
             var nCount = hashSrcObjectCount[srcId] || 0;
             nCount += 1;
 
             hashSrcObjectCount[srcId] = nCount;
 
             return nCount || 0;
-        }
+        };
 
         function getLastSyncObjectCount(srcId) {
             return hashSrcObjectCount[srcId] || 0;

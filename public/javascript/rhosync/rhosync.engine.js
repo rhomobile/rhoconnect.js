@@ -17,18 +17,20 @@
             isSearch: isInSearch,
             doSyncAllSources: doSyncAllSources,
             stopSync: stopSync,
+            getSyncPageSize:  function() {return syncPageSize},
+            getClientId:  function() {return clientId},
             getStartSourceId: getStartSourceId,
+            getSourceOptions: getSourceOptions,
             isNoThreadedMode: isNoThreadedMode,
             isSessionExist: isSessionExist,
+            isContinueSync: isContinueSync,
+            setSchemaChanged: function(value) {isSchemaChanged = value},
+            isSchemaChanged: function() {return isSchemaChanged},
             isStoppedByUser: function() {return isStoppedByUser}
         };
     }
 
     var rho = RhoSync.rho;
-
-    var sources = {}; // name->source map
-    // to be ordered by priority and associations after checkSourceAssociations() call
-    var sourcesArray = [];
 
     const states = {
         none: 0,
@@ -38,13 +40,41 @@
         stop: 4,
         exit: 5
     };
-    
-    var notify = null;
-    function getNotify() {
-        notify = notify || new rho.notify.SyncNotify(rho.engine);
-        return notify;
+
+    var sources = {}; // name->source map
+    // to be ordered by priority and associations after checkSourceAssociations() call
+    var sourcesArray = [];
+
+    var sourceOptions = new SourceOptions();
+
+    function SourceOptions() {
+        var srcOptions = {};
+
+        this.setProperty = function(srcId, name, value) {
+            var hashOptions = srcOptions[srcId];
+            if (!hashOptions) {
+                hashOptions = {};
+                srcOptions[srcId] = hashOptions;
+            }
+            hashOptions[name] = value || "";
+        };
+        
+        this.getProperty = function(srcId, name) {
+            var hashOptions = srcOptions[srcId];
+            if (hashOptions) {
+                return hashOptions[name] || "";
+            }
+            return "";
+        };
+
+        this.getBoolProperty = function(nSrcID, szPropName)
+        {
+            var strValue = getProperty(nSrcID, szPropName);
+            return (strValue == "1" || strValue == "true");
+        }
     }
-    
+
+    var notify = null;
     var syncState = states.none;
     var isSearch = false;
     var errCode = rho.errors.ERR_NONE;
@@ -53,6 +83,8 @@
     var isSchemaChanged = false;
     var session = null;
     var clientId = null;
+    var syncPageSize = 2000;
+
 
     var LOG = new rho.Logger('SyncEngine');
 
@@ -117,7 +149,7 @@
                     dfr.reject(errCode, errMsg);
                 });
             }).fail(function(status, error, xhr){
-                var errCode = rho.protocol.getErrorFromXHR(xhr);
+                var errCode = rho.protocol.getErrCodeFromXHR(xhr);
                 if (_isTimeout(error)) {
                     errCode = rho.errors.ERR_NOSERVERRESPONSE;
                 }
@@ -485,6 +517,7 @@
             }
 
             if (!isError && !isSchemaChanged()) {
+                // TODO: to implement RhoAppAdapter.getMessageText("sync_completed")
                 getNotify().fireSyncNotification(null, true, rho.errors.ERR_NONE, "sync_completed");
             }
 
@@ -504,7 +537,7 @@
 
     function _getStartSourceIndex() {
         for(var i=0; i<sourcesArray.length; i++) {
-            if (!sourcesArray[i].isEmptyToken) return i;
+            if (!sourcesArray[i].isEmptyToken()) return i;
         }
         return -1;
     }
@@ -568,6 +601,15 @@
         return startId;
     }
 
+    function getNotify() {
+        notify = notify || new rho.notify.SyncNotify(rho.engine);
+        return notify;
+    }
+
+    function getSourceOptions() {
+        return sourceOptions;
+    }
+
     function isNoThreadedMode() {
         return false;
     }
@@ -591,6 +633,8 @@
     }
 
     function Source(id, name, syncType, storage, engine) {
+        var LOG = new rho.Logger('SyncSource');
+
         this.storage = storage;
         this.engine = engine;
 
@@ -613,6 +657,11 @@
         this.associations = null;
         this.blob_attribs = null;
 
+        this.arAssociations = [];
+        this.getAssociations = function() {
+            return this.arAssociations;
+        };
+
         this.isTokenFromDb = true;
         this.errCode = rho.errors.ERR_NONE;
         this.error = '';
@@ -622,19 +671,25 @@
         this.curPageCount = 0;
         this.serverObjectsCount = 0;
 
-        this.arAssociations = [];
-        this.getAssociations = function() {
-            return this.arAssociations;
-        };
+        this.insertedCount = 0;
+        this.deletedCount = 0;
+
+        this.getAtLeastOnePage = false;
+        this.refreshTime = 0;
+
+        //TODO: do we need to implement real value setup?
+        this.schemaSource = false;
+
+        this.progressStep = -1;
 
         function SourceAssociation(strSrcName, strAttrib) {
             this.m_strSrcName = strSrcName;
             this.m_strAttrib = strAttrib;
         }
 
-        this.__defineGetter__('isEmptyToken', function() {
+        this.isEmptyToken = function() {
             return this.token == 0;
-        });
+        };
 
         function setToken(token) {
             this.token = token;
@@ -645,6 +700,7 @@
             return $.Deferred(function(dfr){
                 if ( token > 1 && this.token == token ){
                     //Delete non-confirmed records
+
                     setToken(token); //For m_bTokenFromDB = false;
                     //getDB().executeSQL("DELETE FROM object_values where source_id=? and token=?", getID(), token );
                     //TODO: add special table for id,token
@@ -654,7 +710,9 @@
                     setToken(token);
                     this.storage.executeSql("UPDATE sources SET token=? where source_id=?", +this.token, this.id).done(function(){
                         dfr.resolve();
-                    }).fail(rho.passRejectTo(dfr));
+                    }).fail(function(obj, error){
+                            dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
+                    });
                 }
             }).promise();
         }
@@ -675,55 +733,336 @@
 
         function syncServerChanges() {
             return $.Deferred(function(dfr){
-                //TODO: to implement
+                LOG.info("Sync server changes source ID :" + this.id);
+
+                _localAsyncWhile();
+                function _localAsyncWhile() {
+                    this.curPageCount =0;
+
+                    var strUrl = rho.protocol.getServerQueryUrl("");
+                    var clnId = this.engine.getClientId();
+                    var pgSize = this.engine.getSyncPageSize();
+                    var tkn = (!this.isTokenFromDb && this.token>1) ? this.token:null;
+                    LOG.info( "Pull changes from server. Url: " + (strUrl+_localGetQuery(this.name, clnId, pgSize, tkn)));
+
+                    rho.protocol.serverQuery(this.name, clnId, pgSize, tkn
+                            /*, this.engine*/).done(function(status, data, xhr){
+
+                        //var testResp = this.engine.getSourceOptions().getProperty(this.id, "rho_server_response");
+                        //data = testResp ? $.parseJSON(testResp) : data;
+
+                        processServerResponse_ver3(data).done(function(){
+
+                            if (this.engine.getSourceOptions().getBoolProperty(this.id, "pass_through")) {
+                                processToken(0).done(function(){
+                                    _localNextIfContinued();
+                                }).fail(function(errCode, error){
+                                    dfr.reject(errCode, error);
+                                });
+                            } else {_localNextIfContinued();}
+
+                            function _localNextIfContinued() {
+                                if (this.token && this.engine.isContinueSync()) {
+                                    // go next in async while loop
+                                    _localAsyncWhile()
+                                } else {
+                                    _localAfterWhile();
+                                }
+                            }
+
+                        }).fail(function(errCode, error){
+                            dfr.reject(errCode, error);
+                        });
+                    }).fail(function(status, error, xhr){
+                        this.engine.stopSync();
+                        this.errCode = rho.protocol.getErrCodeFromXHR(xhr);
+                        this.error = error;
+                        //_localAfterWhile(); //TODO: am I sure?
+                        dfr.reject(errCode, error);
+                    });
+                }
+                function _localAfterWhile() {
+                    if (!_whileEnded) {
+                        _whileEnded = true;
+                        if (this.engine.isSchemaChanged()) {
+                            this.engine.stopSync();
+                        }
+                        dfr.resolve();
+                    }
+                }
+                var _whileEnded = false;
+
+                function _localGetQuery(srcName, clnId, pgSize, token) {
+                    var strQuery = "?client_id=" + clnId +
+                        "&p_size=" + pgSize + "&version=3";
+                    strQuery += srcName ? ("&source_name=" + srcName) : '';
+                    return strQuery += token ? ("&token=" + token) : '';
+                }
             }).promise();
+        }
+
+        function processServerResponse_ver3(data) {
+            return $.Deferred(function(dfr){
+                var itemIndex = 0;
+                var item = null;
+                
+                item = data[itemIndex];
+                if (item.version != rho.protocol.getVersion()) {
+                    itemIndex++;
+                    LOG.error("Sync server send data with incompatible version. Client version: " +rho.protocol.getVersion()
+                        +"; Server response version: " +item.version +". Source name: " +this.name);
+                    this.engine.stopSync();
+                    this.errrCode = rho.errors.ERR_UNEXPECTEDSERVERRESPONSE;
+                    dfr.reject(this.errCode, "Sync server send data with incompatible version.");
+                    return;
+                }
+
+                item = data[itemIndex];
+                if (undefined != item.token){
+                    itemIndex++;
+                    processToken(item.token +0).done(function(){
+                        _localAfterProcessToken();
+                    }).fail(function(errCode, error){
+                        dfr.reject(this.errCode, error);
+                    });
+                } else {_localAfterProcessToken();}
+
+                function _localAfterProcessToken() {
+                    item = data[itemIndex];
+                    if (undefined != item.source) {
+                        itemIndex++;
+                        //skip it. it uses in search only
+                    }
+                    item = data[itemIndex];
+                    if (undefined != item.count) {
+                        itemIndex++;
+                        this.curPageCount = (item.count +0);
+                    }
+                    item = data[itemIndex];
+                    if (undefined != item['refresh_time']) {
+                        itemIndex++;
+                        this.refreshTime = (item['refresh_time'] +0);
+                    }
+                    item = data[itemIndex];
+                    if (undefined != item['progress_count']) {
+                        itemIndex++;
+                        //TODO: progress_count
+                        //setTotalCount(oJsonArr.getCurItem().getInt("progress_count"));
+                    }
+                    item = data[itemIndex];
+                    if (undefined != item['total_count']) {
+                        itemIndex++;
+                        this.totalCount = (item['total_count'] +0);
+                    }
+                    //if ( getServerObjectsCount() == 0 )
+                    //    getNotify().fireSyncNotification(this, false, RhoAppAdapter.ERR_NONE, "");
+
+                    if (this.token == 0) {
+                        //oo conflicts
+                        rho.storage.executeSql("DELETE FROM changed_values where source_id=? and sent>=3", this.id).done(function(){
+                            _localAfterTokenIsZero();
+                        }).fail(function(){
+                            dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
+                        });
+                        //
+                    } else {_localAfterTokenIsZero();}
+
+                    function _localAfterTokenIsZero(){
+                        LOG.info("Got " + this.curPageCount + "(Processed: " +  this.serverObjectsCount
+                                + ") records of " + this.totalCount + " from server. Source: " + this.name
+                                + ". Version: " + item.version );
+
+                        if (this.engine.isContinueSync()) {
+                            item = data[itemIndex];
+                            var oCmds = item;
+                            itemIndex++;
+
+                            if (undefined != oCmds['schema-changed']) {
+                                this.engine.setSchemaChanged(true);
+                                _localAfterProcessServerErrors();
+                            } else if (!processServerErrors(oCmds)) {
+                                rho.storage.tx('rw').done(function(db, tx){
+                                    if (this.engine.getSourceOptions().getBoolProperty(this.id, "pass_through")) {
+                                        if (this.schemaSource) {
+                                            //rho.storage.executeSql( "DELETE FROM " + this.name );
+                                        } else {
+                                            rho.storage.executeSql( "DELETE FROM object_values WHERE source_id=?", [this.id], tx).done(function(tx, rs){
+                                                _localAfterDeleteObjectValues();
+                                            }).fail(function(obj, error){
+                                                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
+                                            });
+                                        }
+                                    } else {_localAfterDeleteObjectValues();}
+
+                                    function _localAfterDeleteObjectValues() {
+                                        if (undefined != oCmds["metadata"] && this.engine.isContinueSync() ) {
+                                            var strMetadata = oCmds["metadata"];
+                                            rho.storage.executeSql("UPDATE sources SET metadata=? WHERE source_id=?", [strMetadata, this.id], tx).done(function(){
+                                                _localAfterSourcesUpdate();
+                                            }).fail(function(obj, error){
+                                                dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
+                                            });
+                                        } else {_localAfterSourcesUpdate();}
+
+                                        function _localAfterSourcesUpdate(){
+                                            if (undefined != oCmds["links"] && this.engine.isContinueSync() ) {
+                                                processSyncCommand("links", oCmds["links"], true);
+                                            }
+                                            if (undefined != oCmds["delete"] && this.engine.isContinueSync() ) {
+                                                processSyncCommand("delete", oCmds["delete"], true);
+                                            }
+                                            if (undefined != oCmds["insert"] && this.engine.isContinueSync() ) {
+                                                processSyncCommand("insert", oCmds["insert"], true);
+                                            }
+
+                                            getNotify().fireObjectsNotification();
+                                            _localAfterProcessServerErrors();
+                                        }
+                                    }
+                                }).fail(function(){
+                                    dfr.reject(rho.errors.ERR_RUNTIME, "db access error: " +error);
+                                });
+                            } else {_localAfterProcessServerErrors();}
+
+                            function _localAfterProcessServerErrors() {
+                                _localAfterIfContinueSync();
+                            }
+                        } else {_localAfterIfContinueSync();}
+
+                        function _localAfterIfContinueSync(){
+                            if (this.curPageCount > 0) {
+                                getNotify().fireSyncNotification(this, false, rho.errors.ERR_NONE, "");
+                            }
+                            dfr.resolve();
+                        }
+                    }
+                }
+
+            }).promise();
+        }
+
+        function processSyncCommand(strCmd, oCmdEntry, bCheckUIRequest) {
+            return $.Deferred(function(dfr){
+
+                $.each(oCmdEntry, function(strObject, attrs){
+                    if (!this.engine.isContinueSync()) return;
+
+                    if (this.schemaSource) {
+                        //processServerCmd_Ver3_Schema(strCmd,strObject,attrIter);
+                    } else {
+                        $.each(attrs, function(strAttrib, strValue){
+                            if (!this.engine.isContinueSync()) return;
+
+                            processServerCmd_Ver3(strCmd,strObject,strAttrib,strValue).done(function(){
+                                _localAfterIfSchemaSource();
+                            }).fail(function(errCode, error){
+                                LOG.error("Sync of server changes failed for " + getName() + ";object: " + strObject, error);
+                                dfr.reject(errCode, error);
+                            });
+
+                        });
+
+                    } /* else {_localAfterIfSchemaSource()}*/
+
+                    function _localAfterIfSchemaSource() {
+                        if (this.sync_type == "none") return;
+
+                        if (bCheckUIRequest) {
+                            var nSyncObjectCount  = getNotify().incLastSyncObjectCount(this.id);
+                            if ( this.progressStep > 0 && (nSyncObjectCount % this.progressStep == 0) ) {
+                                getNotify().fireSyncNotification(this, false, rho.errors.ERR_NONE, "");
+                            }
+
+                            //TODO: to discuss with Evgeny
+                            //if (getDB().isUIWaitDB()) {
+                            //    LOG.INFO("Commit transaction because of UI request.");
+                            //    getDB().endTransaction();
+                            //    SyncThread.getInstance().sleep(1000);
+                            //    getDB().startTransaction();
+                            //}
+                        }
+                    }
+                });
+
+            }).promise();
+        }
+
+        function processServerCmd_Ver3(strCmd, strObject, strAttrib, strValue) {
+            //TODO: to implement
+        }
+
+        function processServerErrors(oCmds) {
+            //TODO: to implement
+            return false;
         }
 
         function syncClientChanges() {
             return $.Deferred(function(dfr){
+                // just a stub
+                dfr.resolve(false /*it means server changes hasn't been synchronized*/);
                 //TODO: to implement
             }).promise();
         }
 
         this.sync = function(){
             return $.Deferred(function(dfr){
+                //TODO: to implement RhoAppAdapter.getMessageText("syncronizing")
+                getNotify().reportSyncStatus("syncronizing" + this.name + "...", this.errCode, this.error);
+
                 var startTime = Date.now();
 
-                function _finally() {
-                    var endTime = Date.now();
-                    //TODO: to implement
-/*
-                    this.storage.executeSql(
-                            "UPDATE sources set last_updated=?,last_inserted_size=?,last_deleted_size=?, "
-                            +"last_sync_duration=?,last_sync_success=?, backend_refresh_time=? WHERE source_id=?",
-                            (endTime/1000), new Integer(getInsertedCount()), new Integer(getDeletedCount()),
-                      new Long((endTime.minus(startTime)).toULong()),
-                      new Integer(m_bGetAtLeastOnePage?1:0), new Integer(m_nRefreshTime), getID() );
-*/
-                }
-
-                function _catch(obj, err) {
-                    stopSync();
-                    _finally();
-                    dfr.reject(obj, err);
-                }
-
-                rho.notify.byEvent(rho.events.SYNCHRONIZING, 'synchronizing' +this.name +'...', this.errCode, this.error);
                 if (this.isTokenFromDb && this.token > 1) {
-                    syncServerChanges();
+                    syncServerChanges().done(function(){
+                        _finally();
+                        dfr.resolve();
+                    }).fail(_catch);
                 } else {
-                    if (this.token == 0) {
+                    if (isEmptyToken()) {
                         processToken(1).done(function(){
-                            syncClientChanges().done(function(serverSyncDone){
-                                if (!serverSyncDone) syncServerChanges().done(function(){
-                                    dfr.resolve(); //TODO: params to resolve
-                                }).fail(_catch);
+                            _localSyncClient();
+                        }).fail(_catch);
+                    }
+                    _localSyncClient();
+
+                    function _localSyncClient() {
+                        syncClientChanges().done(function(serverSyncDone){
+                            if (!serverSyncDone) syncServerChanges().done(function(){
+                                _finally();
+                                dfr.resolve(); //TODO: params to resolve
                             }).fail(_catch);
                         }).fail(_catch);
                     }
                 }
+                function _catch(errCode, error) {
+                    engine.stopSync();
+                    _finally();
+                    dfr.reject(errCode, error);
+                }
+                function _finally() {
+                    var endTime = Date.now();
+
+                    this.storage.executeSql(
+                            "UPDATE sources set last_updated=?,last_inserted_size=?,last_deleted_size=?, "
+                            +"last_sync_duration=?,last_sync_success=?, backend_refresh_time=? WHERE source_id=?",
+                            (endTime/1000), getInsertedCount(), getDeletedCount(),
+                      endTime - startTime,
+                      (this.getAtLeastOnePage ? 1 : 0), this.refreshTime, this.id );
+                }
             }).promise();
         };
+
+        function getNotify() {
+            return this.engine.notify;
+        }
+
+        function getInsertedCount() {
+            return this.insertedCount;
+        }
+
+        function getDeletedCount() {
+            return this.deletedCount;
+        }
+
     }
 
     function Client(id) {

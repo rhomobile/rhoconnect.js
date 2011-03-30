@@ -2,11 +2,14 @@
 
     function publicInterface() {
         return {
-            getErrorFromXHR: getErrorFromXHR,
+            getVersion: getVersion,
+            getErrCodeFromXHR: getErrCodeFromXHR,
             getSession: getSession,
+            getServerQueryUrl: getServerQueryUrl,
             login: login,
             clientCreate: clientCreate,
-            clientReset: clientReset
+            clientReset: clientReset,
+            serverQuery: serverQuery
         };
     }
 
@@ -28,8 +31,7 @@
         HTTP_NOTMODIFIED: 304
     };
 
-    function getErrorFromXHR(xhr) {
-
+    function getErrCodeFromXHR(xhr) {
         switch(xhr.status) {
             case respCodes.HTTP_UNAUTHORIZED: return rho.errors.ERR_UNATHORIZED;
             case respCodes.HTTP_OK: return rho.errors.ERR_NONE;
@@ -38,8 +40,16 @@
         }
     }
 
+    function getVersion() {
+        return 3;
+    }
+
     function getSession() {
         return _getCookie(SESSION_COOKIE);
+    }
+
+    function getServerQueryUrl() {
+        return rho.config.syncServer;
     }
 
     function _setCookie(name, value, days, path, domain, secure) {
@@ -116,6 +126,15 @@
         // Request: GET /application/clientreset?client_id=7771137f497b4a8789e62da321117f50
         return _net_call(rho.config.syncServer+'/clientreset', {client_id: id}, "get", "text/plain");
     };
+
+    function serverQuery(srcName, clientId, pageSize, token) {
+        var params = $.extend({
+            version: 3,
+            client_id: clientId,
+            p_size: pageSize
+        }, srcName ? {source_name: srcName}:{}, token ? {token: token}:{});
+        return _net_call(rho.config.syncServer+'', params);
+    }
 
     $.extend(rho, {protocol: publicInterface()});
 
