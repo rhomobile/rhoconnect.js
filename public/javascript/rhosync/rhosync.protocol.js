@@ -9,7 +9,8 @@
             login: login,
             clientCreate: clientCreate,
             clientReset: clientReset,
-            serverQuery: serverQuery
+            serverQuery: serverQuery,
+            postData: postData
         };
     }
 
@@ -139,6 +140,10 @@
         url += srcName ? ("&source_name=" +srcName) : "";
         url += token ? ("&token=" +token) : "";
         return _net_call(rho.config.syncServer+url, '', 'get', 'text/plain');
+    }
+
+    function postData(data) {
+        return _net_call(rho.config.syncServer+'', data);
     }
 
     $.extend(rho, {protocol: publicInterface()});

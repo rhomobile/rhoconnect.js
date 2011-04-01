@@ -107,21 +107,21 @@
         var dfr = $.Deferred();
         function resolveTx(db) {
             if (readWrite && readWrite != "read-only") {
-                db.transaction($.proxy(function(tx){
+                db.transaction(function(tx){
                     readyDfr.resolve(db, tx);
-                }, this), $.proxy(function (err) {
+                }, function (err) {
                     dfr.reject(db, err);
-                }, this), $.proxy(function(){
+                }, function(){
                     dfr.resolve(db, "ok");
-                }, this));
+                });
             } else {
-                db.readTransaction($.proxy(function(tx){
+                db.readTransaction(function(tx){
                     readyDfr.resolve(db, tx);
-                }, this), $.proxy(function (err) {
+                }, function (err) {
                     dfr.reject(db, err);
-                }, this), $.proxy(function(){
+                }, function(){
                     dfr.resolve(db, "ok");
-                }, this));
+                });
             }
         }
         if (optionalDb) {
@@ -149,11 +149,11 @@
     function _executeSql(sql, values, optionalTx) {
         return $.Deferred(function(dfr){
             function execInTx(tx, sql, values) {
-                tx.executeSql(sql, values, $.proxy(function(tx, rs){
+                tx.executeSql(sql, values, function(tx, rs){
                     dfr.resolve(tx, rs);
-                }, this), $.proxy(function(tx, err){
+                }, function(tx, err){
                     dfr.reject(tx, err);
-                }, this));
+                });
             }
             if (optionalTx) {
                 execInTx(optionalTx, sql, values);

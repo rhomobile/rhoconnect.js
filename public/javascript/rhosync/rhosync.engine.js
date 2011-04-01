@@ -14,6 +14,7 @@
             login: login,
             logout: logout,
             getState: getState,
+            setState: setState,
             isSearch: isInSearch,
             doSyncAllSources: doSyncAllSources,
             stopSync: stopSync,
@@ -666,6 +667,9 @@
         this.getAtLeastOnePage = false;
         this.refreshTime = 0;
 
+        this.multipartItems = [];
+        this.blobAttrs = [];
+
         //TODO: do we need to implement real value setup?
         this.schemaSource = false;
 
@@ -1001,13 +1005,8 @@
                     //if ( !processBlob(strCmd,strObject,oAttrValue) )
                     //    return;
 
-                    //TODO: to implement?
-                    //IDBResult resInsert = getDB().executeSQLReportNonUnique("INSERT INTO object_values "+
-                    //        "(attrib, source_id, object, value) VALUES(?,?,?,?)",
-                    //        oAttrValue.m_strAttrib, getID(), strObject, oAttrValue.m_strValue );
-
                     rho.storage.executeSql("SELECT source_id FROM object_values "+
-                            "WHERE object=? and attrib=? and source_id=?",
+                            "WHERE object=? and attrib=? and source_id=? LIMIT 1 OFFSET 0",
                             [strObject, oAttrValue.m_strAttrib, that.id], tx).done(function(tx, rs){
                         if (0 == rs.rows.length) {
                             rho.storage.executeSql("INSERT INTO object_values "+
@@ -1191,9 +1190,270 @@
         this.syncClientChanges = function() {
             var that = this;
             return $.Deferred(function(dfr){
-                // just a stub
-                dfr.resolve(false /*it means server changes hasn't been synchronized*/);
+
+                var bSyncedServer = false;
+
+                that.isPendingClientChanges().done(function(found){
+                    if (found) {
+                        LOG.info( "Client has unconfirmed created items. Call server to update them." );
+                        that.syncServerChanges().done(function(){
+                            bSyncedServer = true;
+                            _localAfterIfClientHaveUnconfirmedItems();
+                        }).fail(_rejectPassThrough(dfr));
+                    } else {_localAfterIfClientHaveUnconfirmedItems();}
+                }).fail(_rejectOnDbAccessEror(dfr));
+
+                function _localAfterIfClientHaveUnconfirmedItems() {
+
+                    that.isPendingClientChanges().done(function(found){
+                        if (bSyncedServer && found) {
+                            LOG.info( "Server does not sent created items. Stop sync." );
+                            that.engine.setState(states.stop);
+                            _localAfterIfServerSentCreatedItems();
+                        } else {
+                            rho.storage.executeSql("SELECT object FROM changed_values "+
+                                    "WHERE source_id=? LIMIT 1 OFFSET 0", [that.id]).done(function(tx, rs){
+                                var bSyncClient = false;
+                                bSyncClient = (0 < rs.rows.length);
+
+                                if (bSyncClient) {
+                                    that.doSyncClientChanges().done(function(){
+
+                                        bSyncedServer = false;
+                                        _localAfterIfSyncClient();
+                                    }).fail(_rejectPassThrough(dfr));
+                                } else {_localAfterIfSyncClient();}
+
+                                function _localAfterIfSyncClient() {
+                                    _localAfterIfServerSentCreatedItems();
+                                }
+                            }).fail(_rejectOnDbAccessEror(dfr));
+                        } /* else {_localAfterIfServerSentCreatedItems();}*/
+                    }).fail(_rejectOnDbAccessEror(dfr));
+
+                    function _localAfterIfServerSentCreatedItems() {
+                        // just a stub
+                        //dfr.resolve(false /*it means: no, server changes hasn't been synchronized*/);
+                        dfr.resolve(bSyncedServer);
+                    }
+                }
+            }).promise();
+        };
+
+        this.isPendingClientChanges = function() {
+            var that = this;
+            return $.Deferred(function(dfr){
+                rho.storage.executeSql("SELECT object FROM changed_values "+
+                        "WHERE source_id=? and update_type='create' and sent>1  LIMIT 1 OFFSET 0",
+                        [that.id]).done(function(tx, rs){
+                    dfr.resolve(0 < rs.rows.length);
+                    //dfr.resolve(true);
+                }).fail(_rejectOnDbAccessEror(dfr));
+            }).promise();
+        };
+
+        this.doSyncClientChanges = function() {
+            var that = this;
+            return $.Deferred(function(dfr){
+
+                var arUpdateTypes = ["create", "update", "delete"];
+                var arUpdateSent = {};
+
+                that.multipartItems = [];
+                that.blobAttrs = [];
+
+                var bSend = false;
+
+                // instead of that..
+                var strBody = "{\"source_name\":" + JSONEntry.quoteValue(getName()) + ",\"client_id\":" + JSONEntry.quoteValue(getSync().getClientID());
+
+                // ..use this
+                var body = {
+                    source_name: that.name,
+                    client_id: that.engine.getClientId(),
+                    create: _localBuldDataPartFor('create'),
+                    update: _localBuldDataPartFor('update'),
+                    'delete': _localBuldDataPartFor('delete')
+                };
+
+                function _localBuldDataPartFor(updateType) {
+                    if (that.engine.isContinueSync()) {
+                        arUpdateSent[updateType] = true;
+                        bSend = true;
+                    }
+                    return that.makePushBody_Ver3(updateType, true);  //TODO: convert to done/fail style
+                }
+
+                /*
+                var blobPart = {blob_fields: []};
+                $.each(that.blobAttrs, function(idx, id){
+                    blobPart.blob_fields.push(id);
+                });
+                body = $.extend(body, blobPart);
+                */
+
+                if (bSend) {
+                    LOG.info( "Push client changes to server. Source: " + that.name + "Size :" + strBody.length() );
+                    LOG.trace("Push body: " + $.toJSON(body));
+
+                    if (that.multipartItems.length > 0) {
+                        /*
+                        MultipartItem oItem = new MultipartItem();
+                        oItem.m_strBody = strBody;
+                        //oItem.m_strContentType = getProtocol().getContentType();
+                        oItem.m_strName = "cud";
+                        m_arMultipartItems.addElement(oItem);
+
+                        NetResponse resp = getNet().pushMultipartData( getProtocol().getClientChangesUrl(), m_arMultipartItems, getSync(), null );
+                        if ( !resp.isOK() )
+                        {
+                            getSync().setState(SyncEngine.esStop);
+                            m_nErrCode = RhoAppAdapter.ERR_REMOTESERVER;
+                            m_strError = resp.getCharData();
+                        }
+                        */
+                        _localAfterIfMultipartItems();
+                    } else {
+                        rho.protocol.postData(body).done(function(status, data, xhr){
+                            _localAfterIfMultipartItems();
+                        }).fail(function(status, error, xhr){
+                            that.engine.setState(rho.states.stop);
+                            that.errCode = rho.protocol.getErrCodeFromXHR(xhr);
+                            that.errCode = _isTimeout(error) ? rho.errors.ERR_NOSERVERRESPONSE : that.errCode;
+                            that.error = error;
+                            dfr.reject(that.errCode, that.error);
+                        });
+                    } /* else {_localAfterIfMultipartItems();}*/
+                } else {_localAfterIfMultipartItems();}
+
+                function _localAfterIfMultipartItems() {
+                    var dfrMap = rho.deferredMapOn(arUpdateSent);
+
+                    $.each(arUpdateSent, function(updateType, isDone){
+                        if (that.engine.isContinueSync() && isDone /*isDone is always true, no false values there*/) {
+                            //oo conflicts
+                            if (updateType == 'create') {
+                                that.storage.executeSql("UPDATE changed_values SET sent=2 "+
+                                        "WHERE source_id=? and update_type=? and sent=1",
+                                        [that.id, updateType]).done(function(){
+                                    dfrMap.resolve(updateType, []);
+                                }).fail(function(obj, err){
+                                    dfrMap.reject(updateType, [rho.errors.ERR_RUNTIME, "db access error: " +err]);
+                                });
+                            } else {
+                            //
+                                that.storage.executeSql("DELETE FROM changed_values "+
+                                        "WHERE source_id=? and update_type=? and sent=1",
+                                        [that.id, updateType]).done(function(){
+                                    dfrMap.resolve(updateType, []);
+                                }).fail(function(obj, err){
+                                    dfrMap.reject(updateType, [rho.errors.ERR_RUNTIME, "db access error: " +err]);
+                                });
+                            }
+                        } else {
+                            dfrMap.resolve(updateType, []);
+                        }
+                    });
+
+                    dfrMap.when().done(function(){
+                        that.multipartItems = [];
+                        that.blobAttrs = [];
+                        dfr.resolve();
+                    }).fail(_rejectPassThrough(dfr));
+                }
+            }).promise();
+        };
+
+        this.makePushBody_Ver3 = function(updateType, isSync) {
+            return $.Deferred(function(dfr){
                 //TODO: to implement
+/*
+                String strBody = "";
+                getDB().Lock();
+
+                if ( isSync )
+                    getDB().updateAllAttribChanges();
+
+                IDBResult res = getDB().executeSQL("SELECT attrib, object, value, attrib_type "+
+                    "FROM changed_values where source_id=? and update_type =? and sent<=1 ORDER BY object", getID(), strUpdateType );
+
+                if ( res.isEnd() )
+                {
+                    res.close();
+                    getDB().Unlock();
+                    return strBody;
+                }
+
+                String strCurObject = "";
+                boolean bFirst = true;
+                for( ; !res.isEnd(); res.next() )
+                {
+                    String strAttrib = res.getStringByIdx(0);
+                    String strObject = res.getStringByIdx(1);
+                    String value = res.getStringByIdx(2);
+                    String attribType = res.getStringByIdx(3);
+
+                    if ( attribType.compareTo("blob.file") == 0 )
+                    {
+                        MultipartItem oItem = new MultipartItem();
+                        oItem.m_strFilePath = RhodesApp.getInstance().resolveDBFilesPath(value);
+                        oItem.m_strContentType = "application/octet-stream";
+                        oItem.m_strName = strAttrib + "-" + strObject;
+
+                        m_arBlobAttrs.addElement(strAttrib);
+                        m_arMultipartItems.addElement(oItem);
+                    }
+
+                    if ( strBody.length() == 0 )
+                    {
+                        if ( !isSync )
+                            strBody += "{";
+                        else
+                            strBody += "\"" + strUpdateType + "\":{";
+                    }
+
+                    if ( strObject.compareTo(strCurObject) != 0 )
+                    {
+                        if ( strCurObject.length() > 0 )
+                        {
+                            if ( !bFirst )
+                                strBody += "}";
+                            strBody += ",";
+                        }
+
+                        bFirst = true;
+                        strBody += JSONEntry.quoteValue(strObject);
+                        strCurObject = strObject;
+                    }
+
+                    if (!bFirst)
+                        strBody += ",";
+
+                    if ( strAttrib.length() > 0  )
+                    {
+                        if ( bFirst )
+                            strBody += ":{";
+
+                        strBody += JSONEntry.quoteValue(strAttrib) + ":" + JSONEntry.quoteValue(value);
+                        bFirst = false;
+                    }
+                }
+
+                if ( strBody.length() > 0 )
+                {
+                    if ( !bFirst )
+                        strBody += "}";
+
+                    strBody += "}";
+                }
+
+                if ( isSync )
+                    getDB().executeSQL("UPDATE changed_values SET sent=1 WHERE source_id=? and update_type=? and sent=0", getID(), strUpdateType );
+
+                getDB().Unlock();
+
+                return strBody;
+*/
             }).promise();
         };
 
