@@ -250,7 +250,7 @@
     function _init() {
         return $.Deferred(function(dfr){
             _getAllTableNames().done(function(names){
-                if (4+1 != names.length) {
+                if ((4/*explicitly defined tables*/ +1/*implicit system table*/) != names.length) {
                     _initSchema().done(function(){
                         dfr.resolve("db schema initialized");
                     }).fail(function(){

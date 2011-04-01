@@ -17,6 +17,7 @@
             isSearch: isInSearch,
             doSyncAllSources: doSyncAllSources,
             stopSync: stopSync,
+            getNotify: getNotify,
             getSyncPageSize:  function() {return syncPageSize},
             getClientId:  function() {return clientId},
             getStartSourceId: getStartSourceId,
@@ -25,8 +26,8 @@
             isNoThreadedMode: isNoThreadedMode,
             isSessionExist: isSessionExist,
             isContinueSync: isContinueSync,
-            setSchemaChanged: function(value) {isSchemaChanged = value},
-            isSchemaChanged: function() {return isSchemaChanged},
+            setSchemaChanged: function(value) {schemaChanged = value},
+            isSchemaChanged: isSchemaChanged,
             isStoppedByUser: function() {return isStoppedByUser}
         };
     }
@@ -70,18 +71,23 @@
 
         this.getBoolProperty = function(nSrcID, szPropName)
         {
-            var strValue = getProperty(nSrcID, szPropName);
+            var strValue = this.getProperty(nSrcID, szPropName);
             return (strValue == "1" || strValue == "true");
         }
     }
 
     var notify = null;
+    function getNotify() {
+        notify = notify || new rho.notify.SyncNotify(rho.engine);
+        return notify;
+    }
+
     var syncState = states.none;
     var isSearch = false;
     var errCode = rho.errors.ERR_NONE;
     var error = "";
     var serverError = "";
-    var isSchemaChanged = false;
+    var schemaChanged = false;
     var session = null;
     var clientId = null;
     var syncPageSize = 2000;
@@ -89,12 +95,12 @@
 
     var LOG = new rho.Logger('SyncEngine');
 
-    function getState() {
-        return syncState;
-    }
-
     function isInSearch() {
         return isSearch;
+    }
+
+    function isSchemaChanged() {
+        return schemaChanged;
     }
 
     function logout() {
@@ -180,16 +186,16 @@
     function _updateClientId(id) {
         return $.Deferred(function(dfr){
             // obtain client id from the server
-            rho.storage.loadAllClients().done(function(clients){
+            rho.storage.loadAllClients().done(function(tx, clients){
                 if (0 < clients.length) {
                     rho.storage.executeSql("UPDATE client_info SET client_id=?", [id]).done(function(tx, rs){
-                        dfr.resolve(clients[0]);
+                        dfr.resolve(id);
                     }).fail(_rejectOnDbAccessEror(dfr));
                 } else {
                     var client = new Client(null);
                     client.id = id;
                     rho.storage.insertClient(client).done(function(tx, client){
-                        dfr.resolve(client);
+                        dfr.resolve(id);
                     }).fail(_rejectOnDbAccessEror(dfr));
                 }
             }).fail(_rejectOnDbAccessEror(dfr));
@@ -202,8 +208,8 @@
             rho.protocol.clientCreate().done(function(status, data){
                 if (data && data.client && data.client.client_id){
                     // persist new client
-                    _updateClientId(data.client.client_id).done(function(client){
-                        dfr.resolve(client);
+                    _updateClientId(data.client.client_id).done(function(id){
+                        dfr.resolve(id);
                     }).fail(_rejectPassThrough(dfr));
                 } else {
                     dfr.reject(rho.errors.ERR_UNEXPECTEDSERVERRESPONSE, data);
@@ -236,32 +242,45 @@
     }
 
     function doSyncAllSources() {
-        function _finally(){
-            if (syncState != states.exit) {
-                syncState = states.none;
-            }
-        }
+        return $.Deferred(function(dfr){
 
-        prepareSync(states.syncAllSources, null);
-        
-        if (isContinueSync()) {
-            syncAllSources().fail(function(errCode, errMsg){
-                rho.notify.byEvent(rho.events.ERROR, "Sync failed", errMsg);
-            }).then(_finally, _finally);
-        }
+            prepareSync(states.syncAllSources, null).done(function(){
+                if (isContinueSync()) {
+                    syncAllSources().done(function(){
+                        _finally();
+                        _localAfterIsContinueSync();
+                    }).fail(function(errCode, errMsg){
+                        _finally();
+                        rho.notify.byEvent(rho.events.ERROR, "Sync failed", errMsg);
+                        dfr.reject(errCode, errMsg);
+                    });
+                } else {_localAfterIsContinueSync();}
 
-        getNotify().cleanCreateObjectErrors();
+                function _finally(){
+                    if (getState() != states.exit) {
+                        setState(states.none);
+                    }
+                }
+
+                function _localAfterIsContinueSync() {
+                    getNotify().cleanCreateObjectErrors();
+                    dfr.resolve();
+                }
+            }).fail(function(errCode, errMsg){
+                dfr.reject(errCode, errMsg);
+            });
+        }).promise();
     }
 
     function prepareSync(eState, oSrcID) {
         return $.Deferred(function(dfr){
-            syncState = eState;
+            setState(eState);
             isSearch =  (eState == states.search);
             isStoppedByUser = false;
             errCode = rho.errors.ERR_NONE;
             error = "";
             serverError = "";
-            isSchemaChanged = false;
+            schemaChanged = false;
 
             loadAllSources().done(function(){
                 loadSession().done(function(s){
@@ -273,6 +292,7 @@
                                 getNotify().cleanLastSyncObjectCount();
                                 //doBulkSync();
                                 dfr.resolve();
+                                return;
                             }
                             _localFireErrorNotification();
                             stopSync();
@@ -336,8 +356,8 @@
                 }
 
                 if (!clnId) {
-                    _createClient().done(function(client){
-                        dfr.resolve(client.id);
+                    _createClient().done(function(id){
+                        dfr.resolve(id);
                     }).fail(_rejectPassThrough(dfr));
                 } else if (resetClient) {
                     _resetClient(clnId).done(function(clientId){
@@ -369,10 +389,10 @@
             sources = {};
 
             rho.storage.loadAllSources().done(function(tx, srcs){
-                $.each(srcs, function(src){
+                $.each(srcs, function(idx, src){
                     if (src.sync_type == 'none') return;
                     src.storage = rho.storage;
-                    src.engine = this;
+                    src.engine = rho.engine;
                     sources[src.name] = src;
                 });
                 checkSourceAssociations();
@@ -386,7 +406,7 @@
         var hashPassed = {};
 
         function _insertIntoArray(array, index, value) {
-            if (index >= array.length) return array.concat(value);
+            if (index >= array.length) return array.concat(value);  
             if (index < 0) index = 0;
             return array.slice(0, index).concat(value, array.slice(index));
         }
@@ -411,7 +431,7 @@
         });
 
         
-        for(var nCurSrc = srcArray.size()-1; nCurSrc > 0;) {
+        for(var nCurSrc = srcArray.length-1; nCurSrc > 0;) {
             var oCurSrc = srcArray[nCurSrc];
             if (oCurSrc.getAssociations().length == 0 || oCurSrc.name in hashPassed ) {
                 nCurSrc--;
@@ -456,10 +476,10 @@
 
             var syncErrors = [];
 
-            var startSrcIndex = _getStartSourceIndex();
+            var startSrcIndex = getStartSourceIndex();
             var startSrc = (0 <= startSrcIndex ? sourcesArray[startSrcIndex] : null);
             if (0 <= startSrcIndex) {
-                _syncOneSource(startSrcIndex).done(function(){
+                syncOneSource(startSrcIndex).done(function(){
                     dfrMap.resolve('rhoStartSyncSource', ["ok"]);
                 }).fail(function(errCode, error){
                     isError = true;
@@ -474,7 +494,7 @@
 
             for(var i=0; i<sourcesArray.length; i++) {
                 var src = sourcesArray[i];
-                _syncOneSource(i).done(function(){
+                syncOneSource(i).done(function(){
                     dfrMap.resolve(src.name, ["ok"]);
                 }).fail(function(errCode, error){
                     isError = true;
@@ -504,27 +524,27 @@
         }).promise();
     }
 
-    function _getStartSourceIndex() {
+    function getStartSourceIndex() {
         for(var i=0; i<sourcesArray.length; i++) {
             if (!sourcesArray[i].isEmptyToken()) return i;
         }
         return -1;
     }
 
-    function _syncOneSource(index) {
+    function syncOneSource(index) {
         return $.Deferred(function(dfr){
             var source = sourcesArray[index];
             
             if ( source.sync_type == "bulk_sync_only") {
                 dfr.resolve(null); //TODO: do resolve it as a source?
-            } else if (isSessionExist() && syncState != states.stop ) {
+            } else if (isSessionExist() && getState() != states.stop ) {
                 source.sync().done(function(){
                     dfr.resolve(source);
                 }).fail(function(obj, error){
                     if (source.errCode == rho.errors.ERR_NONE) {
                         source.errCode = rho.errors.ERR_RUNTIME;
                     }
-                    syncState = states.stop;
+                    setState(states.stop);
                     dfr.reject(rho.errors.ERR_RUNTIME, "sync is stopped: " +error);
                 }).then(_finally, _finally);
                 function _finally() {
@@ -536,15 +556,20 @@
         }).promise();
     }
 
+    function getState() { return syncState; }
+    function setState(state) {
+        syncState = state;
+    }
+    
+    function isContinueSync() { var st = getState(); return st != states.exit && st != states.stop; }
+    function isSyncing() { var st = getState();  return st == states.syncAllSources || st == states.syncSource; }
+
     function stopSync() {
         if (isContinueSync()) {
-            syncState = states.stop;
+            setState(states.stop);
             _cancelRequests();
         }
     }
-
-    function isContinueSync() { return syncState != states.exit && syncState != states.stop; }
-    function isSyncing() { return syncState == states.syncAllSources || syncState == states.syncSource; }
 
     function _cancelRequests() {
         //TODO: to implement
@@ -570,11 +595,6 @@
         return startId;
     }
 
-    function getNotify() {
-        notify = notify || new rho.notify.SyncNotify(rho.engine);
-        return notify;
-    }
-
     function getSourceOptions() {
         return sourceOptions;
     }
@@ -596,7 +616,7 @@
 
     function _exitSync() {
         if (isContinueSync()) {
-            syncState = states.exit;
+            setState(states.exit);
             _cancelRequests();
         }
     }
@@ -660,37 +680,39 @@
             return this.token == 0;
         };
 
-        function setToken(token) {
+        this.setToken = function(token) {
             this.token = token;
             this.isTokenFromDb = false;
-        }
+        };
 
-        function processToken(token) {
+        this.processToken = function(token) {
+            var that = this;
             return $.Deferred(function(dfr){
-                if ( token > 1 && this.token == token ){
+                if ( token > 1 && that.token == token ){
                     //Delete non-confirmed records
 
-                    setToken(token); //For m_bTokenFromDB = false;
+                    that.setToken(token); //For m_bTokenFromDB = false;
                     //getDB().executeSQL("DELETE FROM object_values where source_id=? and token=?", getID(), token );
                     //TODO: add special table for id,token
                     dfr.resolve();
                 }else
                 {
-                    setToken(token);
-                    this.storage.executeSql("UPDATE sources SET token=? where source_id=?", +this.token, this.id).done(function(){
+                    that.setToken(token);
+                    rho.storage.executeSql("UPDATE sources SET token=? where source_id=?", [+that.token, that.id]).done(function(){
                         dfr.resolve();
                     }).fail(_rejectOnDbAccessEror(dfr));
                 }
             }).promise();
-        }
+        };
 
         this.parseAssociations = function(strAssociations) {
+            var that = this;
             if (!strAssociations) return;
 
             var srcName = "";
             $.each(strAssociations.split(','), function(idx, attrName){
                 if (srcName) {
-                    this.arAssociations.push(new SourceAssociation(srcName, attrName) );
+                    that.arAssociations.push(new SourceAssociation(srcName, attrName) );
                     srcName = "";
                 } else {
                     srcName = attrName;
@@ -698,36 +720,37 @@
             });
         };
 
-        function syncServerChanges() {
+        this.syncServerChanges = function() {
+            var that = this;
             return $.Deferred(function(dfr){
-                LOG.info("Sync server changes source ID :" + this.id);
+                LOG.info("Sync server changes source ID :" + that.id);
 
                 _localAsyncWhile();
                 function _localAsyncWhile() {
-                    this.curPageCount =0;
+                    that.curPageCount =0;
 
                     var strUrl = rho.protocol.getServerQueryUrl("");
-                    var clnId = this.engine.getClientId();
-                    var pgSize = this.engine.getSyncPageSize();
-                    var tkn = (!this.isTokenFromDb && this.token>1) ? this.token:null;
-                    LOG.info( "Pull changes from server. Url: " + (strUrl+_localGetQuery(this.name, clnId, pgSize, tkn)));
+                    var clnId = that.engine.getClientId();
+                    var pgSize = that.engine.getSyncPageSize();
+                    var tkn = (!that.isTokenFromDb && that.token>1) ? that.token:null;
+                    LOG.info( "Pull changes from server. Url: " + (strUrl+_localGetQuery(that.name, clnId, pgSize, tkn)));
 
-                    rho.protocol.serverQuery(this.name, clnId, pgSize, tkn
-                            /*, this.engine*/).done(function(status, data, xhr){
+                    rho.protocol.serverQuery(that.name, clnId, pgSize, tkn
+                            /*, that.engine*/).done(function(status, data, xhr){
 
-                        //var testResp = this.engine.getSourceOptions().getProperty(this.id, "rho_server_response");
+                        //var testResp = that.engine.getSourceOptions().getProperty(that.id, "rho_server_response");
                         //data = testResp ? $.parseJSON(testResp) : data;
 
-                        processServerResponse_ver3(data).done(function(){
+                        that.processServerResponse_ver3(data).done(function(){
 
-                            if (this.engine.getSourceOptions().getBoolProperty(this.id, "pass_through")) {
-                                processToken(0).done(function(){
+                            if (that.engine.getSourceOptions().getBoolProperty(that.id, "pass_through")) {
+                                that.processToken(0).done(function(){
                                     _localNextIfContinued();
                                 }).fail(_rejectPassThrough(dfr));
                             } else {_localNextIfContinued();}
 
                             function _localNextIfContinued() {
-                                if (this.token && this.engine.isContinueSync()) {
+                                if (that.token && that.engine.isContinueSync()) {
                                     // go next in async while loop
                                     _localAsyncWhile()
                                 } else {
@@ -737,23 +760,23 @@
 
                         }).fail(_rejectPassThrough(dfr));
                     }).fail(function(status, error, xhr){
-                        this.engine.stopSync();
-                        this.errCode = rho.protocol.getErrCodeFromXHR(xhr);
-                        this.error = error;
+                        that.engine.stopSync();
+                        that.errCode = rho.protocol.getErrCodeFromXHR(xhr);
+                        that.error = error;
                         //_localAfterWhile(); //TODO: am I sure?
                         dfr.reject(errCode, error);
                     });
                 }
+                var _whileEnded = false;
                 function _localAfterWhile() {
                     if (!_whileEnded) {
                         _whileEnded = true;
-                        if (this.engine.isSchemaChanged()) {
-                            this.engine.stopSync();
+                        if (that.engine.isSchemaChanged()) {
+                            that.engine.stopSync();
                         }
                         dfr.resolve();
                     }
                 }
-                var _whileEnded = false;
 
                 function _localGetQuery(srcName, clnId, pgSize, token) {
                     var strQuery = "?client_id=" + clnId +
@@ -762,31 +785,34 @@
                     return strQuery += token ? ("&token=" + token) : '';
                 }
             }).promise();
-        }
+        };
 
-        function processServerResponse_ver3(data) {
+        this.processServerResponse_ver3 = function(data) {
+            var that = this;
             return $.Deferred(function(dfr){
                 var itemIndex = 0;
                 var item = null;
                 
                 item = data[itemIndex];
-                if (item.version != rho.protocol.getVersion()) {
+                if (undefined != item.version){
                     itemIndex++;
-                    LOG.error("Sync server send data with incompatible version. Client version: " +rho.protocol.getVersion()
-                        +"; Server response version: " +item.version +". Source name: " +this.name);
-                    this.engine.stopSync();
-                    this.errrCode = rho.errors.ERR_UNEXPECTEDSERVERRESPONSE;
-                    dfr.reject(this.errCode, "Sync server send data with incompatible version.");
-                    return;
+                    if (item.version != rho.protocol.getVersion()) {
+                        LOG.error("Sync server send data with incompatible version. Client version: " +rho.protocol.getVersion()
+                            +"; Server response version: " +item.version +". Source name: " +that.name);
+                        that.engine.stopSync();
+                        that.errrCode = rho.errors.ERR_UNEXPECTEDSERVERRESPONSE;
+                        dfr.reject(that.errCode, "Sync server send data with incompatible version.");
+                        return;
+                    }
                 }
 
                 item = data[itemIndex];
                 if (undefined != item.token){
                     itemIndex++;
-                    processToken(item.token +0).done(function(){
+                    that.processToken(+item.token).done(function(){
                         _localAfterProcessToken();
                     }).fail(function(errCode, error){
-                        dfr.reject(this.errCode, error);
+                        dfr.reject(that.errCode, error);
                     });
                 } else {_localAfterProcessToken();}
 
@@ -799,12 +825,12 @@
                     item = data[itemIndex];
                     if (undefined != item.count) {
                         itemIndex++;
-                        this.curPageCount = (item.count +0);
+                        that.curPageCount = (+item.count);
                     }
                     item = data[itemIndex];
                     if (undefined != item['refresh_time']) {
                         itemIndex++;
-                        this.refreshTime = (item['refresh_time'] +0);
+                        that.refreshTime = (+item['refresh_time']);
                     }
                     item = data[itemIndex];
                     if (undefined != item['progress_count']) {
@@ -815,67 +841,70 @@
                     item = data[itemIndex];
                     if (undefined != item['total_count']) {
                         itemIndex++;
-                        this.totalCount = (item['total_count'] +0);
+                        that.totalCount = (+item['total_count']);
                     }
                     //if ( getServerObjectsCount() == 0 )
-                    //    getNotify().fireSyncNotification(this, false, RhoAppAdapter.ERR_NONE, "");
+                    //    that.getNotify().fireSyncNotification(this, false, RhoAppAdapter.ERR_NONE, "");
 
-                    if (this.token == 0) {
+                    if (that.token == 0) {
                         //oo conflicts
-                        rho.storage.executeSql("DELETE FROM changed_values where source_id=? and sent>=3", this.id).done(function(){
+                        rho.storage.executeSql("DELETE FROM changed_values where source_id=? and sent>=3", [that.id]).done(function(){
                             _localAfterTokenIsZero();
                         }).fail(_rejectOnDbAccessEror(dfr));
                         //
                     } else {_localAfterTokenIsZero();}
 
                     function _localAfterTokenIsZero(){
-                        LOG.info("Got " + this.curPageCount + "(Processed: " +  this.serverObjectsCount
-                                + ") records of " + this.totalCount + " from server. Source: " + this.name
+                        LOG.info("Got " + that.curPageCount + "(Processed: " +  that.serverObjectsCount
+                                + ") records of " + that.totalCount + " from server. Source: " + that.name
                                 + ". Version: " + item.version );
 
-                        if (this.engine.isContinueSync()) {
+                        if (that.engine.isContinueSync()) {
                             item = data[itemIndex];
-                            var oCmds = item;
                             itemIndex++;
 
+                            var oCmds = item;
+
                             if (undefined != oCmds['schema-changed']) {
-                                this.engine.setSchemaChanged(true);
+                                that.engine.setSchemaChanged(true);
                                 _localAfterProcessServerErrors();
-                            } else if (!processServerErrors(oCmds)) {
-                                rho.storage.tx('rw').done(function(db, tx){
-                                    if (this.engine.getSourceOptions().getBoolProperty(this.id, "pass_through")) {
-                                        if (this.schemaSource) {
-                                            //rho.storage.executeSql( "DELETE FROM " + this.name );
+                            } else if (!that.processServerErrors(oCmds)) {
+                                rho.storage.tx('rw').ready(function(db, tx){
+                                    if (that.engine.getSourceOptions().getBoolProperty(that.id, "pass_through")) {
+                                        if (that.schemaSource) {
+                                            //rho.storage.executeSql( "DELETE FROM " + that.name );
                                         } else {
-                                            rho.storage.executeSql( "DELETE FROM object_values WHERE source_id=?", [this.id], tx).done(function(tx, rs){
+                                            rho.storage.executeSql( "DELETE FROM object_values WHERE source_id=?", [that.id], tx).done(function(tx, rs){
                                                 _localAfterDeleteObjectValues();
                                             }).fail(_rejectOnDbAccessEror(dfr));
                                         }
                                     } else {_localAfterDeleteObjectValues();}
 
                                     function _localAfterDeleteObjectValues() {
-                                        if (undefined != oCmds["metadata"] && this.engine.isContinueSync() ) {
+                                        if (undefined != oCmds["metadata"] && that.engine.isContinueSync() ) {
                                             var strMetadata = oCmds["metadata"];
-                                            rho.storage.executeSql("UPDATE sources SET metadata=? WHERE source_id=?", [strMetadata, this.id], tx).done(function(){
+                                            rho.storage.executeSql("UPDATE sources SET metadata=? WHERE source_id=?", [strMetadata, that.id], tx).done(function(){
                                                 _localAfterSourcesUpdate();
                                             }).fail(_rejectOnDbAccessEror(dfr));
                                         } else {_localAfterSourcesUpdate();}
 
                                         function _localAfterSourcesUpdate(){
-                                            if (undefined != oCmds["links"] && this.engine.isContinueSync() ) {
-                                                processSyncCommand("links", oCmds["links"], true, tx);
+                                            if (undefined != oCmds["links"] && that.engine.isContinueSync() ) {
+                                                that.processSyncCommand("links", oCmds["links"], true, tx);
                                             }
-                                            if (undefined != oCmds["delete"] && this.engine.isContinueSync() ) {
-                                                processSyncCommand("delete", oCmds["delete"], true, tx);
+                                            if (undefined != oCmds["delete"] && that.engine.isContinueSync() ) {
+                                                that.processSyncCommand("delete", oCmds["delete"], true, tx);
                                             }
-                                            if (undefined != oCmds["insert"] && this.engine.isContinueSync() ) {
-                                                processSyncCommand("insert", oCmds["insert"], true, tx);
+                                            if (undefined != oCmds["insert"] && that.engine.isContinueSync() ) {
+                                                that.processSyncCommand("insert", oCmds["insert"], true, tx);
                                             }
 
-                                            getNotify().fireObjectsNotification();
+                                            that.getNotify().fireObjectsNotification();
                                             _localAfterProcessServerErrors();
                                         }
                                     }
+                                }).done(function(db, status){
+                                    dfr.resolve();
                                 }).fail(_rejectOnDbAccessEror(dfr));
                             } else {_localAfterProcessServerErrors();}
 
@@ -885,34 +914,34 @@
                         } else {_localAfterIfContinueSync();}
 
                         function _localAfterIfContinueSync(){
-                            if (this.curPageCount > 0) {
-                                getNotify().fireSyncNotification(this, false, rho.errors.ERR_NONE, "");
+                            if (that.curPageCount > 0) {
+                                that.getNotify().fireSyncNotification(this, false, rho.errors.ERR_NONE, "");
                             }
-                            dfr.resolve();
+                            //dfr.resolve();
                         }
                     }
                 }
-
             }).promise();
-        }
+        };
 
-        function processSyncCommand(strCmd, oCmdEntry, bCheckUIRequest, tx) {
+        this.processSyncCommand = function(strCmd, oCmdEntry, bCheckUIRequest, tx) {
+            var that = this;
             return $.Deferred(function(dfr){
 
                 var dfrMap = rho.deferredMapOn(oCmdEntry);
                 $.each(oCmdEntry, function(strObject, attrs){
-                    if (!this.engine.isContinueSync()) return;
+                    if (!that.engine.isContinueSync()) return;
 
-                    if (this.schemaSource) {
-                        //processServerCmd_Ver3_Schema(strCmd,strObject,attrIter);
+                    if (that.schemaSource) {
+                        //that.processServerCmd_Ver3_Schema(strCmd,strObject,attrIter);
                     } else {
                         $.each(attrs, function(strAttrib, strValue){
-                            if (!this.engine.isContinueSync()) return;
+                            if (!that.engine.isContinueSync()) return;
 
-                            processServerCmd_Ver3(strCmd,strObject,strAttrib,strValue, tx).done(function(){
+                            that.processServerCmd_Ver3(strCmd,strObject,strAttrib,strValue, tx).done(function(){
                                 _localAfterIfSchemaSource();
                             }).fail(function(errCode, error){
-                                LOG.error("Sync of server changes failed for " + getName() + ";object: " + strObject, error);
+                                LOG.error("Sync of server changes failed for " + that.name + "; \object: " + strObject, error);
                                 dfrMap.reject(strObject, [errCode, error]);
                             });
 
@@ -923,14 +952,14 @@
                     function _localAfterIfSchemaSource() {
                         dfrMap.resolve(strObject, [tx]);
 
-                        if (this.sync_type == "none") {
+                        if (that.sync_type == "none") {
                             return;
                         }
 
                         if (bCheckUIRequest) {
-                            var nSyncObjectCount  = getNotify().incLastSyncObjectCount(this.id);
-                            if ( this.progressStep > 0 && (nSyncObjectCount % this.progressStep == 0) ) {
-                                getNotify().fireSyncNotification(this, false, rho.errors.ERR_NONE, "");
+                            var nSyncObjectCount  = that.getNotify().incLastSyncObjectCount(that.id);
+                            if ( that.progressStep > 0 && (nSyncObjectCount % that.progressStep == 0) ) {
+                                that.getNotify().fireSyncNotification(this, false, rho.errors.ERR_NONE, "");
                             }
 
                             //TODO: to discuss with Evgeny
@@ -948,7 +977,7 @@
                 }).fail(_rejectPassThrough(dfr));
 
             }).promise();
-        }
+        };
 
         function CAttrValue(strAttrib, strValue) {
             this.m_strAttrib = strAttrib;
@@ -961,7 +990,8 @@
             }
         }
 
-        function processServerCmd_Ver3(strCmd, strObject, strAttrib, strValue, tx) {
+        this.processServerCmd_Ver3 = function(strCmd, strObject, strAttrib, strValue, tx) {
+            var that = this;
             return $.Deferred(function(dfr){
 
                 var oAttrValue = new CAttrValue(strAttrib,strValue);
@@ -976,58 +1006,67 @@
                     //        "(attrib, source_id, object, value) VALUES(?,?,?,?)",
                     //        oAttrValue.m_strAttrib, getID(), strObject, oAttrValue.m_strValue );
 
-                    rho.storage.executeSql("INSERT INTO object_values "+
-                            "(attrib, source_id, object, value) VALUES(?,?,?,?)",
-                            [oAttrValue.m_strAttrib, this.id, strObject, oAttrValue.m_strValue], tx).done(function(tx, rs){
+                    rho.storage.executeSql("SELECT source_id FROM object_values "+
+                            "WHERE object=? and attrib=? and source_id=?",
+                            [strObject, oAttrValue.m_strAttrib, that.id], tx).done(function(tx, rs){
+                        if (0 == rs.rows.length) {
+                            rho.storage.executeSql("INSERT INTO object_values "+
+                                    "(attrib, source_id, object, value) VALUES(?,?,?,?)",
+                                    [oAttrValue.m_strAttrib, that.id, strObject, oAttrValue.m_strValue], tx).done(function(tx, rs){
 
-                        if (true /*resInsert.isNonUnique()*/) { //TODO: to implement?
+                                _localAfterInserOrUpdate();
+                            }).fail(_rejectOnDbAccessEror(dfr));
+
+                        } else {
+                            
                             rho.storage.executeSql("UPDATE object_values " +
                                 "SET value=? WHERE object=? and attrib=? and source_id=?",
-                                 [oAttrValue.m_strValue, strObject, oAttrValue.m_strAttrib, this.id], tx).done(function(tx, rs){
+                                 [oAttrValue.m_strValue, strObject, oAttrValue.m_strAttrib, that.id], tx).done(function(tx, rs){
 
-                                if (this.sync_type != "none") {
+                                if (that.sync_type != "none") {
                                     // oo conflicts
                                     rho.storage.executeSql("UPDATE changed_values SET sent=4 where object=? "+
                                             "and attrib=? and source_id=? and sent>1",
-                                            [strObject, oAttrValue.m_strAttrib, this.id], tx).done(function(tx, rs){
+                                            [strObject, oAttrValue.m_strAttrib, that.id], tx).done(function(tx, rs){
                                         _localAfterSyncTypeNone();
                                     }).fail(_rejectOnDbAccessEror(dfr));
                                     //
                                 } else {_localAfterSyncTypeNone();}
 
                                 function _localAfterSyncTypeNone() {
-                                    _localAfterIsNonUniqueOnInsert();
+                                    _localAfterInserOrUpdate();
                                 }
                             }).fail(_rejectOnDbAccessEror(dfr));
-                        } else {_localAfterIsNonUniqueOnInsert();}
 
-                        function _localAfterIsNonUniqueOnInsert() {
-                            if (this.sync_type != "none") {
-                                getNotify().onObjectChanged(this.id, strObject, rho.notify.actions.update);
-                            }
-                            this.insertedCount++;
-                            dfr.resolve(tx);
                         }
                     }).fail(_rejectOnDbAccessEror(dfr));
+
+                    function _localAfterInserOrUpdate() {
+                        if (that.sync_type != "none") {
+                            that.getNotify().onObjectChanged(that.id, strObject, rho.notify.actions.update);
+                        }
+                        that.insertedCount++;
+                        dfr.resolve(tx);
+                    }
 
                 } else if (strCmd == "delete") {
 
                     rho.storage.executeSql("DELETE FROM object_values where object=? and attrib=? and source_id=?",
-                            [strObject, oAttrValue.m_strAttrib, this.id], tx).done(function(tx, rs){
+                            [strObject, oAttrValue.m_strAttrib, that.id], tx).done(function(tx, rs){
 
-                        if (this.sync_type != "none") {
-                            getNotify().onObjectChanged(this.id, strObject, rho.notify.actions['delete']);
+                        if (that.sync_type != "none") {
+                            that.getNotify().onObjectChanged(that.id, strObject, rho.notify.actions['delete']);
                             // oo conflicts
                             rho.storage.executeSql("UPDATE changed_values SET sent=3 where object=? "+
                                     "and attrib=? and source_id=?",
-                                    [strObject, oAttrValue.m_strAttrib, this.id], tx).done(function(tx, rs){
+                                    [strObject, oAttrValue.m_strAttrib, that.id], tx).done(function(tx, rs){
                                 _localAfterSyncTypeNone();
                             }).fail(_rejectOnDbAccessEror(dfr));
                             //
                         } else {_localAfterSyncTypeNone();}
 
                         function _localAfterSyncTypeNone() {
-                            this.deletedCount++;
+                            that.deletedCount++;
                             dfr.resolve(tx);
                         }
                     }).fail(_rejectOnDbAccessEror(dfr));
@@ -1036,33 +1075,34 @@
 
                     processAssociations(strObject, oAttrValue.m_strValue, tx).done(function(tx){
                         rho.storage.executeSql("UPDATE object_values SET object=? where object=? and source_id=?",
-                                [oAttrValue.m_strValue, strObject, this.id], tx).done(function(){
+                                [oAttrValue.m_strValue, strObject, that.id], tx).done(function(){
                             rho.storage.executeSql("UPDATE changed_values SET object=?,sent=3 where object=? "+
                                     "and source_id=?",
-                                    [oAttrValue.m_strValue, strObject, this.id], tx).done(function(){
-                                getNotify().onObjectChanged(this.id, strObject, rho.notify.actions.create);
+                                    [oAttrValue.m_strValue, strObject, that.id], tx).done(function(){
+                                that.getNotify().onObjectChanged(that.id, strObject, rho.notify.actions.create);
                                 dfr.resolve(tx);
                             }).fail(_rejectOnDbAccessEror(dfr));
                         }).fail(_rejectOnDbAccessEror(dfr));
                     }).fail(_rejectPassThrough(dfr));
                 }
             }).promise();
-        }
+        };
 
-        function processAssociations(strOldObject, strNewObject, tx) {
+        this.processAssociations = function(strOldObject, strNewObject, tx) {
+            var that = this;
             return $.Deferred(function(dfr){
-                if (this.associations.length == 0) {
+                if (that.associations.length == 0) {
                     dfr.resolve();
                     return;
                 }
 
-                var dfrMap = rho.deferredMapOn(this.associations);
+                var dfrMap = rho.deferredMapOn(that.associations);
                 //TODO: do we need recursion (via .done()) here?
-                for (var i=0; i < this.associations.length; i++) {
-                    var pSrc = engine.findSourceBy('name', (/*(SourceAssociation)*/this.associations[i]).m_strSrcName);
+                for (var i=0; i < that.associations.length; i++) {
+                    var pSrc = engine.findSourceBy('name', (/*(SourceAssociation)*/that.associations[i]).m_strSrcName);
                     if (pSrc) {
                         pSrc.updateAssociation(strOldObject, strNewObject,
-                                (/*(SourceAssociation)*/this.associations[i]).m_strAttrib, tx).done(function(){
+                                (/*(SourceAssociation)*/that.associations[i]).m_strAttrib, tx).done(function(){
                             dfrMap.resolve(i, []);
                         }).fail(function(errCode, err){
                             dfrMap.reject(i, [errCode, err]);
@@ -1073,13 +1113,14 @@
                     dfr.resolve(tx);
                 }).fail(_rejectPassThrough(dfr));
             }).promise();
-        }
+        };
 
         this.updateAssociation = function (strOldObject, strNewObject, strAttrib, tx) {
+            var that = this;
             return $.Deferred(function(dfr){
-                if (this.schemaSource) {
+                if (that.schemaSource) {
                     //var strSqlUpdate = "UPDATE ";
-                    //strSqlUpdate += this.name + " SET " + strAttrib + "=? where " + strAttrib + "=?";
+                    //strSqlUpdate += that.name + " SET " + strAttrib + "=? where " + strAttrib + "=?";
                     //
                     //rho.storage.executeSql(strSqlUpdate, [strNewObject, strOldObject], tx).done(function(){
                     //    _localAfterIfSchemaSource();
@@ -1088,7 +1129,7 @@
                     _localAfterIfSchemaSource(); // because real logic is commented out above
                 } else {
                     rho.storage.executeSql("UPDATE object_values SET value=? where attrib=? and source_id=? and value=?",
-                        [strNewObject, strAttrib, this.id, strOldObject], tx).done(function(){
+                        [strNewObject, strAttrib, that.id, strOldObject], tx).done(function(){
                         _localAfterIfSchemaSource();
                     }).fail(_rejectOnDbAccessEror(dfr));
                 } /* else {_localAfterIfSchemaSource();}*/
@@ -1096,40 +1137,81 @@
                 function _localAfterIfSchemaSource() {
                     rho.storage.executeSql("UPDATE changed_values SET value=? "+
                             "where attrib=? and source_id=? and value=?",
-                            [strNewObject, strAttrib, this.id, strOldObject], tx).done(function(){
+                            [strNewObject, strAttrib, that.id, strOldObject], tx).done(function(){
                         dfr.resolve(tx);
                     }).fail(_rejectOnDbAccessEror(dfr));
                 }
             }).promise();
         };
 
-        function processServerErrors(oCmds) {
-            //TODO: to implement
-            return false;
-        }
+        this.processServerErrors = function(oCmds) {
+            var that = this;
+            var errorsFound = false;
 
-        function syncClientChanges() {
+            $.each(oCmds, function(errType, errObj){
+                if (errType.match(/^(source|search)-error$/i)) {
+                    _localSetSourceErrors(errType);
+                } else if (errType.match(/-error$/i)) {
+                    _localSetObjectErrors(errType);
+                }
+            });
+
+            function _localSetSourceErrors(errType) {
+                errorsFound = true;
+                that.ErrCode =rho.errors.ERR_CUSTOMSYNCSERVER;
+
+                $.each(oCmds[errType], function(errSubtype, errObj){
+                    that.serverError += that.serverError ? '&' : '';
+                    that.serverError += "server_errors[" + encodeURI(errSubtype) + "][message]=" + encodeURI(errObj["message"]);
+                });
+            }
+
+            function _localSetObjectErrors(errType) {
+                errorsFound = true;
+                that.ErrCode =rho.errors.ERR_CUSTOMSYNCSERVER;
+
+                $.each(oCmds[errType], function(objId, err){
+                    if (objId.match(/-error$/i)) {
+                        // it is object error message
+                        objId = objId.substring(0, objId.length-'-error'.length);
+                        that.serverError += that.serverError ? '&' : '';
+                        that.serverError += "server_errors[" + encodeURI(errType) + "][" + encodeURI(objId) + "][message]=" + encodeURI(err["message"]);
+                    } else {
+                        // it is object error attribs
+                        $.each(err, function(attrName, attrValue){
+                            that.serverError += that.serverError ? '&' : '';
+                            that.serverError += "server_errors[" + encodeURI(errType) + "][" + encodeURI(objId) + "][attributes][" + encodeURI(attrName) + "]=" + encodeURI(attrValue);
+                        });
+                    }
+                });
+            }
+            return errorsFound;
+        };
+
+        this.syncClientChanges = function() {
+            var that = this;
             return $.Deferred(function(dfr){
                 // just a stub
                 dfr.resolve(false /*it means server changes hasn't been synchronized*/);
                 //TODO: to implement
             }).promise();
-        }
+        };
 
         this.sync = function(){
+            var that = this;
             return $.Deferred(function(dfr){
                 //TODO: to implement RhoAppAdapter.getMessageText("syncronizing")
-                getNotify().reportSyncStatus("syncronizing" + this.name + "...", this.errCode, this.error);
+                that.getNotify().reportSyncStatus("syncronizing" + that.name + "...", that.errCode, that.error);
 
                 var startTime = Date.now();
 
-                if (this.isTokenFromDb && this.token > 1) {
-                    syncServerChanges().done(function(){
+                if (that.isTokenFromDb && that.token > 1) {
+                    that.syncServerChanges().done(function(){
                         _finally();
                         dfr.resolve();
                     }).fail(_catch);
                 } else {
-                    if (isEmptyToken()) {
+                    if (that.isEmptyToken()) {
                         processToken(1).done(function(){
                             _localSyncClient();
                         }).fail(_catch);
@@ -1137,8 +1219,8 @@
                     _localSyncClient();
 
                     function _localSyncClient() {
-                        syncClientChanges().done(function(serverSyncDone){
-                            if (!serverSyncDone) syncServerChanges().done(function(){
+                        that.syncClientChanges().done(function(serverSyncDone){
+                            if (!serverSyncDone) that.syncServerChanges().done(function(){
                                 _finally();
                                 dfr.resolve(); //TODO: params to resolve
                             }).fail(_catch);
@@ -1146,39 +1228,43 @@
                     }
                 }
                 function _catch(errCode, error) {
-                    engine.stopSync();
+                    that.engine.stopSync();
                     _finally();
                     dfr.reject(errCode, error);
                 }
                 function _finally() {
                     var endTime = Date.now();
 
-                    this.storage.executeSql(
+                    rho.storage.executeSql(
                             "UPDATE sources set last_updated=?,last_inserted_size=?,last_deleted_size=?, "
                             +"last_sync_duration=?,last_sync_success=?, backend_refresh_time=? WHERE source_id=?",
-                            (endTime/1000), getInsertedCount(), getDeletedCount(),
-                      endTime - startTime,
-                      (this.getAtLeastOnePage ? 1 : 0), this.refreshTime, this.id );
+                            [(endTime/1000), that.getInsertedCount(), that.getDeletedCount(),
+                              endTime - startTime,
+                              (that.getAtLeastOnePage ? 1 : 0), that.refreshTime, that.id] );
                 }
             }).promise();
         };
 
-        function getNotify() {
-            return this.engine.notify;
-        }
+        this.getNotify = function() {
+            return this.engine.getNotify();
+        };
 
-        function getInsertedCount() {
+        this.getInsertedCount = function() {
             return this.insertedCount;
-        }
+        };
 
-        function getDeletedCount() {
+        this.getDeletedCount = function() {
             return this.deletedCount;
         }
 
     }
 
     function _rejectOnDbAccessEror(deferred) {
-        return function(obj, err){
+        return function(obj, error){
+            var err = error;
+            //if ('object' == typeof error && undefined != error['message']) {
+            //    err = error.message;
+            //}
             deferred.reject(rho.errors.ERR_RUNTIME, "db access error: " +err);
         };
     }

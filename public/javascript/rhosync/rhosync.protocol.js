@@ -92,7 +92,7 @@
                 type: method || 'post',
                 contentType: contentType || 'application/json',
                 processData: false,
-                 data: $.toJSON(data),
+                data: $.toJSON(data),
                 dataType: 'json'
             }).done(function(data, status, xhr){
                 rho.notify.byEvent(rho.events.GENERIC_NOTIFICATION, status, data, xhr);
@@ -128,12 +128,17 @@
     };
 
     function serverQuery(srcName, clientId, pageSize, token) {
+/*
         var params = $.extend({
             version: 3,
             client_id: clientId,
             p_size: pageSize
         }, srcName ? {source_name: srcName}:{}, token ? {token: token}:{});
-        return _net_call(rho.config.syncServer+'', params);
+*/
+        var url = "?version=3" +"&client_id=" +clientId +"&p_size=" +pageSize;
+        url += srcName ? ("&source_name=" +srcName) : "";
+        url += token ? ("&token=" +token) : "";
+        return _net_call(rho.config.syncServer+url, '', 'get', 'text/plain');
     }
 
     $.extend(rho, {protocol: publicInterface()});

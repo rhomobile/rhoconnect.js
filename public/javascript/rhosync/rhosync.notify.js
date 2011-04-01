@@ -167,15 +167,15 @@
             if (engine.getState() == engine.states.stop && src.errCode != rho.errors.ERR_NONE) {
                 var pSN = getSyncNotifyBySrc(src);
                 if (pSN != null) {
-                    fireSyncNotification(src, true, src.errCode, "");
+                    this.fireSyncNotification(src, true, src.errCode, "");
                 } else {
-                    fireAllSyncNotifications(true, src.errCode, src.error, "");
+                    this.fireAllSyncNotifications(true, src.errCode, src.error, "");
                 }
             }
             else
-                fireSyncNotification(src, true, src.errCode, "");
+                this.fireSyncNotification(src, true, src.errCode, "");
 
-            cleanCreateObjectErrors();
+            this.cleanCreateObjectErrors();
         };
 
         function setSyncNotification(srcId, notification) {
@@ -241,12 +241,12 @@
             if(errCode != rho.errors.ERR_NONE) {
                 if (!engine.isSearch()) {
                     var strMessage = __getMessageText("sync_failed_for") + "all.";
-                    reportSyncStatus(strMessage,errCode,error);
+                    this.reportSyncStatus(strMessage,errCode,error);
                 }
             }
             var sn = getSyncNotifyBySrc(null);
             if (sn) {
-                doFireSyncNotification(null, isFinish, errCode, error, "", serverError);
+                this.doFireSyncNotification(null, isFinish, errCode, error, "", serverError);
             }
         };
 
@@ -256,12 +256,12 @@
             if (message || errCode != rho.errors.ERR_NONE) {
                 if (!engine.isSearch()) {
                     if (src != null && !message)
-                        message = __getMessageText("sync_failed_for") + src.getName() + ".";
+                        message = __getMessageText("sync_failed_for") + src.name + ".";
 
-                    reportSyncStatus(message, errCode, src != null ? src.error : "");
+                    this.reportSyncStatus(message, errCode, src != null ? src.error : "");
                 }
             }
-            doFireSyncNotification(src, isFinish, errCode, "", "", "" );
+            this.doFireSyncNotification(src, isFinish, errCode, "", "", "" );
         };
 
         function getSyncNotifyBySrc(src) {
@@ -276,8 +276,8 @@
             return sn != null ? sn : emptyNotify;
         }
 
-        function doFireSyncNotification(src, isFinish, errCode, error, params, serverError) {
-            if (engine.isStopedByUser()) return;
+        this.doFireSyncNotification = function(src, isFinish, errCode, error, params, serverError) {
+            if (engine.isStoppedByUser()) return;
 
             try {
                 var pSN = null;
@@ -296,7 +296,7 @@
                         strBody += "&processed_objects_count=" + getLastSyncObjectCount(src.id);
                         strBody += "&cumulative_count=" + src.serverObjectsCount;
                         strBody += "&source_id=" + src.id;
-                        strBody += "&source_name=" + src.getName();
+                        strBody += "&source_name=" + src.name;
                     }
 
                     strBody += (strBody ? "&" : "") +(params || "sync_type=incremental");
@@ -310,7 +310,7 @@
                                 strBody += (!src && !params) ? "complete" : "ok";
                             //}
                         } else {
-                            if (engine.isStopedByUser()) {
+                            if (engine.isStoppedByUser()) {
                                 errCode = rho.errors.ERR_CANCELBYUSER;
                             }
 
