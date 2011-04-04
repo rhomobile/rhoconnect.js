@@ -268,6 +268,21 @@ describe("RhoSync use cases", function(){
         });
 
         runs(function(){
+            var q ="INSERT INTO changed_values (source_id,object,attrib,value,update_type,sent) VALUES (1,5266,'zip2','value12345','create',5)";
+            rhosync.rho.storage.executeSql(q).done(okHdlr).fail(errHdlr);
+        });
+        waitsForSpies([okHdlr, errHdlr], 'changed value insert');
+        runs(function(){
+            expect(errHdlr).not.toHaveBeenCalled();
+            if(0 < errHdlr.callCount) {
+                jasmine.log('errHdlr called with:');
+                jasmine.log(errHdlr.mostRecentCall.args);
+            }
+            expect(okHdlr).toHaveBeenCalled();
+            expect(rhosync.isLoggedIn()).toBeTruthy();
+        });
+
+        runs(function(){
             rhosync.syncAllSources().done(okHdlr).fail(errHdlr)
         });
 /*

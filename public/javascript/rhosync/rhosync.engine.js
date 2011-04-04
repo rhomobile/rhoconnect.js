@@ -873,7 +873,7 @@
                                 that.engine.setSchemaChanged(true);
                                 _localAfterProcessServerErrors();
                             } else if (!that.processServerErrors(oCmds)) {
-                                rho.storage.tx('rw').ready(function(db, tx){
+                                rho.storage.rwTx().ready(function(db, tx){
                                     if (that.engine.getSourceOptions().getBoolProperty(that.id, "pass_through")) {
                                         if (that.schemaSource) {
                                             //rho.storage.executeSql( "DELETE FROM " + that.name );
@@ -1264,198 +1264,252 @@
 
                 var bSend = false;
 
-                // instead of that..
-                var strBody = "{\"source_name\":" + JSONEntry.quoteValue(getName()) + ",\"client_id\":" + JSONEntry.quoteValue(getSync().getClientID());
-
-                // ..use this
                 var body = {
                     source_name: that.name,
-                    client_id: that.engine.getClientId(),
-                    create: _localBuldDataPartFor('create'),
-                    update: _localBuldDataPartFor('update'),
-                    'delete': _localBuldDataPartFor('delete')
+                    client_id: that.engine.getClientId()
                 };
 
-                function _localBuldDataPartFor(updateType) {
+                var dfrMap = rho.deferredMapOn(arUpdateTypes);
+                $.each(arUpdateTypes, function(idx, updateType){
                     if (that.engine.isContinueSync()) {
                         arUpdateSent[updateType] = true;
                         bSend = true;
-                    }
-                    return that.makePushBody_Ver3(updateType, true);  //TODO: convert to done/fail style
-                }
-
-                /*
-                var blobPart = {blob_fields: []};
-                $.each(that.blobAttrs, function(idx, id){
-                    blobPart.blob_fields.push(id);
+                        that.makePushBody_Ver3(updateType, true).done(function(part){
+                            body[updateType] = part;
+                            dfrMap.resolve();
+                        }).fail(_rejectPassThrough(dfrMap));
+                    } else {dfrMap.resolve();}
                 });
-                body = $.extend(body, blobPart);
-                */
+                dfrMap.when().done(function(){
+                    _localAfterBodyUpdatePartsPrepared();
+                }).fail(_rejectPassThrough(dfr));
 
-                if (bSend) {
-                    LOG.info( "Push client changes to server. Source: " + that.name + "Size :" + strBody.length() );
-                    LOG.trace("Push body: " + $.toJSON(body));
 
-                    if (that.multipartItems.length > 0) {
-                        /*
-                        MultipartItem oItem = new MultipartItem();
-                        oItem.m_strBody = strBody;
-                        //oItem.m_strContentType = getProtocol().getContentType();
-                        oItem.m_strName = "cud";
-                        m_arMultipartItems.addElement(oItem);
-
-                        NetResponse resp = getNet().pushMultipartData( getProtocol().getClientChangesUrl(), m_arMultipartItems, getSync(), null );
-                        if ( !resp.isOK() )
-                        {
-                            getSync().setState(SyncEngine.esStop);
-                            m_nErrCode = RhoAppAdapter.ERR_REMOTESERVER;
-                            m_strError = resp.getCharData();
-                        }
-                        */
-                        _localAfterIfMultipartItems();
-                    } else {
-                        rho.protocol.postData(body).done(function(status, data, xhr){
-                            _localAfterIfMultipartItems();
-                        }).fail(function(status, error, xhr){
-                            that.engine.setState(rho.states.stop);
-                            that.errCode = rho.protocol.getErrCodeFromXHR(xhr);
-                            that.errCode = _isTimeout(error) ? rho.errors.ERR_NOSERVERRESPONSE : that.errCode;
-                            that.error = error;
-                            dfr.reject(that.errCode, that.error);
-                        });
-                    } /* else {_localAfterIfMultipartItems();}*/
-                } else {_localAfterIfMultipartItems();}
-
-                function _localAfterIfMultipartItems() {
-                    var dfrMap = rho.deferredMapOn(arUpdateSent);
-
-                    $.each(arUpdateSent, function(updateType, isDone){
-                        if (that.engine.isContinueSync() && isDone /*isDone is always true, no false values there*/) {
-                            //oo conflicts
-                            if (updateType == 'create') {
-                                that.storage.executeSql("UPDATE changed_values SET sent=2 "+
-                                        "WHERE source_id=? and update_type=? and sent=1",
-                                        [that.id, updateType]).done(function(){
-                                    dfrMap.resolve(updateType, []);
-                                }).fail(function(obj, err){
-                                    dfrMap.reject(updateType, [rho.errors.ERR_RUNTIME, "db access error: " +err]);
-                                });
-                            } else {
-                            //
-                                that.storage.executeSql("DELETE FROM changed_values "+
-                                        "WHERE source_id=? and update_type=? and sent=1",
-                                        [that.id, updateType]).done(function(){
-                                    dfrMap.resolve(updateType, []);
-                                }).fail(function(obj, err){
-                                    dfrMap.reject(updateType, [rho.errors.ERR_RUNTIME, "db access error: " +err]);
-                                });
-                            }
-                        } else {
-                            dfrMap.resolve(updateType, []);
-                        }
+                function _localAfterBodyUpdatePartsPrepared() {
+                    /*
+                    var blobPart = {blob_fields: []};
+                    $.each(that.blobAttrs, function(idx, id){
+                        blobPart.blob_fields.push(id);
                     });
+                    body = $.extend(body, blobPart);
+                    */
 
-                    dfrMap.when().done(function(){
-                        that.multipartItems = [];
-                        that.blobAttrs = [];
-                        dfr.resolve();
-                    }).fail(_rejectPassThrough(dfr));
+                    if (bSend) {
+                        LOG.info( "Push client changes to server. Source: " + that.name);
+                        LOG.trace("Push body: " + $.toJSON(body));
+
+                        if (that.multipartItems.length > 0) {
+                            /*
+                            MultipartItem oItem = new MultipartItem();
+                            oItem.m_strBody = strBody;
+                            //oItem.m_strContentType = getProtocol().getContentType();
+                            oItem.m_strName = "cud";
+                            m_arMultipartItems.addElement(oItem);
+
+                            NetResponse resp = getNet().pushMultipartData( getProtocol().getClientChangesUrl(), m_arMultipartItems, getSync(), null );
+                            if ( !resp.isOK() )
+                            {
+                                getSync().setState(SyncEngine.esStop);
+                                m_nErrCode = RhoAppAdapter.ERR_REMOTESERVER;
+                                m_strError = resp.getCharData();
+                            }
+                            */
+                            _localAfterIfMultipartItems();
+                        } else {
+                            rho.protocol.postData(body).done(function(status, data, xhr){
+                                _localAfterIfMultipartItems();
+                            }).fail(function(status, error, xhr){
+                                that.engine.setState(rho.states.stop);
+                                that.errCode = rho.protocol.getErrCodeFromXHR(xhr);
+                                that.errCode = _isTimeout(error) ? rho.errors.ERR_NOSERVERRESPONSE : that.errCode;
+                                that.error = error;
+                                dfr.reject(that.errCode, that.error);
+                            });
+                        } /* else {_localAfterIfMultipartItems();}*/
+                    } else {_localAfterIfMultipartItems();}
+
+                    function _localAfterIfMultipartItems() {
+                        var dfrMap = rho.deferredMapOn(arUpdateSent);
+
+                        $.each(arUpdateSent, function(updateType, isDone){
+                            if (that.engine.isContinueSync() && isDone /*isDone is always true, no false values there*/) {
+                                //oo conflicts
+                                if (updateType == 'create') {
+                                    that.storage.executeSql("UPDATE changed_values SET sent=2 "+
+                                            "WHERE source_id=? and update_type=? and sent=1",
+                                            [that.id, updateType]).done(function(){
+                                        dfrMap.resolve(updateType, []);
+                                    }).fail(function(obj, err){
+                                        dfrMap.reject(updateType, [rho.errors.ERR_RUNTIME, "db access error: " +err]);
+                                    });
+                                } else {
+                                //
+                                    that.storage.executeSql("DELETE FROM changed_values "+
+                                            "WHERE source_id=? and update_type=? and sent=1",
+                                            [that.id, updateType]).done(function(){
+                                        dfrMap.resolve(updateType, []);
+                                    }).fail(function(obj, err){
+                                        dfrMap.reject(updateType, [rho.errors.ERR_RUNTIME, "db access error: " +err]);
+                                    });
+                                }
+                            } else {
+                                dfrMap.resolve(updateType, []);
+                            }
+                        });
+
+                        dfrMap.when().done(function(){
+                            that.multipartItems = [];
+                            that.blobAttrs = [];
+                            dfr.resolve();
+                        }).fail(_rejectPassThrough(dfr));
+                    }
                 }
+
             }).promise();
         };
 
-        this.makePushBody_Ver3 = function(updateType, isSync) {
+        this.makePushBody_Ver3 = function(strUpdateType, isSync) {
+            var that = this;
             return $.Deferred(function(dfr){
-                //TODO: to implement
-/*
-                String strBody = "";
-                getDB().Lock();
+                var bodyPart = {};
 
-                if ( isSync )
-                    getDB().updateAllAttribChanges();
+                //getDB().Lock(); //TODO: ?!
+                if (isSync) {
+                    _updateAllAttribChanges().done(function(){
+                        _localAfterUpdateAllAttribChanges();
+                    }).fail(_rejectOnDbAccessEror(dfr));
+                } else {_localAfterUpdateAllAttribChanges();}
 
-                IDBResult res = getDB().executeSQL("SELECT attrib, object, value, attrib_type "+
-                    "FROM changed_values where source_id=? and update_type =? and sent<=1 ORDER BY object", getID(), strUpdateType );
+                function _localAfterUpdateAllAttribChanges() {
+                    rho.storage.executeSql("SELECT attrib, object, value, attrib_type "+
+                        "FROM changed_values where source_id=? and update_type =? and sent<=1 ORDER BY object",
+                            [that.id, strUpdateType]).done(function(tx, rs){
+                        _localSelectedChangedValues(tx, rs);
+                    }).fail(_rejectOnDbAccessEror(dfr));
 
-                if ( res.isEnd() )
-                {
-                    res.close();
-                    getDB().Unlock();
-                    return strBody;
-                }
-
-                String strCurObject = "";
-                boolean bFirst = true;
-                for( ; !res.isEnd(); res.next() )
-                {
-                    String strAttrib = res.getStringByIdx(0);
-                    String strObject = res.getStringByIdx(1);
-                    String value = res.getStringByIdx(2);
-                    String attribType = res.getStringByIdx(3);
-
-                    if ( attribType.compareTo("blob.file") == 0 )
-                    {
-                        MultipartItem oItem = new MultipartItem();
-                        oItem.m_strFilePath = RhodesApp.getInstance().resolveDBFilesPath(value);
-                        oItem.m_strContentType = "application/octet-stream";
-                        oItem.m_strName = strAttrib + "-" + strObject;
-
-                        m_arBlobAttrs.addElement(strAttrib);
-                        m_arMultipartItems.addElement(oItem);
-                    }
-
-                    if ( strBody.length() == 0 )
-                    {
-                        if ( !isSync )
-                            strBody += "{";
-                        else
-                            strBody += "\"" + strUpdateType + "\":{";
-                    }
-
-                    if ( strObject.compareTo(strCurObject) != 0 )
-                    {
-                        if ( strCurObject.length() > 0 )
-                        {
-                            if ( !bFirst )
-                                strBody += "}";
-                            strBody += ",";
+                    function _localSelectedChangedValues(tx, rs) {
+                        if (0 == rs.rows.length) {
+                            //getDB().Unlock(); //TODO: ?!
+                            dfr.resolve(bodyPart);
+                            return;
                         }
+                        for(var i=0; i<rs.rows.length; i++) {
+                            var strAttrib = rs.rows.item(i)['attrib'];
+                            var strObject = rs.rows.item(i)['object'];
+                            var value = rs.rows.item(i)['value'];
+                            var attribType = rs.rows.item(i)['update_type'];
 
-                        bFirst = true;
-                        strBody += JSONEntry.quoteValue(strObject);
-                        strCurObject = strObject;
-                    }
-
-                    if (!bFirst)
-                        strBody += ",";
-
-                    if ( strAttrib.length() > 0  )
-                    {
-                        if ( bFirst )
-                            strBody += ":{";
-
-                        strBody += JSONEntry.quoteValue(strAttrib) + ":" + JSONEntry.quoteValue(value);
-                        bFirst = false;
+                            if (attribType == "blob.file") {
+                                //MultipartItem oItem = new MultipartItem();
+                                //oItem.m_strFilePath = RhodesApp.getInstance().resolveDBFilesPath(value);
+                                //oItem.m_strContentType = "application/octet-stream";
+                                //oItem.m_strName = strAttrib + "-" + strObject;
+                                //
+                                //m_arBlobAttrs.addElement(strAttrib);
+                                //m_arMultipartItems.addElement(oItem);
+                            }
+                            bodyPart[strObject] = {};
+                            bodyPart[strObject][strAttrib] = value;
+                        }
+                        if (isSync) {
+                            rho.storage.executeSql("UPDATE changed_values SET sent=1 "+
+                                    "WHERE source_id=? and update_type=? and sent=0",
+                                    [that.id, strUpdateType]).done(function(){
+                                dfr.resolve(bodyPart);
+                            }).fail(_rejectOnDbAccessEror(dfr));
+                        }
+                        //getDB().Unlock(); //TOOD: ?!
                     }
                 }
-
-                if ( strBody.length() > 0 )
-                {
-                    if ( !bFirst )
-                        strBody += "}";
-
-                    strBody += "}";
-                }
-
-                if ( isSync )
-                    getDB().executeSQL("UPDATE changed_values SET sent=1 WHERE source_id=? and update_type=? and sent=0", getID(), strUpdateType );
-
-                getDB().Unlock();
-
-                return strBody;
-*/
             }).promise();
         };
+
+        function _updateAllAttribChanges() {
+            return $.Deferred(function(dfr){
+                //Check for attrib = object
+                rho.storage.rwTx().ready(function(db, tx){
+                    rho.storage.executeSql("SELECT object, source_id, update_type " +
+                        "FROM changed_values where attrib = 'object' and sent=0", [], tx).done(function(tx, rsChanges){
+
+                        if (0 == rsChanges.rows.length)  return;
+                        _localChangedValuesSelectedInTx(tx, rsChanges);
+
+                    }).fail(_rejectOnDbAccessEror(dfr));
+                }).done(function(){
+                    dfr.resolve();
+                }).fail(_rejectOnDbAccessEror(dfr));
+
+                function _localChangedValuesSelectedInTx(tx, rsChanges) {
+                    var arObj = [];
+                    var arUpdateType = [];
+                    var arSrcID = [];
+
+                    for (var i=0; i<rsChanges.rows.length; i++) {
+                        arObj.push(rsChanges.rows.item(i)['object']);
+                        arSrcID.push(rsChanges.rows.item(i)['source_id']);
+                        arUpdateType.push(rsChanges.rows.item(i)['update_type']);
+                    }
+
+                    var dfrMap = rho.deferredMapOn(arObj);
+
+                    for(i=0; i<arObj.length; i++) {
+                        rho.storage.executeSql("SELECT name, schema FROM sources " +
+                                "WHERE source_id=?", [arSrcID[i]], tx).done(function(tx, resSrc){
+
+                            var isSchemaSrc = false;
+                            var strTableName = "object_values";
+                            if (0<resSrc.rows.length > 0) {
+                                isSchemaSrc = (resSrc.rows.item(0)['schema'].length > 0);
+                                if (isSchemaSrc)
+                                    strTableName = resSrc.rows.item(0)['name'];
+                            }
+
+                            if (isSchemaSrc) {
+                                /*
+                                IDBResult res2 = executeSQL( "SELECT * FROM " + strTableName + " where object=?", arObj.elementAt(i) );
+                                for( int j = 0; j < res2.getColCount(); j ++)
+                                {
+                                    String strAttrib = res2.getColName(j);
+                                    String value = res2.getStringByIdx(j);
+                                    String attribType = getAttrMgr().isBlobAttr((Integer)arSrcID.elementAt(i), strAttrib) ? "blob.file" : "";
+
+                                    executeSQLReportNonUnique("INSERT INTO changed_values (source_id,object,attrib,value,update_type,attrib_type,sent) VALUES(?,?,?,?,?,?,?)",
+                                            arSrcID.elementAt(i), arObj.elementAt(i), strAttrib, value, arUpdateType.elementAt(i), attribType, new Integer(0) );
+                                }
+                                */
+                                dfrMap.resolve(i);
+                            } else {
+                                rho.storage.executeSql("SELECT attrib, value FROM " + strTableName +
+                                        " where object=? and source_id=?",
+                                         [arObj[i], arSrcID[i]], tx).done(function(tx, rsAttribs){
+                                    _localSelectedAttribs(tx, rsAttribs);
+                                }).fail(_rejectOnDbAccessEror());
+
+                                function _localSelectedAttribs(tx, rsAttribs) {
+                                    for (var i=0; i<rsAttribs.rows.length; i++) {
+                                        var strAttrib = rsAttribs.rows.item(i)['attrib'];
+                                        var value = rsAttribs.rows.item(i)['value'];
+
+                                        var attribType = rho.storage.attrManager.isBlobAttr(arSrcID[i], strAttrib) ? "blob.file" : "";
+
+                                        rho.storage.executeSql("INSERT INTO changed_values (source_id,object,attrib,value,update_type,attrib_type,sent) VALUES(?,?,?,?,?,?,?)",
+                                            [arSrcID[i], arObj[i], strAttrib, value, arUpdateType[i], attribType, 0], tx).done(function(){
+                                        }).fail(_rejectOnDbAccessEror(dfr));
+                                    }
+                                    dfrMap.resolve(i);
+                                }
+                            }
+                        }).fail(function(obj, err){
+                            dfrMap.reject(i, [obj, err]);
+                        });
+
+                    }
+                    dfrMap.when().done(function(){
+                        executeSQL("DELETE FROM changed_values WHERE attrib='object'", tx);
+                    }).fail(_rejectOnDbAccessEror(dfr));
+                }
+            }).promise();
+        }
 
         this.sync = function(){
             var that = this;
@@ -1544,6 +1598,7 @@
         this.port = null;
         this.last_sync_success = null;
     }
+
 
     $.extend(rho, {engine: publicInterface()});
 

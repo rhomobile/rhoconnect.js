@@ -2,6 +2,8 @@
 
     function publicInterface() {
         return {
+        // AttrManager
+        attrManager: attrManager,
         // Client
         listClientsId: listClientsId,
         loadClient: loadClient,
@@ -544,6 +546,61 @@
                 dfr.reject(obj, err);
             });
         }).promise();
+    }
+
+    var attrManager = new AttrManager();
+
+    function AttrManager() {
+        this.blobAttrs = {};
+        this.srcNames = {};
+
+        this.initAttrManager = function() {
+            return this.loadAttrs();
+        };
+
+        this.isBlobAttr = function(nSrcID, szAttr) {
+            var mapAttr = this.blobAttrs[nSrcID];
+            return mapAttr ? (szAttr in mapAttr) : false;
+        };
+
+        this.loadAttrs = function() {
+            var that = this;
+            return $.Deferred(function(dfr){
+
+                that.blobAttrs = {};
+                var strSql = "SELECT source_id,";
+                strSql += "blob_attribs" + ",name from sources";
+
+                rho.storage.executeSql(strSql).done(function(tx, rs){
+                    for (var i=0; i<rs.rows.length; i++) {
+
+                        var nSrcID = rs.rows.item(0)['source_id'];
+                        var strAttribs = rs.rows.item(0)['blob_attribs'];
+                        if (!strAttribs) return;
+
+                        var mapAttr = new {};
+                        var strAttr = "";
+
+                        $.each(strAttribs.split(','), function(idx, tok){
+                            if (!tok) return;
+                            if (strAttr) {
+                                mapAttr[strAttr] = +tok;
+                                strAttr = "";
+                            } else {
+                                strAttr = tok;
+                            }
+                        });
+
+                        that.blobAttrs[nSrcID] = mapAttr;
+                        if ( that.srcNames != null )
+                            that.srcNames[rs.rows.item(i)['name'].toUpperCase()] = nSrcID;
+                    }
+                    dfr.resolve();
+                }).fail(function(obj, err){
+                    dfr.reject(obj, err);
+                });
+            }).promise();
+        }
     }
 
     $.extend(rho, {storage: publicInterface()});
