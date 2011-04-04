@@ -12,6 +12,8 @@ be used at the moment. All javascript libraries and html files should be load fr
 
 ## User interface
 
+All pages should have "Sync" button on the toolbar. Once user clicks on it the synchronization happens.
+
 ### Main page
 
 It consists of:
@@ -44,7 +46,7 @@ Once it appears it refresh attributes/values list.
 Once user clicks on the attribute value in the list it transits to the "Edit attribute" page.
 Once user clicks on Add attribute value it transits to the "Edit Attribute" page showing empty values for name and value.
 
-### "Edit Attribute page"
+### "Edit Attribute" page
 
 It consists of:
 
