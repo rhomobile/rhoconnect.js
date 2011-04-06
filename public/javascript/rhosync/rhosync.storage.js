@@ -225,7 +225,7 @@
             promises.push(dfr.promise());
         });
 
-        return $['when'].apply(this, promises);
+        return $.when.apply(this, promises);
     }
 
     function _initSchema()

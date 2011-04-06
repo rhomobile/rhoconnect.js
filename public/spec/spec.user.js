@@ -268,7 +268,7 @@ describe("RhoSync use cases", function(){
         });
 
         runs(function(){
-            var q ="INSERT INTO changed_values (source_id,object,attrib,value,update_type,sent) VALUES (1,5266,'zip2','value12345','create',5)";
+            var q ="INSERT INTO changed_values (source_id,object,attrib,value,update_type,sent) VALUES (1,5266,'zip','test-value-12345','update',0)";
             rhosync.rho.storage.executeSql(q).done(okHdlr).fail(errHdlr);
         });
         waitsForSpies([okHdlr, errHdlr], 'changed value insert');

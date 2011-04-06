@@ -117,7 +117,7 @@
                 if (dfrMap[key]) dfrMap[key].reject.apply(dfrMap[key], args);
             },
             when: function() {
-                return $.when(dfrs);
+                return $.when.apply(this, dfrs);
             }
         };
     }

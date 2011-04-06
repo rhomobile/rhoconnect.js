@@ -562,8 +562,15 @@
         syncState = state;
     }
     
-    function isContinueSync() { var st = getState(); return st != states.exit && st != states.stop; }
-    function isSyncing() { var st = getState();  return st == states.syncAllSources || st == states.syncSource; }
+    function isContinueSync() {
+        var st = getState();
+        return st != states.exit && st != states.stop;
+    }
+
+    function isSyncing() {
+        var st = getState();
+        return st == states.syncAllSources || st == states.syncSource;
+    }
 
     function stopSync() {
         if (isContinueSync()) {
@@ -669,8 +676,6 @@
 
         this.multipartItems = [];
         this.blobAttrs = [];
-
-        //TODO: do we need to implement real value setup?
         this.schemaSource = false;
 
         this.progressStep = -1;
@@ -909,7 +914,9 @@
                                     }
                                 }).done(function(db, status){
                                     dfr.resolve();
-                                }).fail(_rejectOnDbAccessEror(dfr));
+                                }).fail(function(obj,err){
+                                    _rejectOnDbAccessEror(dfr)(obj,err);
+                                });
                             } else {_localAfterProcessServerErrors();}
 
                             function _localAfterProcessServerErrors() {
@@ -1214,7 +1221,11 @@
                             rho.storage.executeSql("SELECT object FROM changed_values "+
                                     "WHERE source_id=? LIMIT 1 OFFSET 0", [that.id]).done(function(tx, rs){
                                 var bSyncClient = false;
-                                bSyncClient = (0 < rs.rows.length);
+                                // TODO: to investigate later
+                                // some interference between webkit debugger and rs.rows happens here,
+                                // so extra checks were added to eliminate the problem.
+                                bSyncClient = (rs.rows && rs.rows.length && 0 < rs.rows.length);
+                                //bSyncClient = (0 < rs.rows.length);
 
                                 if (bSyncClient) {
                                     that.doSyncClientChanges().done(function(){
@@ -1246,9 +1257,14 @@
                 rho.storage.executeSql("SELECT object FROM changed_values "+
                         "WHERE source_id=? and update_type='create' and sent>1  LIMIT 1 OFFSET 0",
                         [that.id]).done(function(tx, rs){
-                    dfr.resolve(0 < rs.rows.length);
-                    //dfr.resolve(true);
-                }).fail(_rejectOnDbAccessEror(dfr));
+                    // TODO: to investigate later
+                    // some interference between webkit debugger and rs.rows happens here,
+                    // so extra checks were added to eliminate the problem.
+                    dfr.resolve(rs.rows && rs.rows.length && 0 < rs.rows.length);
+                    //dfr.resolve(0 < rs.rows.length);
+                }).fail(function(obj, err){
+                    dfr.reject(obj, err);
+                });
             }).promise();
         };
 
@@ -1276,9 +1292,13 @@
                         bSend = true;
                         that.makePushBody_Ver3(updateType, true).done(function(part){
                             body[updateType] = part;
-                            dfrMap.resolve();
-                        }).fail(_rejectPassThrough(dfrMap));
-                    } else {dfrMap.resolve();}
+                            dfrMap.resolve(idx, []);
+                        }).fail(function(obj, err){
+                            dfrMap.reject(idx, [obj, err]);
+                        });
+                    } else {
+                        dfrMap.resolve(idx, []);
+                    }
                 });
                 dfrMap.when().done(function(){
                     _localAfterBodyUpdatePartsPrepared();
@@ -1388,7 +1408,11 @@
                     }).fail(_rejectOnDbAccessEror(dfr));
 
                     function _localSelectedChangedValues(tx, rs) {
-                        if (0 == rs.rows.length) {
+                        // TODO: to investigate later
+                        // some interference between webkit debugger and rs.rows happens here,
+                        // so extra checks were added to eliminate the problem.
+                        //if (0 == rs.rows.length) {
+                        if (rs.rows && rs.rows.length && 0 == rs.rows.length) {
                             //getDB().Unlock(); //TODO: ?!
                             dfr.resolve(bodyPart);
                             return;
@@ -1434,10 +1458,12 @@
                         if (0 == rsChanges.rows.length)  return;
                         _localChangedValuesSelectedInTx(tx, rsChanges);
 
-                    }).fail(_rejectOnDbAccessEror(dfr));
+                    })/*.fail(_rejectOnDbAccessEror(dfr))*/;
                 }).done(function(){
                     dfr.resolve();
-                }).fail(_rejectOnDbAccessEror(dfr));
+                }).fail(function(obj,err){
+                    _rejectOnDbAccessEror(dfr)(obj,err);
+                });
 
                 function _localChangedValuesSelectedInTx(tx, rsChanges) {
                     var arObj = [];
@@ -1458,8 +1484,8 @@
 
                             var isSchemaSrc = false;
                             var strTableName = "object_values";
-                            if (0<resSrc.rows.length > 0) {
-                                isSchemaSrc = (resSrc.rows.item(0)['schema'].length > 0);
+                            if (resSrc.rows.length > 0) {
+                                isSchemaSrc = (resSrc.rows.item(0)['schema']);
                                 if (isSchemaSrc)
                                     strTableName = resSrc.rows.item(0)['name'];
                             }
@@ -1477,7 +1503,7 @@
                                             arSrcID.elementAt(i), arObj.elementAt(i), strAttrib, value, arUpdateType.elementAt(i), attribType, new Integer(0) );
                                 }
                                 */
-                                dfrMap.resolve(i);
+                                dfrMap.resolve(i, []);
                             } else {
                                 rho.storage.executeSql("SELECT attrib, value FROM " + strTableName +
                                         " where object=? and source_id=?",
@@ -1496,7 +1522,7 @@
                                             [arSrcID[i], arObj[i], strAttrib, value, arUpdateType[i], attribType, 0], tx).done(function(){
                                         }).fail(_rejectOnDbAccessEror(dfr));
                                     }
-                                    dfrMap.resolve(i);
+                                    dfrMap.resolve(i, []);
                                 }
                             }
                         }).fail(function(obj, err){
@@ -1536,7 +1562,7 @@
                         that.syncClientChanges().done(function(serverSyncDone){
                             if (!serverSyncDone) that.syncServerChanges().done(function(){
                                 _finally();
-                                dfr.resolve(); //TODO: params to resolve
+                                dfr.resolve();
                             }).fail(_catch);
                         }).fail(_catch);
                     }
