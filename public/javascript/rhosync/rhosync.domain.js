@@ -64,7 +64,7 @@
 
     function Model(defn) {
 
-        this.source = new rho.engine.Source(defn.sourceId, defn.name, 'incremental', rhosync.rho.storage, rhosync.rho.engine, this);
+        this.source = new rho.engine.Source(defn.sourceId, defn.name, 'incremental', rho.storage, rho.engine, this);
 
         this.__defineGetter__('name', function() {
             return this.source.name;

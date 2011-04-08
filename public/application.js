@@ -1,7 +1,18 @@
 (function($, Ext) {
 
+    var LOG = new RhoSync.rho.Logger('application.js');
+
+    Ext.setup({
+        // setup options goes here if needed
+    });
+
+    var theApp = new Ext.Application({
+        launch: doAppLaunch
+    });
+
+/*
     var data = {
-        //text: 'Sources',
+        text: 'Sources',
         items: [{
             text: 'Products',
             items: [{
@@ -28,23 +39,83 @@
             }]
         }]
     };
-
-    var LOG = new RhoSync.rho.Logger('application.js');
-
-    Ext.setup({
-        // setup options goes here if needed
-    });
-
-    var theApp = new Ext.Application({
-        launch: doAppLaunch
-    });
+*/
 
     function doAppLaunch() {
-        initRhosync();
-        initUI();
+        var msg = Ext.Msg.alert('Application starting', 'Wait please..', Ext.emptyFn);
+        //var msg = showPopup('Application starting', 'Wait please..');
+        initRhosync().done(function(){
+            msg.hide();
+            initUI();
+        }).fail(function(error){
+            Ext.Msg.alert('Error', error, Ext.emptyFn);
+        });
     }
 
     function initRhosync() {
+        var models = [
+            {name: 'Product', fields: [
+                {name: 'brand',     type: 'string'},
+                {name: 'name',      type: 'string'},
+                {name: 'sku',       type: 'string'},
+                {name: 'price',     type: 'string'},
+                {name: 'quantity',  type: 'string'}
+                ]},
+            {name: 'Customer', fields: [
+                {name: 'first',   type: 'string'},
+                {name: 'last',    type: 'string'},
+                {name: 'phone',   type: 'string'},
+                {name: 'email',   type: 'string'},
+                {name: 'address', type: 'string'},
+                {name: 'city',    type: 'string'},
+                {name: 'state',   type: 'string'},
+                {name: 'zip',     type: 'string'},
+                {name: 'lat',     type: 'string'},
+                {name: 'long',    type: 'string'}
+                ]/*,
+                associations: [
+                    {type: 'belongsTo', model: 'Product', primaryKey: 'unique_id', foreignKey: 'prod_id'}
+                ]*/
+            }
+        ];
+
+        $.each(models, function(idx, model){
+            Ext.regModel(model.name, model);
+        });
+
+        return RhoSync.init(models/*, 'native'*/);
+    }
+
+    function showPopup(title, msg) {
+        var popup = null;
+        if (!popup) {
+            popup = new Ext.Panel({
+                floating: true,
+                modal: true,
+                centered: true,
+                width: 300,
+                height: 200,
+                styleHtmlContent: true,
+                scroll: 'vertical',
+                html: '<p>message_placeholder</p>',
+                dockedItems: [
+                    {
+                        dock: 'top',
+                        xtype: 'toolbar',
+                        title: 'Overlay Title'
+                    }
+                ]
+            });
+        }
+        popup.show('pop');
+        popup.dockedItems.get(0).setTitle(title);
+        popup.body.update('<p class="popup-text">' + msg +'</p>');
+        return popup;
+    }
+
+    function showError(title, errCode, err) {
+        Ext.Msg.alert(title, err || errCode, Ext.emptyFn);
+        LOG.error(title +': ' +errCode +': ' +err);
     }
 
     function doLogin(username, password){
@@ -52,8 +123,7 @@
             mainPanel.setActiveItem('sourcesList');
             updateLoggedInState();
         }).fail(function(errCode, err){
-            Ext.Msg.alert('Login error', err, Ext.emptyFn);
-            LOG.error('Login: ' +errCode +': ' +err);
+            showError('Login error', errCode, err);
         });
     }
 
@@ -62,50 +132,52 @@
             loginForm.reset();
             updateLoggedInState();
         }).fail(function(errCode, err){
-            Ext.Msg.alert('Logout error', err, Ext.emptyFn);
-            LOG.error('Logout: ' +errCode +': ' +err);
+            showError('Logout error', errCode, err);
         });
-    }
-
-    function doSync(){
-        Ext.Msg.alert('Hush-hush-hush..', 'Not implemented yet :)', Ext.emptyFn);
     }
 
     function updateLoggedInState() {
         if (RhoSync.isLoggedIn()) {
-            loginButton.hide();
+            mainPanel.setActiveItem('sourcesList');
             logoutButton.show();
-            syncButton.show();
+            syncButton.enable();
+
         } else {
-            loginButton.show();
+            mainPanel.setActiveItem('loginForm');
             logoutButton.hide();
-            syncButton.hide();
+            syncButton.disable();
         }
-        topBar.doLayout();
+        mainPanel.doLayout();
+    }
+
+    function doSync(){
+        var msg = Ext.Msg.alert('Synchronizing now', 'Wait please..', Ext.emptyFn);
+        RhoSync.syncAllSources().done(function(){
+            msg.hide();
+        }).fail(function(errCode, err){
+            showError('Synchronization error', errCode, err);
+        });
     }
 
     var mainPanel = null;
-    var loginButton = null;
     var logoutButton = null;
+    var syncButton = null;
     var loginForm = null;
-    var syncForm = null;
     var sourcesList = null;
-    var topBar = null;
-    var bottomBar = null;
 
     function buildSourcesList(id){
-        Ext.regModel('ListItem', {
-            fields: [{name: 'text', type: 'string'}]
-        });
+//        Ext.regModel('ListItem', {
+//            fields: [{name: 'text', type: 'string'}]
+//        });
 
         var store = new Ext.data.TreeStore({
-            model: 'ListItem',
-            root: data,
+            model: 'Product',
             proxy: {
-                type: 'memory',
+                type: 'rhosync',
+                dbName: 'rhoSyncDb',
                 reader: {
-                    type: 'tree',
-                    root: 'items'
+                    type: 'json',
+                    root: 'manyProducts'
                 }
             }
         });
@@ -114,18 +186,14 @@
             id: id,
             title: 'Sources',
             fullscreen: false,
-            //dockedItems: [bottomBar],
-            displayField: 'text',
+            displayField: 'name',
             store: store
         });
 
 
         list.toolbar.add({xtype: 'spacer'});
         list.toolbar.add({xtype: 'spacer'});
-        list.toolbar.add({xtype: 'spacer'});
         list.toolbar.add(logoutButton);
-        list.toolbar.add({xtype: 'spacer'});
-        list.toolbar.add(loginButton);
         list.toolbar.add(syncButton);
         list.toolbar.doLayout();
         return list;
@@ -138,19 +206,9 @@
             dockedItems: [
                 {
                     xtype: 'toolbar',
-                    title: 'Login',
+                    title: 'Sign in',
                     dock : 'top',
-                    items: [
-                        {
-                            xtype: 'button',
-                            text: 'Cancel',
-                            ui: 'back',
-                            handler: function() {
-                                //loginForm.reset();
-                                mainPanel.setActiveItem('sourcesList');
-                            }
-                        }
-                    ]
+                    items: []
                 }
             ],
             items: [
@@ -165,10 +223,9 @@
                     name : 'password',
                     label: 'Password'
                 },
-                {xtype: 'spacer'},
                 {
                     xtype: 'button',
-                    text: 'Do login',
+                    text: 'Login',
                     ui: 'confirm',
                     handler: function() {
                         LOG.trace('username: ' +loginForm.getValues().login);
@@ -184,14 +241,6 @@
 
         var isLoggedIn = RhoSync.isLoggedIn();
 
-        loginButton = new Ext.Button({
-            text: 'Login',
-            hidden: isLoggedIn,
-            handler: function(){
-                mainPanel.setActiveItem('loginForm');
-            }
-        });
-
         logoutButton = new Ext.Button({
             text: 'Logout',
             hidden: !isLoggedIn,
@@ -204,37 +253,17 @@
             handler: doSync
         });
 
-        topBar = new Ext.Toolbar({
-            dock : 'top',
-            title: 'Rhosync.js demo',
-            items: [loginButton, logoutButton]
-        });
-
-        bottomBar = new Ext.Toolbar({
-            dock : 'bottom',
-            //title: 'My Toolbar',
-            items: [
-                {
-                    text: 'Synch'
-                }
-            ]
-        });
-
         sourcesList = buildSourcesList('sourcesList');
         loginForm = buildLoginForm('loginForm');
 
         mainPanel = new Ext.Panel({
             fullscreen: true,
             layout: 'card',
-            //dockedItems: [topBar, bottomBar],
             items: [loginForm, sourcesList]
         });
-        mainPanel.setActiveItem('sourcesList');
+        updateLoggedInState();
 
     }
-
-
-
 })(jQuery, Ext);
 
 

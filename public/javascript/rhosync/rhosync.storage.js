@@ -88,15 +88,40 @@
 
     // low-level functions ========================
 
+    var _dbMap = {};
+
     function _open(name, version, comment, size) {
+        function _getDb(name, version) {
+            if (!_dbMap[name]) {
+                _dbMap[name] = {};
+            }
+            if (!_dbMap[name][version]) {
+                _dbMap[name][version] = null;
+            }
+            return _dbMap[name][version];
+        }
+        function _setDb(name, version, db) {
+            if (!_dbMap[name]) {
+                _dbMap[name] = {};
+            }
+            _dbMap[name][version] = db;
+            return db;
+        }
+
         return $.Deferred(function(dfr){
+            var nm = name || rho.config.database.name;
+            var vn = version || rho.config.database.version;
+            var ct = comment || rho.config.database.comment;
+            var sz = size || rho.config.database.size;
+
+            var db = _getDb(nm, vn);
+
+            if (db) {
+                dfr.resolve(db);
+                return;
+            }
             try {
-                var db = openDatabase(
-                        name || rho.config.dbName,
-                        version || '1.0',
-                        comment || 'RhoSync database',
-                        size || (2*1024*1024)
-                        );
+                db = _setDb(nm, vn, openDatabase(nm, vn, ct, sz));
                 dfr.resolve(db);
             } catch(ex) {
                 dfr.reject(ex);
@@ -251,16 +276,17 @@
 
     function _init() {
         return $.Deferred(function(dfr){
-            _getAllTableNames().done(function(names){
+            _getAllTableNames().done(function(tx, names){
                 if ((4/*explicitly defined tables*/ +1/*implicit system table*/) != names.length) {
                     _initSchema().done(function(){
-                        dfr.resolve("db schema initialized");
-                    }).fail(function(){
-                        dfr.reject("db schema initialization error");
+                        dfr.resolve(null, "db schema initialized");
+                    }).fail(function(obj, err){
+                        dfr.reject(obj, "db schema initialization error: " +err);
                     });
                 }
-            }).fail(function(){
-                dfr.reject("db tables read error");
+                dfr.resolve(null, "db schema is ok");
+            }).fail(function(obj, err){
+                dfr.reject(obj, "db tables read error: " +err);
             });
         }).promise();
     }

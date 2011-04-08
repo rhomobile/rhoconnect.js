@@ -8,6 +8,7 @@
             // fields
             states: states,
             getSession: function() {return session},
+            restoreSession: restoreSession,
             sources: sources,
             maxConfigSrcId: 1,
             // methods
@@ -102,6 +103,23 @@
 
     function isSchemaChanged() {
         return schemaChanged;
+    }
+
+    function restoreSession() {
+        return $.Deferred(function(dfr){
+            session = "";
+            rho.storage.executeSql("SELECT session FROM client_info").done(function(tx, rs){
+                for (var i=0; i<rs.rows.length; i++) {
+                    var s = rs.rows.item(i)['session'];
+                    if (s) {
+                        session = s;
+                        break;
+                    }
+                }
+                rho.protocol.setSession(session);
+                dfr.resolve();
+            }).fail(_rejectOnDbAccessEror(dfr));
+        }).promise();
     }
 
     function logout() {
@@ -336,7 +354,14 @@
     function loadSession() {
         return $.Deferred(function(dfr){
             rho.storage.loadAllClients().done(function(tx, clients){
-                dfr.resolve((0 < clients.length) ? clients[0].session : null);
+                var s = null;
+                for (var i=0; i<clients.length; i++) {
+                    if (clients[i].session) {
+                        s = clients[i].session;
+                        break;
+                    }
+                }
+                dfr.resolve(s);
             }).fail(_rejectOnDbAccessEror(dfr));
 
         }).promise();
@@ -473,7 +498,7 @@
                 srcMap[src.name] = src;
             });
 
-            var dfrMap = rho.deferredMapOn($.extend({}, srcMap, {'rhoStartSyncSource': startSrc}));
+            var dfrMap = rho.deferredMapOn($.extend({}, srcMap, {'rhoStartSyncSource': 'noMatterValue_itUseJustKeys'}));
 
             var syncErrors = [];
 
@@ -493,26 +518,24 @@
                 dfrMap.resolve('rhoStartSyncSource', ["ok"]);
             }
 
-            for(var i=0; i<sourcesArray.length; i++) {
-                var src = sourcesArray[i];
+            $.each(sourcesArray, function(i, src){
                 syncOneSource(i).done(function(){
-                    dfrMap.resolve(src.name, ["ok"]);
+                    dfrMap.resolve(src.name, ["ok"]);  //TODO: problem is here! Variable i snapshotted in closure..
                 }).fail(function(errCode, error){
                     isError = true;
                     syncErrors.push({source: startSrc.name, errCode: errCode, error: error});
                     // We shouldn't stop the whole sync process on current source error,
                     // so resolve it instead of reject. Error is handled later.
-                    dfrMap.resolve('rhoStartSyncSource', ["error", errCode, error]);
+                    dfrMap.resolve(src.name, ["error", errCode, error]);
                 });
-            }
-
-            if (!isError && !isSchemaChanged()) {
-                // TODO: to implement RhoAppAdapter.getMessageText("sync_completed")
-                getNotify().fireSyncNotification(null, true, rho.errors.ERR_NONE, "sync_completed");
-            }
+            });
+//            for(var i=0; i<sourcesArray.length; i++) {
+//            }
 
             dfrMap.when().done(function(){
-                if (syncErrors.length == 0) {
+                if (!isError && !isSchemaChanged()) {
+                    // TODO: to implement RhoAppAdapter.getMessageText("sync_completed")
+                    getNotify().fireSyncNotification(null, true, rho.errors.ERR_NONE, "sync_completed");
                     dfr.resolve(rho.errors.NONE, "Sync completed");
                 } else {
                     dfr.reject(syncErrors);
@@ -1552,7 +1575,7 @@
                     }).fail(_catch);
                 } else {
                     if (that.isEmptyToken()) {
-                        processToken(1).done(function(){
+                        that.processToken(1).done(function(){
                             _localSyncClient();
                         }).fail(_catch);
                     }

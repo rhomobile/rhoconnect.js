@@ -12,25 +12,30 @@ var RhoSync = (function($) {
     }
 
     const defaults = {
-        dbName: 'rhoSyncDb',
         syncServer: '',
-        pollInterval: 20
+        pollInterval: 20,
+        database: {
+            name: 'rhoSyncDb',
+            version: '1.0',
+            comment: 'RhoSync database',
+            size: (2*1024*1024)
+        }
     };
 
     const errors = {
-        ERR_NONE: 'ERR_NONE',
-        ERR_NETWORK: 'ERR_NETWORK',
-        ERR_REMOTESERVER: 'ERR_REMOTESERVER',
-        ERR_RUNTIME: 'ERR_RUNTIME',
-        ERR_UNEXPECTEDSERVERRESPONSE: 'ERR_UNEXPECTEDSERVERRESPONSE',
-        ERR_DIFFDOMAINSINSYNCSRC: 'ERR_DIFFDOMAINSINSYNCSRC',
-        ERR_NOSERVERRESPONSE: 'ERR_NOSERVERRESPONSE',
-        ERR_CLIENTISNOTLOGGEDIN: 'ERR_CLIENTISNOTLOGGEDIN',
-        ERR_CUSTOMSYNCSERVER: 'ERR_CUSTOMSYNCSERVER',
-        ERR_UNATHORIZED: 'ERR_UNATHORIZED',
-        ERR_CANCELBYUSER: 'ERR_CANCELBYUSER',
-        ERR_SYNCVERSION: 'ERR_SYNCVERSION',
-        ERR_GEOLOCATION: 'ERR_GEOLOCATION'
+        ERR_NONE: 'No error',
+        ERR_NETWORK: 'Network error',
+        ERR_REMOTESERVER: 'Remote server access error',
+        ERR_RUNTIME: 'Runtime error',
+        ERR_UNEXPECTEDSERVERRESPONSE: 'Unexpected server response',
+        ERR_DIFFDOMAINSINSYNCSRC: 'Different synchronization domain error',
+        ERR_NOSERVERRESPONSE: 'No server response',
+        ERR_CLIENTISNOTLOGGEDIN: 'Client not logged in',
+        ERR_CUSTOMSYNCSERVER: 'Custom sync server',
+        ERR_UNATHORIZED: 'Unauthorized access',
+        ERR_CANCELBYUSER: 'Canceled by user',
+        ERR_SYNCVERSION: 'Synchronization version error',
+        ERR_GEOLOCATION: 'Geolocation error'
     };
 
     const events = {
@@ -45,10 +50,14 @@ var RhoSync = (function($) {
     function init(modelDefs, storageType) {
         return $.Deferred(function(dfr){
             rho.storage.init().done(function(){
-                _loadModels(storageType, modelDefs).done(function(){
-                    dfr.resolve();
-                }).fail(function(obj, error){
-                    dfr.reject("models load error: " +error);
+                rho.engine.restoreSession().done(function(){
+                    _loadModels(storageType, modelDefs).done(function(){
+                        dfr.resolve();
+                    }).fail(function(obj, error){
+                        dfr.reject("models load error: " +error);
+                    });
+                }).fail(function(errCode, error){
+                    dfr.reject("session restoring error: " +error);
                 });
             }).fail(function(error){
                 dfr.reject("storage initialization error: " +error);

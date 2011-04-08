@@ -5,6 +5,8 @@
             getVersion: getVersion,
             getErrCodeFromXHR: getErrCodeFromXHR,
             getSession: getSession,
+            setSession: setSession,
+            deleteSession: deleteSession,
             getServerQueryUrl: getServerQueryUrl,
             login: login,
             clientCreate: clientCreate,
@@ -47,6 +49,14 @@
 
     function getSession() {
         return _getCookie(SESSION_COOKIE);
+    }
+
+    function setSession(value) {
+        return _setCookie(SESSION_COOKIE, value, 365, '/', window.location.hostname, false);
+    }
+
+    function deleteSession() {
+        return _deleteCookie(SESSION_COOKIE, '/', window.location.hostname);
     }
 
     function getServerQueryUrl() {
