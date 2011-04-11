@@ -480,5 +480,6 @@
     $.extend(rho, {
         notify: publicInterface()
     });
+    $.extend(RhoSync, {SyncNotification: SyncNotification});
 
 })(jQuery);

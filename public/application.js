@@ -1,6 +1,6 @@
 (function($, Ext) {
 
-    var LOG = new RhoSync.rho.Logger('application.js');
+    var LOG = new RhoSync.Logger('application.js');
 
     Ext.setup({
         // setup options goes here if needed
@@ -9,37 +9,6 @@
     var theApp = new Ext.Application({
         launch: doAppLaunch
     });
-
-/*
-    var data = {
-        text: 'Sources',
-        items: [{
-            text: 'Products',
-            items: [{
-                text: 'product #1',
-                leaf: true
-            },{
-                text: 'product #2',
-                leaf: true
-            },{
-                text: 'product #3',
-                leaf: true
-            }]
-        },{
-            text: 'Customers',
-            items: [{
-                text: 'customer #1',
-                leaf: true
-            },{
-                text: 'customer #2',
-                leaf: true
-            },{
-                text: 'customer #3',
-                leaf: true
-            }]
-        }]
-    };
-*/
 
     function doAppLaunch() {
         var msg = Ext.Msg.alert('Application starting', 'Wait please..', Ext.emptyFn);
@@ -52,16 +21,25 @@
         });
     }
 
-    function initRhosync() {
-        var models = [
-            {name: 'Product', fields: [
+    var sources = {items:[]};
+
+    var models = [
+        {
+            name: 'Product',
+            fields: [
+                {name: 'id',        type: 'int'},
                 {name: 'brand',     type: 'string'},
                 {name: 'name',      type: 'string'},
                 {name: 'sku',       type: 'string'},
                 {name: 'price',     type: 'string'},
                 {name: 'quantity',  type: 'string'}
-                ]},
-            {name: 'Customer', fields: [
+            ],
+            belongsTo: 'Sources'
+        },
+        {
+            name: 'Customer',
+            fields: [
+                {name: 'id',      type: 'int'},
                 {name: 'first',   type: 'string'},
                 {name: 'last',    type: 'string'},
                 {name: 'phone',   type: 'string'},
@@ -72,18 +50,151 @@
                 {name: 'zip',     type: 'string'},
                 {name: 'lat',     type: 'string'},
                 {name: 'long',    type: 'string'}
-                ]/*,
-                associations: [
-                    {type: 'belongsTo', model: 'Product', primaryKey: 'unique_id', foreignKey: 'prod_id'}
-                ]*/
-            }
-        ];
+            ],
+            belongsTo: 'Sources'
+        }
+    ];
 
+    var displayTemplates = {
+        'Product': '{brand} {name}',
+        'Customer': '{first} {last}'
+    };
+
+    var editForms = {
+        'Product': [
+            //{xtype: 'hiddenfield', name: 'object_id'}, // we cannot name field as 'id'
+            {xtype: 'textfield', name: 'name', label: 'Name', required: true},
+            {xtype: 'textfield', name: 'brand', label: 'Brand', required: true},
+            {xtype: 'textfield', name: 'sku', label: 'SKU'},
+            {xtype: 'textfield', name: 'price', label: 'Price'},
+            {xtype: 'textfield', name: 'quantity', label: 'Quantity'}
+        ],
+        'Customer': [
+            //{xtype: 'hiddenfield', name: 'object_id'}, // we cannot name field as 'id'
+            {xtype: 'textfield', name: 'first', label: 'First name', required: true},
+            {xtype: 'textfield', name: 'last', label: 'Last name', required: true},
+            {xtype: 'textfield', name: 'phone', label: 'Phone'},
+            {xtype: 'textfield', name: 'email', label: 'Email'},
+            {xtype: 'textfield', name: 'address', label: 'Address'},
+            {xtype: 'textfield', name: 'city', label: 'City'},
+            {xtype: 'textfield', name: 'state', label: 'State'},
+            {xtype: 'textfield', name: 'zip', label: 'ZIP'},
+            {xtype: 'textfield', name: 'lat', label: 'Latitude'},
+            {xtype: 'textfield', name: 'long', label: 'Longitude'}
+        ]
+    };
+
+    var allPages = [];
+    var sourceSelectionPageName = 'SourceSelectionList';
+    var currentPageName = null;
+    var backTargetName = null;
+
+    function initRhosync() {
+
+        function buildSourcesList() {
+            Ext.regModel('SourceSelectionItem', {
+                fields: [{name: 'name', type: 'string'}]
+            });
+            var srcStore = new Ext.data.Store({
+                autoLoad: true,
+                model: 'SourceSelectionItem',
+                data : sources,
+                proxy: {
+                    type: 'memory',
+                    reader: {
+                        type: 'json',
+                        root: 'items'
+                    }
+                }
+            });
+            var list = new Ext.List({
+                id: 'SourceSelectionList'/*sourceSelectionPageName*/,
+                fullscreen: false,
+                itemTpl: '{name}',
+                store: srcStore//,
+            });
+            list.on('itemtap', function(list, index, item, evt){
+                var record = list.getRecord(item);
+                currentPageName = record.data.name;
+                updateSourcePagesState();
+            });
+            return list;
+        }
+
+        function buildStoreFor(model) {
+            return new Ext.data.Store({
+                id: model.name+'Store',
+                autoLoad: true,
+                model: model.name,
+                proxy: {
+                    type: 'rhosync',
+                    dbName: 'rhoSyncDb',
+                    root: 'items',
+                    reader: {
+                        type: 'json',
+                        root: 'items'
+                    }
+                }
+            });
+        }
+
+        function buildListFor(model, store, itemTpl) {
+            var list = new Ext.List({
+                id: model.name+'List',
+                fullscreen: false,
+                store: store,
+                itemTpl: itemTpl
+            });
+            list.on('itemtap', function(list, index, item, evt){
+                var record = list.getRecord(item);
+                currentPageName = record.store.model.modelName+'Form';
+                showForm(record);
+                //updateSourcePagesState();
+            });
+            return list;
+        }
+
+        function buildFormFor(model, list) {
+            //var modelName = record.store.model.modelName;
+
+            var submitItem = {xtype: 'button', text: 'Save', handler: function(btn) {
+                var form = Ext.getCmp(model.name+'Form');
+                var record = form.getRecord();
+                form.updateRecord(record, true);
+                record.store.sync();
+            }};
+
+            var form = new Ext.form.FormPanel({
+                id: model.name+'Form',
+                scroll: 'vertical',
+                items: editForms[model.name].concat(submitItem)
+            });
+
+            return form;
+        }
+
+        var srcPages = [];
         $.each(models, function(idx, model){
             Ext.regModel(model.name, model);
+            var store = buildStoreFor(model);
+            var list = buildListFor(model, store, displayTemplates[model.name]);
+            var form = buildFormFor(model, list);
+            srcPages.push(list);
+            srcPages.push(form);
+            sources.items.push({name: model.name});
         });
 
+        var srcList = buildSourcesList();
+        allPages = [srcList].concat(srcPages);
+
         return RhoSync.init(models/*, 'native'*/);
+    }
+
+    function showForm(record) {
+        var modelName = record.store.model.modelName;
+        var form = Ext.getCmp(modelName+'Form');
+        form.loadRecord(record);
+        Ext.getCmp("sourcesPanel").getLayout().setActiveItem(form.id);
     }
 
     function showPopup(title, msg) {
@@ -119,8 +230,8 @@
     }
 
     function doLogin(username, password){
-        RhoSync.login(username, password, new RhoSync.rho.notify.SyncNotification()).done(function(){
-            mainPanel.setActiveItem('sourcesList');
+        RhoSync.login(username, password, new RhoSync.SyncNotification()).done(function(){
+            Ext.getCmp('mainPanel').setActiveItem('sourcesPanel');
             updateLoggedInState();
         }).fail(function(errCode, err){
             showError('Login error', errCode, err);
@@ -129,7 +240,7 @@
 
     function doLogout(){
         RhoSync.logout().done(function(){
-            loginForm.reset();
+            Ext.getCmp('loginForm').reset();
             updateLoggedInState();
         }).fail(function(errCode, err){
             showError('Logout error', errCode, err);
@@ -138,79 +249,61 @@
 
     function updateLoggedInState() {
         if (RhoSync.isLoggedIn()) {
-            mainPanel.setActiveItem('sourcesList');
-            logoutButton.show();
-            syncButton.enable();
-
+            Ext.getCmp('mainPanel').setActiveItem('sourcesPanel');
+            Ext.getCmp('logoutButton').show();
+            Ext.getCmp('syncButton').enable();
         } else {
-            mainPanel.setActiveItem('loginForm');
-            logoutButton.hide();
-            syncButton.disable();
+            Ext.getCmp('mainPanel').setActiveItem('loginForm');
+            Ext.getCmp('logoutButton').hide();
+            Ext.getCmp('syncButton').disable();
+            setTitle('Sign in');
         }
-        mainPanel.doLayout();
+        Ext.getCmp('mainPanel').doLayout();
+        updateSourcePagesState();
     }
 
+    function updateSourcePagesState() {
+        var pageId = allPages[0].getId();
+        if (currentPageName) {
+            setTitle(currentPageName);
+            pageId = currentPageName+'List';
+            backTargetName = sourceSelectionPageName;
+        } else {
+            setTitle('Sources');
+            backTargetName = null;
+        }
+        updateBackButton();
+        Ext.getCmp("sourcesPanel").doLayout();
+        Ext.getCmp("sourcesPanel").getLayout().setActiveItem(pageId);
+    }
+
+    function updateBackButton() {
+        if (backTargetName) {
+            Ext.getCmp("backButton").show();
+        } else {
+            Ext.getCmp("backButton").hide();
+        }
+    }
+
+    var activeList = null;
     function doSync(){
         var msg = Ext.Msg.alert('Synchronizing now', 'Wait please..', Ext.emptyFn);
         RhoSync.syncAllSources().done(function(){
+            //if (activeList) activeList.store.sync();
             msg.hide();
         }).fail(function(errCode, err){
             showError('Synchronization error', errCode, err);
         });
     }
 
-    var mainPanel = null;
-    var logoutButton = null;
-    var syncButton = null;
-    var loginForm = null;
-    var sourcesList = null;
-
-    function buildSourcesList(id){
-//        Ext.regModel('ListItem', {
-//            fields: [{name: 'text', type: 'string'}]
-//        });
-
-        var store = new Ext.data.TreeStore({
-            model: 'Product',
-            proxy: {
-                type: 'rhosync',
-                dbName: 'rhoSyncDb',
-                reader: {
-                    type: 'json',
-                    root: 'manyProducts'
-                }
-            }
-        });
-
-        var list = new Ext.NestedList({
-            id: id,
-            title: 'Sources',
-            fullscreen: false,
-            displayField: 'name',
-            store: store
-        });
-
-
-        list.toolbar.add({xtype: 'spacer'});
-        list.toolbar.add({xtype: 'spacer'});
-        list.toolbar.add(logoutButton);
-        list.toolbar.add(syncButton);
-        list.toolbar.doLayout();
-        return list;
+    function setTitle(title) {
+        Ext.getCmp('mainToolbar').setTitle(title);
     }
 
     function buildLoginForm(id) {
         return new Ext.form.FormPanel({
             id: id,
             standardSubmit: false,
-            dockedItems: [
-                {
-                    xtype: 'toolbar',
-                    title: 'Sign in',
-                    dock : 'top',
-                    items: []
-                }
-            ],
             items: [
                 {
                     xtype: 'textfield',
@@ -228,6 +321,7 @@
                     text: 'Login',
                     ui: 'confirm',
                     handler: function() {
+                        var loginForm = Ext.getCmp('loginForm');
                         LOG.trace('username: ' +loginForm.getValues().login);
                         LOG.trace('password: ' +loginForm.getValues().password);
                         doLogin(loginForm.getValues().login, loginForm.getValues().password);
@@ -238,35 +332,73 @@
     }
 
     function initUI() {
-
         var isLoggedIn = RhoSync.isLoggedIn();
 
-        logoutButton = new Ext.Button({
+        var logoutButton = new Ext.Button({
+            id: 'logoutButton',
             text: 'Logout',
             hidden: !isLoggedIn,
             handler: doLogout
         });
 
-        syncButton = new Ext.Button({
+        var  backButton = new Ext.Button({
+            id: 'backButton',
+            text: 'Back',
+            ui: 'back',
+            handler: function() {
+                currentPageName = backTargetName == sourceSelectionPageName ? null : backTargetName;
+                updateSourcePagesState();
+            }
+        });
+
+        var syncButton = new Ext.Button({
+            id: 'syncButton',
             text: 'Sync',
             hidden: !isLoggedIn,
             handler: doSync
         });
 
-        sourcesList = buildSourcesList('sourcesList');
-        loginForm = buildLoginForm('loginForm');
+        var loginForm = buildLoginForm('loginForm');
 
-        mainPanel = new Ext.Panel({
+        var sourcesPanel = new Ext.Panel({
+            id: 'sourcesPanel',
+            fullscreen: false,
+            layout: 'card',
+            items: allPages
+        });
+
+//        var formsPanel = new Ext.Panel({
+//            id: 'formsPanel',
+//            fullscreen: false,
+//            layout: 'card',
+//            items: allPages
+//        });
+
+        var mainPanel = new Ext.Panel({
+            id: 'mainPanel',
             fullscreen: true,
             layout: 'card',
-            items: [loginForm, sourcesList]
+            dockedItems: [
+                {
+                    id: 'mainToolbar',
+                    xtype: 'toolbar',
+                    dock : 'top',
+                    title: 'Product',
+                    items: [
+                        backButton,
+                        {xtype: 'spacer'},
+                        {xtype: 'spacer'},
+                        logoutButton,
+                        syncButton
+                    ]
+                }
+            ],
+            items: [loginForm, sourcesPanel]
         });
+
+        currentPageName = null;
+        updateSourcePagesState();
         updateLoggedInState();
-
     }
+
 })(jQuery, Ext);
-
-
-
-
-

@@ -24,7 +24,10 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
      */
     constructor: function(config) {
         Ext.data.RhosyncStorageProxy.superclass.constructor.call(this, config);
-        
+
+        //ensures that the reader has been instantiated properly
+        this.setReader(this.reader);
+
         /**
          * Cached map of records already retrieved by this Proxy - ensures that the same instance is always retrieved
          * @property cache
@@ -48,8 +51,8 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
     },
 
     //inherit docs
-    create: function(operation, callback, scope) {
 /*
+    create: function(operation, callback, scope) {
         var records = operation.records,
             length  = records.length,
             ids     = this.getIds(),
@@ -73,7 +76,6 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
 
         this.setIds(ids);
 
-*/
         operation.setCompleted();
         operation.setSuccessful();
 
@@ -81,12 +83,14 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
             callback.call(scope || this, operation);
         }
     },
+*/
 
     //inherit docs
     read: function(operation, callback, scope) {
         //TODO: respect sorters, filters, start and limit options on the Operation
         var that = this;
-
+        var modelName = this.model.prototype.name;
+        var reader = this.getReader();
         var records = [];
 
         //read a single record
@@ -102,7 +106,7 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
                 _localAfterRead();
             });
         } else {
-            that.findAll(that.model.prototype.name).done(function(recs){
+            that.findAll(modelName).done(function(recs){
                 records = recs;
                 operation.setSuccessful();
                 _localAfterRead();
@@ -113,13 +117,22 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
         }
 
         function _localAfterRead() {
-            operation.setCompleted();
+            var result = null;
 
-            operation.resultSet = new Ext.data.ResultSet({
-                records: records,
-                total  : records.length,
-                loaded : true
+            if (that.root) {
+                var rooted = {};
+                rooted.name = modelName;
+                rooted[that.root] = records;
+                result = reader.read(rooted);
+            } else {
+                result = reader.read(records);
+            }
+
+            Ext.apply(operation, {
+                resultSet: result
             });
+
+            operation.setCompleted();
 
             if (typeof callback == 'function') {
                 callback.call(scope || that, operation);
@@ -129,37 +142,41 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
 
     //inherit docs
     update: function(operation, callback, scope) {
-        var records = operation.records,
-            length  = records.length,
-            ids     = this.getIds(),
-            record, id, i;
+        var that = this;
+        var records = operation.records;
 
         operation.setStarted();
 
-        for (i = 0; i < length; i++) {
-            record = records[i];
-            this.setRecord(record);
-            
-            //we need to update the set of ids here because it's possible that a non-phantom record was added
-            //to this proxy - in which case the record's id would never have been added via the normal 'create' call
-            id = record.getId();
-            if (id !== undefined && ids.indexOf(id) == -1) {
-                ids.push(id);
+        var dfrMap = RhoSync.rho.deferredMapOn(records);
+
+        $.each(records, function(i, record){
+            that.setRecord(record, record.id).done(function(record){
+                dfrMap.resolve(i, [record]);
+            }).fail(function(obj, err){
+                dfrMap.reject(i, [obj, err]);
+            });
+        });
+
+        dfrMap.when().done(function(){
+            operation.setSuccessful();
+            _localAfterUpdate();
+        }).fail(function(){
+            _localAfterUpdate();
+            that.LOG.error('update() object update error');
+        });
+
+        function _localAfterUpdate() {
+            operation.setCompleted();
+
+            if (typeof callback == 'function') {
+                callback.call(scope || this, operation);
             }
-        }
-        this.setIds(ids);
-
-        operation.setCompleted();
-        operation.setSuccessful();
-
-        if (typeof callback == 'function') {
-            callback.call(scope || this, operation);
         }
     },
 
     //inherit
-    destroy: function(operation, callback, scope) {
 /*
+    destroy: function(operation, callback, scope) {
         var records = operation.records,
             length  = records.length,
             ids     = this.getIds(),
@@ -174,12 +191,12 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
         }
 
         this.setIds(newIds);
-*/
 
         if (typeof callback == 'function') {
             callback.call(scope || this, operation);
         }
     },
+*/
 
     findAll: function(srcName) {
         var that = this;
@@ -206,9 +223,12 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
                     data[name] = objAttrs[name];
                 }
             }
-            record = new Model(data, id);
-            record.phantom = false;
-            return record;
+            data.id = id;
+            data.leaf = true;
+            return data;
+//            record = new Model(data, id);
+//            record.phantom = false;
+//            return record;
         }
 
         return $.Deferred(function(dfr){
@@ -286,9 +306,12 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
                     data[name] = rawData[name];
                 }
             }
-            record = new Model(data, id);
-            record.phantom = false;
-            return record;
+            data.id = id;
+            data.leaf = true;
+            return data;
+//            record = new Model(data, id);
+//            record.phantom = false;
+//            return record;
         }
 
         return $.Deferred(function(dfr){
@@ -314,6 +337,8 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
     setRecord: function(record, id) {
         var that = this;
         var storage = that.getStorageObject();
+        var srcName = record.store.model.modelName;
+        var srcId = null;
 
         if (id) {
             record.setId(id);
@@ -323,15 +348,14 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
 
         var rawData = record.data,
             data    = {},
-            model   = this.model,
+            model   = that.model,
             fields  = model.prototype.fields.items;
 
         return $.Deferred(function(dfr){
 
             // Read source_id for stored object (object should be already stored)
-            var srcId = null;
-            storage.executeSql("SELECT source_id FROM object_values WHERE object=? LIMIT 1 OFFSET 0",
-                    [id]).done(function(tx, rs){
+            storage.executeSql("SELECT source_id FROM sources WHERE name=?",
+                    [srcName]).done(function(tx, rs){
                 if (rs.rows && rs.rows.length && rs.rows.length > 0) {
                     srcId = rs.rows.item(0)['source_id'];
                 }
@@ -369,32 +393,42 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
                         +' attrib'
                         +' ) VALUES (?, ?, ?, ?)';
 
-                var dfrMap = RhoSync.rho.deferredMapOn(fields);
-                $.each(fields, function(i, field) {
-                    var name  = field.name;
+                //var dfrMap = RhoSync.rho.deferredMapOn(fields);
+                storage.rwTx().ready(function(db, tx){
+                    $.each(fields, function(i, field) {
+                        var name  = field.name;
 
-                    if (typeof field.encode == 'function') {
-                        data[name] = field.encode(rawData[name], record);
-                    } else {
-                        data[name] = rawData[name];
-                    }
+                        if (typeof field.encode == 'function') {
+                            data[name] = field.encode(rawData[name], record);
+                        } else {
+                            data[name] = rawData[name];
+                        }
 
-                    storage.executeSql(attrsToUpdate[name] ? updateQuery : insertQuery,
-                            [data[name], srcId, id, name]).done(function(){
-                        dfrMap.resolve(i, []);
-                    }).fail(function(obj, err){
-                        dfrMap.reject(i, [obj, err]);
-                        that.LOG.error('setRecord() update/insert attr error: ' +err);
+                        var query = attrsToUpdate[name] ? updateQuery : insertQuery;
+                        var value = data[name];
+                        storage.executeSql(query, [value, srcId, id, name], tx)/*.done(function(){
+                            dfrMap.resolve(i, []);
+                        }).fail(function(obj, err){
+                            dfrMap.reject(i, [obj, err]);
+                            that.LOG.error('setRecord() update/insert attr error: ' +err);
+                        })*/;
                     });
-                });
-
-                dfrMap.when().done(function(){
+                }).done(function(db){
+                    record.dirty = false;
                     //keep the cache up to date
-                    this.cache[id] = record;
-                    dfr.resolve();
-                }).fail(function(){
+                    that.cache[id] = record;
+                    dfr.resolve(id);
+                }).fail(function(obj, err){
                     dfr.reject(null, 'setRecord() update/insert attr error');
                 });
+//                dfrMap.when().done(function(){
+//                    record.dirty = false;
+//                    //keep the cache up to date
+//                    that.cache[id] = record;
+//                    dfr.resolve(id);
+//                }).fail(function(){
+//                    dfr.reject(null, 'setRecord() update/insert attr error');
+//                });
             }
         }).promise();
     },
@@ -405,8 +439,8 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
      * use instead because it updates the list of currently-stored record ids
      * @param {String|Number|Ext.data.Model} id The id of the record to remove, or an Ext.data.Model instance
      */
-    removeRecord: function(id, updateIds) {
 /*
+    removeRecord: function(id, updateIds) {
         if (id instanceof Ext.data.Model) {
             id = id.getId();
         }
@@ -418,8 +452,8 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
         }
 
         this.getStorageObject().removeItem(this.getRecordKey(id));
-*/
     },
+*/
 
 
     /**
@@ -431,17 +465,18 @@ Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
     /**
      * Destroys all records stored in the proxy and removes values used to support the proxy from the storage object
      */
+    clear: Ext.emptyFn,
+/*
     clear: function() {
         // unsure we need it
-        /*
         var storage = this.getStorageObject();
 
         storage.executeSql('DELETE FROM object_values').done(function(){
         }).fail(function(errCode, err){
             that.LOG.error('clear() error: ' +(err || errCode));
         });
-        */
     },
+*/
 
     /**
      * @private

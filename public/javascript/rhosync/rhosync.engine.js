@@ -520,17 +520,15 @@
 
             $.each(sourcesArray, function(i, src){
                 syncOneSource(i).done(function(){
-                    dfrMap.resolve(src.name, ["ok"]);  //TODO: problem is here! Variable i snapshotted in closure..
+                    dfrMap.resolve(src.name, ["ok"]);
                 }).fail(function(errCode, error){
                     isError = true;
-                    syncErrors.push({source: startSrc.name, errCode: errCode, error: error});
+                    syncErrors.push({source: src.name, errCode: errCode, error: error});
                     // We shouldn't stop the whole sync process on current source error,
                     // so resolve it instead of reject. Error is handled later.
                     dfrMap.resolve(src.name, ["error", errCode, error]);
                 });
             });
-//            for(var i=0; i<sourcesArray.length; i++) {
-//            }
 
             dfrMap.when().done(function(){
                 if (!isError && !isSchemaChanged()) {
@@ -538,7 +536,7 @@
                     getNotify().fireSyncNotification(null, true, rho.errors.ERR_NONE, "sync_completed");
                     dfr.resolve(rho.errors.NONE, "Sync completed");
                 } else {
-                    dfr.reject(syncErrors);
+                    dfr.reject('Error for source"' +syncErrors[0].source +'": ' +(syncErrors[0].error||syncErrors[0].errCode));
                 }
             }).fail(function(){
                 // it shouldn't happen, because we resolving on errors
@@ -778,7 +776,9 @@
                             if (that.engine.getSourceOptions().getBoolProperty(that.id, "pass_through")) {
                                 that.processToken(0).done(function(){
                                     _localNextIfContinued();
-                                }).fail(_rejectPassThrough(dfr));
+                                }).fail(function(errCode, err) {
+                                    _rejectPassThrough(dfr)(errCode, err);
+                                });
                             } else {_localNextIfContinued();}
 
                             function _localNextIfContinued() {
@@ -786,21 +786,23 @@
                                     // go next in async while loop
                                     _localAsyncWhile()
                                 } else {
-                                    _localAfterWhile();
+                                    _localWhileExit();
                                 }
                             }
 
-                        }).fail(_rejectPassThrough(dfr));
+                        }).fail(function(errCode, err) {
+                            _rejectPassThrough(dfr)(errCode, err);
+                        });
                     }).fail(function(status, error, xhr){
                         that.engine.stopSync();
                         that.errCode = rho.protocol.getErrCodeFromXHR(xhr);
                         that.error = error;
-                        //_localAfterWhile(); //TODO: am I sure?
                         dfr.reject(errCode, error);
+                        //_localWhileExit(); //TODO: am I sure?
                     });
                 }
                 var _whileEnded = false;
-                function _localAfterWhile() {
+                function _localWhileExit() {
                     if (!_whileEnded) {
                         _whileEnded = true;
                         if (that.engine.isSchemaChanged()) {

@@ -123,5 +123,6 @@
     }
 
     $.extend(rho, publicInterface());
+    $.extend(RhoSync, {Logger: Logger});
 
 })(jQuery);
