@@ -162,6 +162,10 @@
                 var record = form.getRecord();
                 form.updateRecord(record, true);
                 record.store.sync();
+
+                currentPageName = backTargetName == sourceSelectionPageName ? null : backTargetName;
+                updateSourcePagesState();
+                //Ext.getCmp('backButton').fireEvent('tap');
             }};
 
             var form = new Ext.form.FormPanel({
@@ -194,7 +198,7 @@
         var modelName = record.store.model.modelName;
         var form = Ext.getCmp(modelName+'Form');
         form.loadRecord(record);
-        Ext.getCmp("sourcesPanel").getLayout().setActiveItem(form.id);
+        Ext.getCmp("sourcesPanel")./*getLayout().*/setActiveItem(form.id);
     }
 
     function showPopup(title, msg) {
@@ -337,7 +341,6 @@
         var logoutButton = new Ext.Button({
             id: 'logoutButton',
             text: 'Logout',
-            hidden: !isLoggedIn,
             handler: doLogout
         });
 
@@ -354,7 +357,6 @@
         var syncButton = new Ext.Button({
             id: 'syncButton',
             text: 'Sync',
-            hidden: !isLoggedIn,
             handler: doSync
         });
 

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <!--<meta http-equiv="Content-Type" content="text/html; charset=utf-8">-->
         <title>Rhosync.js demo</title>
 
         <link href="javascript/sencha-touch/sencha-touch.css" rel="stylesheet" type="text/css" />
@@ -12,7 +12,7 @@
         <script type="text/javascript" language="javascript" src="javascript/sencha-touch/sencha-touch-bb_os6_notouch.js"></script>
 
         <script type="text/javascript">
-            var syncUrl = "/application";
+            var syncUrl = window.location.protocol +'//' +window.location.host +'/application';
             RhoConfig = {
                 syncServer: syncUrl,
                 logLevel: 'trace'
@@ -31,4 +31,4 @@
         <script type="text/javascript" language="javascript" src="application.js"></script>
     </head>
     <body></body>
-</html>`
+</html>

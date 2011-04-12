@@ -64,15 +64,16 @@
     }
 
     function _setCookie(name, value, days, path, domain, secure) {
-        if (days) {
-            var expDate = new Date();
-            expDate.setTime(expDate.getTime() + (days * 24 * 60 * 60 * 1000));
-        }
-        document.cookie = name + "=" + encodeURIComponent( value ) +
-            ((days) ? "; expires=" + expDate.toGMTString() : "") +
-            ((path) ? "; path=" + path : "") +
-            ((domain) ? "; domain=" + domain : "") +
-            ((secure) ? "; secure" : "");
+        //TODO: to re-implement
+//        if (days) {
+//            var expDate = new Date();
+//            expDate.setTime(expDate.getTime() + (days * 24 * 60 * 60 * 1000));
+//        }
+//        document.cookie = name + "=" + /*encodeURIComponent( */value /*)*/ +
+//            ((days) ? "; expires=" + expDate.toGMTString() : "") +
+//            ((path) ? "; path=" + path : "") +
+//            ((domain) ? "; domain=" + domain : "") +
+//            ((secure) ? "; secure" : "");
     }
 
     function _getCookie(name) {
