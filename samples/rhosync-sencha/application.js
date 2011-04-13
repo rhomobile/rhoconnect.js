@@ -21,9 +21,7 @@
         });
     }
 
-    var pages = {items:[]};
-
-    var models = [
+    var modelDefinitions = [
         {
             name: 'Product',
             fields: [
@@ -87,14 +85,14 @@
 
     function initRhosync() {
 
-        function buildModelsList() {
+        function buildModelsList(data) {
             Ext.regModel('ModelSelectionItem', {
                 fields: [{name: 'name', type: 'string'}]
             });
-            var srcStore = new Ext.data.Store({
+            var store = new Ext.data.Store({
                 autoLoad: true,
                 model: 'ModelSelectionItem',
-                data : pages,
+                data : data,
                 proxy: {
                     type: 'memory',
                     reader: {
@@ -107,7 +105,7 @@
                 id: 'ModelSelectionList'/*modelSelectionPageName*/,
                 fullscreen: false,
                 itemTpl: '{name}',
-                store: srcStore//,
+                store: store//,
             });
             list.on('itemtap', function(list, index, item, evt){
                 var record = list.getRecord(item);
@@ -173,21 +171,23 @@
             return form;
         }
 
-        var srcPages = [];
-        $.each(models, function(idx, model){
+        var pgs = [];
+        var modelsData = {items:[]};
+
+        $.each(modelDefinitions, function(idx, model){
             Ext.regModel(model.name, model);
             var store = buildStoreFor(model);
             var list = buildListFor(model, store, displayTemplates[model.name]);
             var form = buildFormFor(model, list);
-            srcPages.push(list);
-            srcPages.push(form);
-            pages.items.push({name: model.name});
+            pgs.push(list);
+            pgs.push(form);
+            modelsData.items.push({name: model.name});
         });
 
-        var srcList = buildModelsList();
-        allPages = [srcList].concat(srcPages);
+        var list = buildModelsList(modelsData);
+        allPages = [list].concat(pgs);
 
-        return RhoSync.init(models/*, 'native'*/);
+        return RhoSync.init(modelDefinitions/*, 'native'*/);
     }
 
     function showForm(record) {
@@ -285,12 +285,18 @@
         }
     }
 
-    var activeList = null;
+    function reloadLists() {
+        $.each(modelDefinitions, function(i, model) {
+            Ext.getCmp(model.name +'List').store.read();
+        });
+    }
+
     function doSync(){
         var msg = Ext.Msg.alert('Synchronizing now', 'Wait please..', Ext.emptyFn);
         RhoSync.syncAllSources().done(function(){
             //if (activeList) activeList.store.sync();
             msg.hide();
+            reloadLists();
         }).fail(function(errCode, err){
             showError('Synchronization error', errCode, err);
         });
