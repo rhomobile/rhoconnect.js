@@ -6,7 +6,7 @@
         // setup options goes here if needed
     });
 
-    var theApp = new Ext.Application({
+    new Ext.Application({
         launch: doAppLaunch
     });
 
@@ -33,8 +33,7 @@
                 {name: 'sku',       type: 'string'},
                 {name: 'price',     type: 'string'},
                 {name: 'quantity',  type: 'string'}
-            ],
-            belongsTo: 'Sources'
+            ]
         },
         {
             name: 'Customer',
@@ -50,8 +49,7 @@
                 {name: 'zip',     type: 'string'},
                 {name: 'lat',     type: 'string'},
                 {name: 'long',    type: 'string'}
-            ],
-            belongsTo: 'Sources'
+            ]
         }
     ];
 
@@ -62,7 +60,6 @@
 
     var editForms = {
         'Product': [
-            //{xtype: 'hiddenfield', name: 'object_id'}, // we cannot name field as 'id'
             {xtype: 'textfield', name: 'name', label: 'Name', required: true},
             {xtype: 'textfield', name: 'brand', label: 'Brand', required: true},
             {xtype: 'textfield', name: 'sku', label: 'SKU'},
@@ -70,7 +67,6 @@
             {xtype: 'textfield', name: 'quantity', label: 'Quantity'}
         ],
         'Customer': [
-            //{xtype: 'hiddenfield', name: 'object_id'}, // we cannot name field as 'id'
             {xtype: 'textfield', name: 'first', label: 'First name', required: true},
             {xtype: 'textfield', name: 'last', label: 'Last name', required: true},
             {xtype: 'textfield', name: 'phone', label: 'Phone'},
@@ -85,19 +81,19 @@
     };
 
     var allPages = [];
-    var sourceSelectionPageName = 'SourceSelectionList';
+    var modelSelectionPageName = 'ModelSelectionList';
     var currentPageName = null;
     var backTargetName = null;
 
     function initRhosync() {
 
-        function buildSourcesList() {
-            Ext.regModel('SourceSelectionItem', {
+        function buildModelsList() {
+            Ext.regModel('ModelSelectionItem', {
                 fields: [{name: 'name', type: 'string'}]
             });
             var srcStore = new Ext.data.Store({
                 autoLoad: true,
-                model: 'SourceSelectionItem',
+                model: 'ModelSelectionItem',
                 data : pages,
                 proxy: {
                     type: 'memory',
@@ -108,7 +104,7 @@
                 }
             });
             var list = new Ext.List({
-                id: 'SourceSelectionList'/*sourceSelectionPageName*/,
+                id: 'ModelSelectionList'/*modelSelectionPageName*/,
                 fullscreen: false,
                 itemTpl: '{name}',
                 store: srcStore//,
@@ -116,7 +112,7 @@
             list.on('itemtap', function(list, index, item, evt){
                 var record = list.getRecord(item);
                 currentPageName = record.data.name;
-                updateSourcePagesState();
+                updateModelPagesState();
             });
             return list;
         }
@@ -149,7 +145,7 @@
                 var record = list.getRecord(item);
                 currentPageName = record.store.model.modelName+'Form';
                 showForm(record);
-                //updateSourcePagesState();
+                //updateModelPagesState();
             });
             return list;
         }
@@ -163,8 +159,8 @@
                 form.updateRecord(record, true);
                 record.store.sync();
 
-                currentPageName = backTargetName == sourceSelectionPageName ? null : backTargetName;
-                updateSourcePagesState();
+                currentPageName = backTargetName == modelSelectionPageName ? null : backTargetName;
+                updateModelPagesState();
                 //Ext.getCmp('backButton').fireEvent('tap');
             }};
 
@@ -188,7 +184,7 @@
             pages.items.push({name: model.name});
         });
 
-        var srcList = buildSourcesList();
+        var srcList = buildModelsList();
         allPages = [srcList].concat(srcPages);
 
         return RhoSync.init(models/*, 'native'*/);
@@ -198,7 +194,7 @@
         var modelName = record.store.model.modelName;
         var form = Ext.getCmp(modelName+'Form');
         form.loadRecord(record);
-        Ext.getCmp("sourcesPanel")./*getLayout().*/setActiveItem(form.id);
+        Ext.getCmp("modelsPanel")./*getLayout().*/setActiveItem(form.id);
     }
 
     function showPopup(title, msg) {
@@ -235,7 +231,7 @@
 
     function doLogin(username, password){
         RhoSync.login(username, password, new RhoSync.SyncNotification()).done(function(){
-            Ext.getCmp('mainPanel').setActiveItem('sourcesPanel');
+            Ext.getCmp('mainPanel').setActiveItem('modelsPanel');
             updateLoggedInState();
         }).fail(function(errCode, err){
             showError('Login error', errCode, err);
@@ -253,7 +249,7 @@
 
     function updateLoggedInState() {
         if (RhoSync.isLoggedIn()) {
-            Ext.getCmp('mainPanel').setActiveItem('sourcesPanel');
+            Ext.getCmp('mainPanel').setActiveItem('modelsPanel');
             Ext.getCmp('logoutButton').show();
             Ext.getCmp('syncButton').enable();
         } else {
@@ -263,22 +259,22 @@
             setTitle('Sign in');
         }
         Ext.getCmp('mainPanel').doLayout();
-        updateSourcePagesState();
+        updateModelPagesState();
     }
 
-    function updateSourcePagesState() {
+    function updateModelPagesState() {
         var pageId = allPages[0].getId();
         if (currentPageName) {
             setTitle(currentPageName);
             pageId = currentPageName+'List';
-            backTargetName = sourceSelectionPageName;
+            backTargetName = modelSelectionPageName;
         } else {
-            setTitle('Sources');
+            setTitle('Models');
             backTargetName = null;
         }
         updateBackButton();
-        Ext.getCmp("sourcesPanel").doLayout();
-        Ext.getCmp("sourcesPanel").getLayout().setActiveItem(pageId);
+        Ext.getCmp("modelsPanel").doLayout();
+        Ext.getCmp("modelsPanel").getLayout().setActiveItem(pageId);
     }
 
     function updateBackButton() {
@@ -336,7 +332,6 @@
     }
 
     function initUI() {
-        var isLoggedIn = RhoSync.isLoggedIn();
 
         var logoutButton = new Ext.Button({
             id: 'logoutButton',
@@ -349,8 +344,8 @@
             text: 'Back',
             ui: 'back',
             handler: function() {
-                currentPageName = backTargetName == sourceSelectionPageName ? null : backTargetName;
-                updateSourcePagesState();
+                currentPageName = backTargetName == modelSelectionPageName ? null : backTargetName;
+                updateModelPagesState();
             }
         });
 
@@ -362,8 +357,8 @@
 
         var loginForm = buildLoginForm('loginForm');
 
-        var sourcesPanel = new Ext.Panel({
-            id: 'sourcesPanel',
+        var modelsPanel = new Ext.Panel({
+            id: 'modelsPanel',
             fullscreen: false,
             layout: 'card',
             items: allPages
@@ -395,11 +390,11 @@
                     ]
                 }
             ],
-            items: [loginForm, sourcesPanel]
+            items: [loginForm, modelsPanel]
         });
 
         currentPageName = null;
-        updateSourcePagesState();
+        updateModelPagesState();
         updateLoggedInState();
     }
 
