@@ -79,9 +79,6 @@
     };
 
     var allPages = [];
-    var modelSelectionPageName = 'ModelSelectionList';
-    var currentPageName = null;
-    var backTargetName = null;
 
     function initRhosync() {
 
@@ -102,15 +99,14 @@
                 }
             });
             var list = new Ext.List({
-                id: 'ModelSelectionList'/*modelSelectionPageName*/,
+                id: 'ModelList',
                 fullscreen: false,
                 itemTpl: '{name}',
                 store: store//,
             });
             list.on('itemtap', function(list, index, item, evt){
                 var record = list.getRecord(item);
-                currentPageName = record.data.name;
-                updateModelPagesState();
+                showObjects(record);
             });
             return list;
         }
@@ -141,14 +137,12 @@
             });
             list.on('itemtap', function(list, index, item, evt){
                 var record = list.getRecord(item);
-                currentPageName = record.store.model.modelName+'Form';
                 showForm(record);
-                //updateModelPagesState();
             });
             return list;
         }
 
-        function buildFormFor(model, list) {
+        function buildFormFor(model) {
             //var modelName = record.store.model.modelName;
 
             var submitItem = {xtype: 'button', text: 'Save', handler: function(btn) {
@@ -156,19 +150,14 @@
                 var record = form.getRecord();
                 form.updateRecord(record, true);
                 record.store.sync();
-
-                currentPageName = backTargetName == modelSelectionPageName ? null : backTargetName;
-                updateModelPagesState();
-                //Ext.getCmp('backButton').fireEvent('tap');
+                Ext.getCmp('mainPanel').getLayout().back();
             }};
 
-            var form = new Ext.form.FormPanel({
+            return new Ext.form.FormPanel({
                 id: model.name+'Form',
                 scroll: 'vertical',
                 items: editForms[model.name].concat(submitItem)
             });
-
-            return form;
         }
 
         var pgs = [];
@@ -178,7 +167,7 @@
             Ext.regModel(model.name, model);
             var store = buildStoreFor(model);
             var list = buildListFor(model, store, displayTemplates[model.name]);
-            var form = buildFormFor(model, list);
+            var form = buildFormFor(model);
             pgs.push(list);
             pgs.push(form);
             modelsData.items.push({name: model.name});
@@ -190,11 +179,22 @@
         return RhoSync.init(modelDefinitions/*, 'native'*/);
     }
 
+    function showObjects(record) {
+        var modPanel = Ext.getCmp('modelsPanel');
+        modPanel.getLayout().forth(record.data.name +'List', null /*use default animation*/, record.data.name);
+    }
+
     function showForm(record) {
         var modelName = record.store.model.modelName;
         var form = Ext.getCmp(modelName+'Form');
         form.loadRecord(record);
-        Ext.getCmp("modelsPanel")./*getLayout().*/setActiveItem(form.id);
+
+        var title = 'Product' == modelName
+                ? record.data.brand +' ' +record.data.name
+                : record.data.first +' ' +record.data.last;
+
+        var modPanel = Ext.getCmp('modelsPanel');
+        modPanel.getLayout().forth(form.id, null /*use default animation*/, title);
     }
 
     function showPopup(title, msg) {
@@ -231,7 +231,6 @@
 
     function doLogin(username, password){
         RhoSync.login(username, password, new RhoSync.SyncNotification()).done(function(){
-            Ext.getCmp('mainPanel').setActiveItem('modelsPanel');
             updateLoggedInState();
         }).fail(function(errCode, err){
             showError('Login error', errCode, err);
@@ -256,33 +255,15 @@
             Ext.getCmp('mainPanel').setActiveItem('loginForm');
             Ext.getCmp('logoutButton').hide();
             Ext.getCmp('syncButton').disable();
-            setTitle('Sign in');
         }
         Ext.getCmp('mainPanel').doLayout();
-        updateModelPagesState();
-    }
 
-    function updateModelPagesState() {
-        var pageId = allPages[0].getId();
-        if (currentPageName) {
-            setTitle(currentPageName);
-            pageId = currentPageName+'List';
-            backTargetName = modelSelectionPageName;
-        } else {
-            setTitle('Models');
-            backTargetName = null;
+        // Navigate back to the root list of models
+        var modPanel = Ext.getCmp("modelsPanel");
+        while(!modPanel.getLayout().isHistoryEmpty()) {
+            modPanel.getLayout().back();
         }
-        updateBackButton();
-        Ext.getCmp("modelsPanel").doLayout();
-        Ext.getCmp("modelsPanel").getLayout().setActiveItem(pageId);
-    }
-
-    function updateBackButton() {
-        if (backTargetName) {
-            Ext.getCmp("backButton").show();
-        } else {
-            Ext.getCmp("backButton").hide();
-        }
+        modPanel.doLayout();
     }
 
     function reloadLists() {
@@ -302,14 +283,42 @@
         });
     }
 
-    function setTitle(title) {
-        Ext.getCmp('mainToolbar').setTitle(title);
-    }
+    function initUI() {
 
-    function buildLoginForm(id) {
-        return new Ext.form.FormPanel({
-            id: id,
+        var logoutButton = new Ext.Button({
+            id: 'logoutButton',
+            text: 'Logout',
+            handler: doLogout
+        });
+
+        var  backButton = new Ext.Button({
+            id: 'backButton',
+            text: 'Back',
+            ui: 'back',
+            hidden: true,
+            handler: function() {
+                modelsPanel.getLayout().back();
+            }
+        });
+
+        var syncButton = new Ext.Button({
+            id: 'syncButton',
+            text: 'Sync',
+            handler: doSync
+        });
+
+        var loginForm = new Ext.form.FormPanel({
+            id: 'loginForm',
+            fullscreen: true,
             standardSubmit: false,
+            dockedItems: [
+                {
+                    id: 'loginToolbar',
+                    xtype: 'toolbar',
+                    dock : 'top',
+                    title: 'Sign in'
+                }
+            ],
             items: [
                 {
                     xtype: 'textfield',
@@ -327,66 +336,42 @@
                     text: 'Login',
                     ui: 'confirm',
                     handler: function() {
-                        var loginForm = Ext.getCmp('loginForm');
-                        LOG.trace('username: ' +loginForm.getValues().login);
-                        LOG.trace('password: ' +loginForm.getValues().password);
                         doLogin(loginForm.getValues().login, loginForm.getValues().password);
                     }
                 }
-            ]
+            ],
+
+            EOF: true
         });
-    }
-
-    function initUI() {
-
-        var logoutButton = new Ext.Button({
-            id: 'logoutButton',
-            text: 'Logout',
-            handler: doLogout
-        });
-
-        var  backButton = new Ext.Button({
-            id: 'backButton',
-            text: 'Back',
-            ui: 'back',
-            handler: function() {
-                currentPageName = backTargetName == modelSelectionPageName ? null : backTargetName;
-                updateModelPagesState();
-            }
-        });
-
-        var syncButton = new Ext.Button({
-            id: 'syncButton',
-            text: 'Sync',
-            handler: doSync
-        });
-
-        var loginForm = buildLoginForm('loginForm');
 
         var modelsPanel = new Ext.Panel({
             id: 'modelsPanel',
-            fullscreen: false,
-            layout: 'card',
-            items: allPages
-        });
-
-//        var formsPanel = new Ext.Panel({
-//            id: 'formsPanel',
-//            fullscreen: false,
-//            layout: 'card',
-//            items: allPages
-//        });
-
-        var mainPanel = new Ext.Panel({
-            id: 'mainPanel',
             fullscreen: true,
-            layout: 'card',
+            layout: {
+                xtype: 'layout',
+                type:'cardhistory',
+                defaultAnimation: 'slide',
+                getTitle: function(){
+                    return Ext.getCmp('modelsToolbar').titleEl.getHTML();
+                },
+                setTitle: function(text){
+                    Ext.getCmp('modelsToolbar').setTitle(text);
+                },
+                setBack: function(isVisible, text) {
+                    var back = Ext.getCmp("backButton");
+                    back.setVisible(isVisible);
+                    if (text) {
+                        back.setText(text);
+                    }
+                    back.doComponentLayout();
+                }
+            },
             dockedItems: [
                 {
-                    id: 'mainToolbar',
+                    id: 'modelsToolbar',
                     xtype: 'toolbar',
                     dock : 'top',
-                    title: 'Product',
+                    title: 'Model',
                     items: [
                         backButton,
                         {xtype: 'spacer'},
@@ -396,11 +381,16 @@
                     ]
                 }
             ],
+            items: allPages
+        });
+
+        var mainPanel = new Ext.Panel({
+            id: 'mainPanel',
+            fullscreen: true,
+            layout: 'card',
             items: [loginForm, modelsPanel]
         });
 
-        currentPageName = null;
-        updateModelPagesState();
         updateLoggedInState();
     }
 
