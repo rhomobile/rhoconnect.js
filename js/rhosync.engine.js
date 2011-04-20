@@ -953,7 +953,7 @@
                             if (that.curPageCount > 0) {
                                 that.getNotify().fireSyncNotification(this, false, rho.errors.ERR_NONE, "");
                             }
-                            //dfr.resolve();
+                            dfr.resolve(); //TODO: does it needed?!
                         }
                     }
                 }
@@ -1104,7 +1104,7 @@
 
                 } else if (strCmd == "links") {
 
-                    processAssociations(strObject, oAttrValue.m_strValue, tx).done(function(tx){
+                    that.processAssociations(strObject, oAttrValue.m_strValue, tx).done(function(tx){
                         rho.storage.executeSql("UPDATE object_values SET object=? where object=? and source_id=?",
                                 [oAttrValue.m_strValue, strObject, that.id], tx).done(function(){
                             rho.storage.executeSql("UPDATE changed_values SET object=?,sent=3 where object=? "+
@@ -1457,7 +1457,7 @@
                                 //m_arBlobAttrs.addElement(strAttrib);
                                 //m_arMultipartItems.addElement(oItem);
                             }
-                            bodyPart[strObject] = {};
+                            if (!bodyPart[strObject]) bodyPart[strObject] = {};
                             bodyPart[strObject][strAttrib] = value;
                         }
                         if (isSync) {
@@ -1556,7 +1556,7 @@
 
                     }
                     dfrMap.when().done(function(){
-                        executeSQL("DELETE FROM changed_values WHERE attrib='object'", tx);
+                        rho.storage.executeSql("DELETE FROM changed_values WHERE attrib='object'", tx);
                     }).fail(_rejectOnDbAccessEror(dfr));
                 }
             }).promise();

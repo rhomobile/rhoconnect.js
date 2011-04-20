@@ -13,10 +13,15 @@
     <script type="text/javascript" language="javascript" src="../external/jquery/json.js"></script>
 
     <script type="text/javascript">
-        var syncUrl = "http://localhost:9292/application";
+        var syncUrl = window.location.protocol +'//' +window.location.host +'/application';
         RhoConfig = {
             syncServer: syncUrl,
-            logLevel: 'trace'
+            logLevel: 'trace',
+            database: {
+                name: 'rhoSyncTestDb',
+                version: '1.0',
+                comment: 'RhoSync.js test database'
+            }
         };
     </script>
 

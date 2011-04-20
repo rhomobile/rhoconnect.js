@@ -139,6 +139,21 @@
                 var record = list.getRecord(item);
                 showForm(record);
             });
+            list.on('show', function(){
+                var createButton = Ext.getCmp('createButton');
+                createButton.show();
+                createButton.doComponentLayout();
+                createButton.setHandler(function(btn) {
+                    //var record = Ext.ModelMgr.create({}, model.name);
+                    var record = store.add({})[0];
+                    showForm(record);
+                });
+            });
+            list.on('hide', function(){
+                var createButton = Ext.getCmp('createButton');
+                createButton.hide();
+                createButton.doComponentLayout();
+            });
             return list;
         }
 
@@ -147,17 +162,29 @@
 
             var submitItem = {xtype: 'button', text: 'Save', handler: function(btn) {
                 var form = Ext.getCmp(model.name+'Form');
-                var record = form.getRecord();
-                form.updateRecord(record, true);
-                record.store.sync();
-                Ext.getCmp('mainPanel').getLayout().back();
+                doUpdate(form);
             }};
 
-            return new Ext.form.FormPanel({
+            var form = new Ext.form.FormPanel({
                 id: model.name+'Form',
                 scroll: 'vertical',
                 items: editForms[model.name].concat(submitItem)
             });
+
+            form.on('show', function(){
+                var deleteButton = Ext.getCmp('deleteButton');
+                deleteButton.show();
+                deleteButton.doComponentLayout();
+                deleteButton.setHandler(function(btn) {
+                    doDelete(form);
+                });
+            });
+            form.on('hide', function(){
+                var deleteButton = Ext.getCmp('deleteButton');
+                deleteButton.hide();
+                deleteButton.doComponentLayout();
+            });
+            return form;
         }
 
         var pgs = [];
@@ -192,6 +219,10 @@
         var title = 'Product' == modelName
                 ? record.data.brand +' ' +record.data.name
                 : record.data.first +' ' +record.data.last;
+
+        title = (title && title.replace(' ', '')) ?  title : 'New ' +modelName;
+
+        
 
         var modPanel = Ext.getCmp('modelsPanel');
         modPanel.getLayout().forth(form.id, null /*use default animation*/, title);
@@ -283,6 +314,26 @@
         });
     }
 
+    function doUpdate(form) {
+        var record = form.getRecord();
+        var store = record.store;
+        form.updateRecord(record, true);
+        store.sync();
+        Ext.getCmp('modelsPanel').getLayout().back();
+    }
+
+    function doDelete(form){
+        Ext.Msg.confirm('Delete object', 'Are you sure?', function(yn){
+            if ('yes' == yn.toLowerCase()) {
+                var record = form.getRecord();
+                var store = record.store;
+                store.remove(record);
+                store.sync();
+                Ext.getCmp('modelsPanel').getLayout().back();
+            }
+        });
+    }
+
     function initUI() {
 
         var logoutButton = new Ext.Button({
@@ -305,6 +356,19 @@
             id: 'syncButton',
             text: 'Sync',
             handler: doSync
+        });
+
+        var createButton = new Ext.Button({
+            id: 'createButton',
+            text: 'Create new',
+            hidden: true
+        });
+
+        var deleteButton = new Ext.Button({
+            id: 'deleteButton',
+            text: 'Delete',
+            hidden: true,
+            handler: doDelete
         });
 
         var loginForm = new Ext.form.FormPanel({
@@ -376,6 +440,8 @@
                         backButton,
                         {xtype: 'spacer'},
                         {xtype: 'spacer'},
+                        createButton,
+                        deleteButton,
                         logoutButton,
                         syncButton
                     ]
