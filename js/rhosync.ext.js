@@ -456,7 +456,7 @@
                         });
                         if (isNew) {
                             storage.executeSql(insertChangedQuery,
-                                    [null, srcId.toString(), id.toString(), 'object', 'create'], tx)/*.done(function(tx, rs){
+                                    [null/*id.toString()*/, srcId.toString(), id.toString(), 'object', 'create'], tx)/*.done(function(tx, rs){
                                 //dfrMap.resolve(i, []);
                                 that.LOG.warning('OK: setRecord() update/insert changed_values ok');
                                 that.LOG.warning('  "' +query +'", [' +value +', ' +srcId +', ' +id +', ' +name +']');

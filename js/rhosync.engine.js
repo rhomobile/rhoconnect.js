@@ -953,7 +953,7 @@
                             if (that.curPageCount > 0) {
                                 that.getNotify().fireSyncNotification(this, false, rho.errors.ERR_NONE, "");
                             }
-                            dfr.resolve(); //TODO: does it needed?!
+                            dfr.resolve(); //TODO: do we need dfr.reject() on errors happen? reporting at least?
                         }
                     }
                 }
@@ -1421,11 +1421,11 @@
                 //getDB().Lock(); //TODO: ?!
                 if (isSync) {
                     _updateAllAttribChanges().done(function(){
-                        _localAfterUpdateAllAttribChanges();
+                        _localAfterChangesUpdated();
                     }).fail(_rejectOnDbAccessEror(dfr));
-                } else {_localAfterUpdateAllAttribChanges();}
+                } else {_localAfterChangesUpdated();}
 
-                function _localAfterUpdateAllAttribChanges() {
+                function _localAfterChangesUpdated() {
                     rho.storage.executeSql("SELECT attrib, object, value, attrib_type "+
                         "FROM changed_values where source_id=? and update_type =? and sent<=1 ORDER BY object",
                             [that.id, strUpdateType]).done(function(tx, rs){
@@ -1474,13 +1474,14 @@
         };
 
         function _updateAllAttribChanges() {
+            var that = this;
             return $.Deferred(function(dfr){
                 //Check for attrib = object
                 rho.storage.rwTx().ready(function(db, tx){
                     rho.storage.executeSql("SELECT object, source_id, update_type " +
                         "FROM changed_values where attrib = 'object' and sent=0", [], tx).done(function(tx, rsChanges){
 
-                        if (0 == rsChanges.rows.length)  return;
+                        if (0 == rsChanges.rows.length)  return; //TODO: dfr.resolve() ?!
                         _localChangedValuesSelectedInTx(tx, rsChanges);
 
                     })/*.fail(_rejectOnDbAccessEror(dfr))*/;
@@ -1502,10 +1503,9 @@
                     }
 
                     var dfrMap = rho.deferredMapOn(arObj);
-
-                    for(i=0; i<arObj.length; i++) {
+                    $.each(arObj, function(objIdx, obj) {
                         rho.storage.executeSql("SELECT name, schema FROM sources " +
-                                "WHERE source_id=?", [arSrcID[i]], tx).done(function(tx, resSrc){
+                                "WHERE source_id=?", [arSrcID[objIdx]], tx).done(function(tx, resSrc){
 
                             var isSchemaSrc = false;
                             var strTableName = "object_values";
@@ -1528,33 +1528,33 @@
                                             arSrcID.elementAt(i), arObj.elementAt(i), strAttrib, value, arUpdateType.elementAt(i), attribType, new Integer(0) );
                                 }
                                 */
-                                dfrMap.resolve(i, []);
+                                dfrMap.resolve(objIdx, []);
                             } else {
                                 rho.storage.executeSql("SELECT attrib, value FROM " + strTableName +
                                         " where object=? and source_id=?",
-                                         [arObj[i], arSrcID[i]], tx).done(function(tx, rsAttribs){
+                                         [obj, arSrcID[objIdx]], tx).done(function(tx, rsAttribs){
                                     _localSelectedAttribs(tx, rsAttribs);
-                                }).fail(_rejectOnDbAccessEror());
+                                }).fail(_rejectOnDbAccessEror(dfr));
 
                                 function _localSelectedAttribs(tx, rsAttribs) {
-                                    for (var i=0; i<rsAttribs.rows.length; i++) {
-                                        var strAttrib = rsAttribs.rows.item(i)['attrib'];
-                                        var value = rsAttribs.rows.item(i)['value'];
+                                    for (var attrIdx=0; attrIdx<rsAttribs.rows.length; attrIdx++) {
+                                        var strAttrib = rsAttribs.rows.item(attrIdx)['attrib'];
+                                        var value = rsAttribs.rows.item(attrIdx)['value'];
 
-                                        var attribType = rho.storage.attrManager.isBlobAttr(arSrcID[i], strAttrib) ? "blob.file" : "";
+                                        var attribType = rho.storage.attrManager.isBlobAttr(arSrcID[objIdx], strAttrib) ? "blob.file" : "";
 
                                         rho.storage.executeSql("INSERT INTO changed_values (source_id,object,attrib,value,update_type,attrib_type,sent) VALUES(?,?,?,?,?,?,?)",
-                                            [arSrcID[i], arObj[i], strAttrib, value, arUpdateType[i], attribType, 0], tx).done(function(){
+                                            [arSrcID[objIdx], obj, strAttrib, value, arUpdateType[objIdx], attribType, 0], tx).done(function(){
                                         }).fail(_rejectOnDbAccessEror(dfr));
                                     }
-                                    dfrMap.resolve(i, []);
+                                    dfrMap.resolve(objIdx, []);
                                 }
                             }
                         }).fail(function(obj, err){
-                            dfrMap.reject(i, [obj, err]);
+                            dfrMap.reject(objIdx, [obj, err]);
                         });
+                    });
 
-                    }
                     dfrMap.when().done(function(){
                         rho.storage.executeSql("DELETE FROM changed_values WHERE attrib='object'", tx);
                     }).fail(_rejectOnDbAccessEror(dfr));
@@ -1580,8 +1580,7 @@
                         that.processToken(1).done(function(){
                             _localSyncClient();
                         }).fail(_catch);
-                    }
-                    _localSyncClient();
+                    } else {_localSyncClient();}
 
                     function _localSyncClient() {
                         that.syncClientChanges().done(function(serverSyncDone){

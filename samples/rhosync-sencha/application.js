@@ -32,7 +32,7 @@
                 {name: 'price',     type: 'string'},
                 {name: 'quantity',  type: 'string'}
             ]
-        },
+        }/*,
         {
             name: 'Customer',
             fields: [
@@ -48,7 +48,7 @@
                 {name: 'lat',     type: 'string'},
                 {name: 'long',    type: 'string'}
             ]
-        }
+        }*/
     ];
 
     var displayTemplates = {
