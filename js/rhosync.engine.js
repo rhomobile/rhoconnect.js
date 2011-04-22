@@ -1556,7 +1556,7 @@
                     });
 
                     dfrMap.when().done(function(){
-                        rho.storage.executeSql("DELETE FROM changed_values WHERE attrib='object'", tx);
+                        rho.storage.executeSql("DELETE FROM changed_values WHERE attrib=?", ['object'], tx);
                     }).fail(_rejectOnDbAccessEror(dfr));
                 }
             }).promise();
