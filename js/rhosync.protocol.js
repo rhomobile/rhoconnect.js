@@ -18,7 +18,7 @@
 
     var rho = RhoSync.rho;
 
-    const SESSION_COOKIE = 'rhosync_session';
+    var SESSION_COOKIE = 'rhosync_session';
 
     var respCodes = {
         HTTP_OK: 200,

@@ -11,7 +11,7 @@
 
     var rho = RhoSync.rho;
 
-    const actions = {
+    var actions = {
         'none': 0,
         'delete': 1,
         'update': 2,

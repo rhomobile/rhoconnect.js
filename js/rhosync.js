@@ -11,7 +11,7 @@ var RhoSync = (function($) {
         };
     }
 
-    const defaults = {
+    var defaults = {
         syncServer: '',
         pollInterval: 20,
         database: {
@@ -22,7 +22,7 @@ var RhoSync = (function($) {
         }
     };
 
-    const errors = {
+    var errors = {
         ERR_NONE: 'No error',
         ERR_NETWORK: 'Network error',
         ERR_REMOTESERVER: 'Remote server access error',
@@ -38,7 +38,7 @@ var RhoSync = (function($) {
         ERR_GEOLOCATION: 'Geolocation error'
     };
 
-    const events = {
+    var events = {
         GENERIC_NOTIFICATION: 'rhoSyncGenericNotification',
         ERROR: 'rhoSyncError',
         CLIENT_CREATED: 'rhoSyncClientCreated',

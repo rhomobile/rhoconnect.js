@@ -187,7 +187,7 @@
             var dfrMap = RhoSync.rho.deferredMapOn(records);
 
             $.each(records, function(i, record){
-                that.removeRecord(record, record.internalId).done(function(record){
+                that.removeRecord(record).done(function(record){
                     dfrMap.resolve(i, [record]);
                 }).fail(function(obj, err){
                     dfrMap.reject(i, [obj, err]);
@@ -481,11 +481,16 @@
          * @param {Ext.data.Model} record The model instance
          * @param {String} id The id of record to remove
          */
-        removeRecord: function(record, id) {
+        removeRecord: function(record) {
             var that = this;
             var storage = that.getStorageObject();
             var srcName = that.model.modelName;
             var srcId = null;
+            var id = null;
+
+            if (record && record.data && record.data.id) {
+                id = record.data.id;
+            }
 
             return $.Deferred(function(dfr){
 

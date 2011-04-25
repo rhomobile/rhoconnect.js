@@ -36,7 +36,7 @@
 
     var rho = RhoSync.rho;
 
-    const states = {
+    var states = {
         none: 0,
         syncAllSources: 1,
         syncSource: 2,
