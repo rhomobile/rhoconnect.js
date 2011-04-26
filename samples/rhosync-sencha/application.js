@@ -3,24 +3,34 @@
     var LOG = new RhoSync.Logger('application.js');
 
     Ext.setup({
-        // setup options goes here if needed
+        // Mobile app setup options goes here if needed.
+        // Icons, splash-screens, etc.
     });
 
     new Ext.Application({
-        launch: doAppLaunch
+        launch: doAppLaunch // it performs application initialization and start
     });
 
+    // let's start here
     function doAppLaunch() {
+        // For the case we starting slowly it shows "wait please" message
         var msg = Ext.Msg.alert('Application starting', 'Wait please..', Ext.emptyFn);
-        //var msg = showPopup('Application starting', 'Wait please..');
-        initRhosync().done(function(){
+
+        // First of all we initialize the RhoSync.js
+        initRhosync().done(function(){ // we using promise/deferred, so "done" means it is ready to use
+            // Initialized, now we can hide (do not destroy, it's kind of singletone) "wait please" message
             msg.hide();
+            // Next is UI initialization
             initUI();
         }).fail(function(error){
+            // RhoSync.js hasn't been initialized properly
             Ext.Msg.alert('Error', error, Ext.emptyFn);
         });
     }
 
+    // Here is model definitions. RhoSync.js don't need field definitions,
+    // but it is needed for Ext.data.Model instances initializing.
+    // At the moment RhoSync.js stores all values as strings.
     var modelDefinitions = [
         {
             name: 'Product',
@@ -51,11 +61,15 @@
         }
     ];
 
+    // Here are templates used to present objects in the lists,
+    // fields are in the curve braces
     var displayTemplates = {
         'Product': '{brand} {name}',
         'Customer': '{first} {last}'
     };
 
+    // Edit form definitions. The same as above: fields are needed for Ext.formFormPanel instances.
+    // At the moment RhoSync.js stores all values as strings.
     var editForms = {
         'Product': [
             {xtype: 'textfield', name: 'name', label: 'Name', required: true},
@@ -78,19 +92,26 @@
         ]
     };
 
+    // All panels, used as pages/cards in mainPanel with CardHistoryLayout
     var allPages = [];
 
+    // RhoSync.js initialization
     function initRhosync() {
 
+        // This function builds models list to use as root page/menu of navigation.
+        // It doesn't participates in any data exchange.
         function buildModelsList(data) {
+            // The only purpose of this model is just to hold real models name.
             Ext.regModel('ModelSelectionItem', {
                 fields: [{name: 'name', type: 'string'}]
             });
+            // Store with real model names
             var store = new Ext.data.Store({
                 autoLoad: true,
                 model: 'ModelSelectionItem',
                 data : data,
                 proxy: {
+                    // it is read-only
                     type: 'memory',
                     reader: {
                         type: 'json',
@@ -98,26 +119,34 @@
                     }
                 }
             });
+            // List with real model names
             var list = new Ext.List({
                 id: 'ModelList',
                 fullscreen: false,
-                itemTpl: '{name}',
-                store: store//,
+                itemTpl: '{name}', // It shows just model names
+                store: store
             });
+            // Taping on model name in the list it transits UI on appropriate model instance list
             list.on('itemtap', function(list, index, item, evt){
+                // get item
                 var record = list.getRecord(item);
+                // show the list of model instances
                 showObjects(record);
             });
             return list;
         }
 
+        // This function builds store for provided model
         function buildStoreFor(model) {
             return new Ext.data.Store({
+                // It forms id as <ModelName>Store
                 id: model.name+'Store',
                 autoLoad: true,
                 model: model.name,
                 proxy: {
                     type: 'rhosync',
+                    // Here is special type of Proxy used. It is
+                    // Ext.data.RhosyncStorageProxy defined in the rhosync.ext.js file
                     dbName: 'rhoSyncDb',
                     root: 'items',
                     reader: {
@@ -128,27 +157,37 @@
             });
         }
 
+        // This function builds object list for provided model, store and item display template
         function buildListFor(model, store, itemTpl) {
             var list = new Ext.List({
+                // It forms id as <ModelName>List
                 id: model.name+'List',
                 fullscreen: false,
                 store: store,
                 itemTpl: itemTpl
             });
+            // Taping on item it transits UI on appropriate object edit form
             list.on('itemtap', function(list, index, item, evt){
+                // Get item
                 var record = list.getRecord(item);
+                // Show the edit form
                 showForm(record);
             });
+            // On list show event we updating createButton
             list.on('show', function(){
                 var createButton = Ext.getCmp('createButton');
+                // to make it visible on the toolbar
                 createButton.show();
                 createButton.doComponentLayout();
+                // and to call appropriate form on click
                 createButton.setHandler(function(btn) {
-                    //var record = Ext.ModelMgr.create({}, model.name);
+                    // Add new record to the store
                     var record = store.add({})[0];
+                    // And show edit form for it
                     showForm(record);
                 });
             });
+            // On list hide event we make createButton hidden
             list.on('hide', function(){
                 var createButton = Ext.getCmp('createButton');
                 createButton.hide();
@@ -157,28 +196,36 @@
             return list;
         }
 
+        // This function builds the object edit form for provided model
         function buildFormFor(model) {
-            //var modelName = record.store.model.modelName;
 
+            // It's submit button in the form
             var submitItem = {xtype: 'button', text: 'Save', handler: function(btn) {
                 var form = Ext.getCmp(model.name+'Form');
+                // It makes form/record update on the click
                 doUpdate(form);
             }};
 
+            // The form itself
             var form = new Ext.form.FormPanel({
+                // It forms id as <ModelName>Form
                 id: model.name+'Form',
                 scroll: 'vertical',
                 items: editForms[model.name].concat(submitItem)
             });
 
+            // On form show event we updating deleteButton
             form.on('show', function(){
                 var deleteButton = Ext.getCmp('deleteButton');
+                // to make it visible on the toolbar
                 deleteButton.show();
                 deleteButton.doComponentLayout();
+                // and to delete the object on click
                 deleteButton.setHandler(function(btn) {
                     doDelete(form);
                 });
             });
+            // On list hide event we make deleteButton hidden
             form.on('hide', function(){
                 var deleteButton = Ext.getCmp('deleteButton');
                 deleteButton.hide();
@@ -187,183 +234,227 @@
             return form;
         }
 
+        // Temporary variable with pages (there are forms and lists for models)
         var pgs = [];
+        // List of model names
         var modelsData = {items:[]};
 
+        // For each of model definition
         $.each(modelDefinitions, function(idx, model){
+            // we are register the model with Ext.ModelMgr
             Ext.regModel(model.name, model);
+            // build store, list and form
             var store = buildStoreFor(model);
             var list = buildListFor(model, store, displayTemplates[model.name]);
             var form = buildFormFor(model);
+            // push pages into array
             pgs.push(list);
             pgs.push(form);
+            // push model name to list on the root page
             modelsData.items.push({name: model.name});
         });
 
+        // Build the list of all model names
         var list = buildModelsList(modelsData);
+        // Make list of all pages
         allPages = [list].concat(pgs);
 
+        // At last, initialize RhoSync.js itself and return the promise object
         return RhoSync.init(modelDefinitions/*, 'native'*/);
     }
 
+    // To show the object list for exact model
     function showObjects(record) {
         var modPanel = Ext.getCmp('modelsPanel');
+        // Method "forth" stores current page before transition, to use later in method "back".
+        // Besides history handling it acts similar to setActiveItem().
+        // First parameter is id of page to transit on. It is based on the model name.
+        // Second parameter is animation to use
         modPanel.getLayout().forth(record.data.name +'List', null /*use default animation*/, record.data.name);
     }
 
+    // Show the edit form for exact object
     function showForm(record) {
+        // Model name is accessible from store
         var modelName = record.store.model.modelName;
+        // To load record to the form, we need obtain form firstly. Form id is based on the model name.
         var form = Ext.getCmp(modelName+'Form');
         form.loadRecord(record);
 
+        // Calculate proper title for known model names
         var title = 'Product' == modelName
                 ? record.data.brand +' ' +record.data.name
                 : record.data.first +' ' +record.data.last;
 
+        // If empty, then it is new object
         title = (title && title.replace(' ', '')) ?  title : 'New ' +modelName;
 
-        
-
         var modPanel = Ext.getCmp('modelsPanel');
+        // Method "forth" stores current page before transition, to use later in method "back".
+        // Besides history handling it acts similar to setActiveItem().
+        // First parameter is id of form to transit on.
+        // Second parameter is animation to use
         modPanel.getLayout().forth(form.id, null /*use default animation*/, title);
     }
 
-    function showPopup(title, msg) {
-        var popup = null;
-        if (!popup) {
-            popup = new Ext.Panel({
-                floating: true,
-                modal: true,
-                centered: true,
-                width: 300,
-                height: 200,
-                styleHtmlContent: true,
-                scroll: 'vertical',
-                html: '<p>message_placeholder</p>',
-                dockedItems: [
-                    {
-                        dock: 'top',
-                        xtype: 'toolbar',
-                        title: 'Overlay Title'
-                    }
-                ]
-            });
-        }
-        popup.show('pop');
-        popup.dockedItems.get(0).setTitle(title);
-        popup.body.update('<p class="popup-text">' + msg +'</p>');
-        return popup;
-    }
-
+    // Show error message with OK button
     function showError(title, errCode, err) {
+        // use error code as a message if error message is empty
         Ext.Msg.alert(title, err || errCode, Ext.emptyFn);
+        // Send error record to console log
         LOG.error(title +': ' +errCode +': ' +err);
     }
 
+    // Perform login with username and password
     function doLogin(username, password){
         RhoSync.login(username, password, new RhoSync.SyncNotification()).done(function(){
+            // Update UI state on success: hide login form and show navigation pages
             updateLoggedInState();
         }).fail(function(errCode, err){
+            // Show error on failure
             showError('Login error', errCode, err);
         });
     }
 
+    // Perform logout
     function doLogout(){
         RhoSync.logout().done(function(){
+            // Reset login form to initial state
             Ext.getCmp('loginForm').reset();
+            // Update UI state on success: show login form and hide navigation pages
             updateLoggedInState();
         }).fail(function(errCode, err){
+            // Show error on failure
             showError('Logout error', errCode, err);
         });
     }
 
+    // Update UI state based on logged in status
     function updateLoggedInState() {
         if (RhoSync.isLoggedIn()) {
+            // If user is logged in OK
+            // Show navigational pages and forms panel
             Ext.getCmp('mainPanel').setActiveItem('modelsPanel');
+            // Show logout and enable sync button
             Ext.getCmp('logoutButton').show();
             Ext.getCmp('syncButton').enable();
         } else {
+            // Hide navigational pages and forms panel. Show login Form.
             Ext.getCmp('mainPanel').setActiveItem('loginForm');
+            // Hide logout and disable sync button
             Ext.getCmp('logoutButton').hide();
             Ext.getCmp('syncButton').disable();
         }
+        // Refresh UI
         Ext.getCmp('mainPanel').doLayout();
 
         // Navigate back to the root list of models
         var modPanel = Ext.getCmp("modelsPanel");
+        // Going back while history isn't empty
         while(!modPanel.getLayout().isHistoryEmpty()) {
+            // Method "back" transits to last page from the history, then removes it from the history.
+            // Besides history handling it acts similar to setActiveItem().
+            // It uses transition animation which is reverse to stored in the history. Also it restores the title.
             modPanel.getLayout().back();
         }
+        // Refresh models panel. It is the panel with all lists and forms.
         modPanel.doLayout();
     }
 
+    // Just reloads all object lists.
     function reloadLists() {
         $.each(modelDefinitions, function(i, model) {
             Ext.getCmp(model.name +'List').store.read();
         });
     }
 
+    // Perform data synchronization with the server
     function doSync(){
+        // Show "wait please" message
         var msg = Ext.Msg.alert('Synchronizing now', 'Wait please..', Ext.emptyFn);
         RhoSync.syncAllSources().done(function(){
-            //if (activeList) activeList.store.sync();
+            // Hide message on success
             msg.hide();
+            // Reload all lists
             reloadLists();
         }).fail(function(errCode, err){
+            // Show error message on failure
             showError('Synchronization error', errCode, err);
         });
     }
 
+    // Update record from the form
     function doUpdate(form) {
+        // Get edited record and store
         var record = form.getRecord();
         var store = record.store;
+        // Update record
         form.updateRecord(record, true);
+        // Force store to flush the data to persistence layer
         store.sync();
+        // Switch page back to the object list
         Ext.getCmp('modelsPanel').getLayout().back();
     }
 
+    // Delete record in the form
     function doDelete(form){
+        // Ask for confirmation
         Ext.Msg.confirm('Delete object', 'Are you sure?', function(yn){
+            // If yes, perform the object deletion
             if ('yes' == yn.toLowerCase()) {
+                // Get record and store
                 var record = form.getRecord();
                 var store = record.store;
+                // Remove record
                 store.remove(record);
+                // Force store to flush the data to persistence layer
                 store.sync();
+                // Switch page back to the object list
                 Ext.getCmp('modelsPanel').getLayout().back();
             }
         });
     }
 
+    // UI initialization
     function initUI() {
 
+        // Logout button instance
         var logoutButton = new Ext.Button({
             id: 'logoutButton',
             text: 'Logout',
             handler: doLogout
         });
 
+        // Back button instance, it is hidden by default
+        // and becomes visible on first event of pages navigation
         var  backButton = new Ext.Button({
             id: 'backButton',
             text: 'Back',
             ui: 'back',
             hidden: true,
             handler: function() {
+                // Switch page back
                 modelsPanel.getLayout().back();
             }
         });
 
+        // sync button instance
         var syncButton = new Ext.Button({
             id: 'syncButton',
             text: 'Sync',
             handler: doSync
         });
 
+        // Create button instance, it is hidden by default
+        // and becomes visible on object list activation
         var createButton = new Ext.Button({
             id: 'createButton',
             text: 'Create new',
             hidden: true
         });
 
+        // Delete button instance, it is hidden by default
+        // and becomes visible on object edit form activation
         var deleteButton = new Ext.Button({
             id: 'deleteButton',
             text: 'Delete',
@@ -371,6 +462,7 @@
             handler: doDelete
         });
 
+        // Login form instance
         var loginForm = new Ext.form.FormPanel({
             id: 'loginForm',
             fullscreen: true,
@@ -403,30 +495,40 @@
                         doLogin(loginForm.getValues().login, loginForm.getValues().password);
                     }
                 }
-            ],
-
-            EOF: true
+            ]
         });
 
+        // Models panel instance. It contains model and object lists and forms.
         var modelsPanel = new Ext.Panel({
             id: 'modelsPanel',
             fullscreen: true,
             layout: {
                 xtype: 'layout',
+                // Here is used a special type of layout: CardHistoryLayout.
+                // It is extension of the CardLayout, which is able to handle
+                // navigation forth and back with history.
                 type:'cardhistory',
+                // It uses 'slide' as default transition animation.
                 defaultAnimation: 'slide',
+                // It obtains current title to store in the history
                 getTitle: function(){
                     return Ext.getCmp('modelsToolbar').titleEl.getHTML();
                 },
+                // And able to restore it transiting back
                 setTitle: function(text){
                     Ext.getCmp('modelsToolbar').setTitle(text);
                 },
+                // Also, it able to update Back button visibility and text based on history state.
                 setBack: function(isVisible, text) {
+                    // Get back button
                     var back = Ext.getCmp("backButton");
+                    // Make it visible if history isn't empty
                     back.setVisible(isVisible);
+                    // Set button text if one has been stored in the history
                     if (text) {
                         back.setText(text);
                     }
+                    // Refresh the button
                     back.doComponentLayout();
                 }
             },
@@ -437,19 +539,20 @@
                     dock : 'top',
                     title: 'Model',
                     items: [
-                        backButton,
+                        backButton,         // on the left side
                         {xtype: 'spacer'},
                         {xtype: 'spacer'},
-                        createButton,
-                        deleteButton,
-                        logoutButton,
-                        syncButton
+                        createButton,       // on the right side
+                        deleteButton,       // on the right side
+                        logoutButton,       // on the right side
+                        syncButton          // on the right side
                     ]
                 }
             ],
             items: allPages
         });
 
+        // Main panel is container for loginForm and modelsPanel, it uses CardLayout to switch them.
         var mainPanel = new Ext.Panel({
             id: 'mainPanel',
             fullscreen: true,
@@ -457,7 +560,9 @@
             items: [loginForm, modelsPanel]
         });
 
+        // Ok, we have UI created and ready to use it. So just update logged in state.
         updateLoggedInState();
+        // good luck!
     }
 
 })(jQuery, Ext);

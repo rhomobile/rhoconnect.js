@@ -358,7 +358,7 @@
             } catch(exc) {
                 LOG.error("Fire notification failed.", exc);
             }
-        }
+        };
 
         function callNotify(oNotify, strBody) {
             if (engine.isNoThreadedMode()) {
