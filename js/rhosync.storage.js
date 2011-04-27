@@ -274,10 +274,11 @@
         }).promise();
     }
 
-    function _init() {
+    function _init(doReset) {
         return $.Deferred(function(dfr){
             _getAllTableNames().done(function(tx, names){
-                if ((4/*explicitly defined tables*/ +1/*implicit system table*/) != names.length) {
+                if ((4/*explicitly defined tables*/ +1/*implicit system table*/) != names.length
+                        || doReset) {
                     _initSchema().done(function(){
                         dfr.resolve(null, "db schema initialized");
                     }).fail(function(obj, err){

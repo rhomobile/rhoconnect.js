@@ -140,36 +140,41 @@
             rho.protocol.login(login, password).done(function(){
                 session = rho.protocol.getSession();
 
-                if(!session) {
-                    LOG.error("Return empty session.");
-                    var errCode = rho.errors.ERR_UNEXPECTEDSERVERRESPONSE;
-                    getNotify().callLoginCallback(oNotify, errCode, "" );
-                    dfr.reject(errCode, "");
-                    return;
-                }
+                rho.config.database.name = rho.config.database.namePrefix + login;
 
-                if (isStoppedByUser) {
-                    dfr.reject(rho.errors.ERR_CANCELBYUSER, "Stopped by user");
-                    return;
-                }
-
-                _updateClientSession(rho.protocol.getSession()).done(function(client){
-                    if (rho.config["rho_sync_user"]) {
-                        var strOldUser = rho.config["rho_sync_user"];
-                        if (name != strOldUser) {
-                            //if (isNoThreadedMode()) {
-                            //    // RhoAppAdapter.resetDBOnSyncUserChanged();
-                            //} else {
-                            //    // NetResponse resp1 = getNet().pushData( getNet().resolveUrl("/system/resetDBOnSyncUserChanged"), "", null );
-                            //}
-                        }
+                rho.storage.init(/*false - don't reset any data by default*/).done(function(){
+                    if(!session) {
+                        LOG.error("Return empty session.");
+                        var errCode = rho.errors.ERR_UNEXPECTEDSERVERRESPONSE;
+                        getNotify().callLoginCallback(oNotify, errCode, "" );
+                        dfr.reject(errCode, "");
+                        return;
                     }
-                    
-                    rho.config["rho_sync_user"] = name;
-                    getNotify().callLoginCallback(oNotify, rho.errors.ERR_NONE, "" );
 
-                    dfr.resolve();
+                    if (isStoppedByUser) {
+                        dfr.reject(rho.errors.ERR_CANCELBYUSER, "Stopped by user");
+                        return;
+                    }
+
+                    _updateClientSession(rho.protocol.getSession()).done(function(client){
+                        if (rho.config["rho_sync_user"]) {
+                            var strOldUser = rho.config["rho_sync_user"];
+                            if (name != strOldUser) {
+                                //if (isNoThreadedMode()) {
+                                //    // RhoAppAdapter.resetDBOnSyncUserChanged();
+                                //} else {
+                                //    // NetResponse resp1 = getNet().pushData( getNet().resolveUrl("/system/resetDBOnSyncUserChanged"), "", null );
+                                //}
+                            }
+                        }
+
+                        rho.config["rho_sync_user"] = name;
+                        getNotify().callLoginCallback(oNotify, rho.errors.ERR_NONE, "" );
+
+                        dfr.resolve();
+                    }).fail(_rejectPassThrough(dfr));
                 }).fail(_rejectPassThrough(dfr));
+
             }).fail(function(status, error, xhr){
                 var errCode = rho.protocol.getErrCodeFromXHR(xhr);
                 if (_isTimeout(error)) {

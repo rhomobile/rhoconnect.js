@@ -93,7 +93,8 @@
             singleObjectID = "";
         }
 
-         this.fireObjectsNotification = function() {
+        this.fireObjectsNotification = function() {
+            var body = {};
             var strBody = "";
             var strUrl = "";
 
@@ -101,8 +102,8 @@
 
             strUrl = __resolveUrl(this.objectNotifyUrl);
 
-            $.each(srcIDAndObject, function(srcId, hashObject){
-                $.each(hashObject, function(strObject, nNotifyType){
+            $.each(srcIDAndObject, function(srcId, hashObject) {
+                $.each(hashObject, function(strObject, nNotifyType) {
 
                     if (nNotifyType == actions.none) return;
 
@@ -126,10 +127,10 @@
             });
 
             if (!strBody) return;
-            callNotify(new SyncNotification(strUrl,"",false), strBody);
+            callNotify(new SyncNotification(strUrl, "", false), strBody);
         };
 
-         this.onObjectChanged = function(srcId, objectId, actionType) {
+        this.onObjectChanged = function(srcId, objectId, actionType) {
             processSingleObject();
 
             var hashObject = srcIDAndObject[srcId];

@@ -7,6 +7,7 @@ var RhoSync = (function($) {
             login: login,
             logout: logout,
             isLoggedIn: isLoggedIn,
+            getLoggedInUsername: getLoggedInUsername,
             syncAllSources: syncAllSources
         };
     }
@@ -15,7 +16,8 @@ var RhoSync = (function($) {
         syncServer: '',
         pollInterval: 20,
         database: {
-            name: 'rhoSyncDb',
+            namePrefix: 'rhoSyncDb_',
+            name: 'UNINITIALIZED',
             version: '1.0',
             comment: 'RhoSync database',
             size: (2*1024*1024)
@@ -47,10 +49,11 @@ var RhoSync = (function($) {
         SYNC_SOURCE_END: 'rhoSyncSourceSynchronizationEnd'
     };
 
-    function init(modelDefs, storageType) {
+    function init(modelDefs, storageType, doReset) {
         return $.Deferred(function(dfr){
-            rho.storage.init().done(function(){
+            rho.storage.init(doReset).done(function(){
                 rho.engine.restoreSession().done(function(){
+                    _resetModels();
                     _loadModels(storageType, modelDefs).done(function(){
                         dfr.resolve();
                     }).fail(function(obj, error){
@@ -81,6 +84,15 @@ var RhoSync = (function($) {
 
     function isLoggedIn() {
         return rho.engine.isSessionExist();
+    }
+
+    function getLoggedInUsername() {
+        if (!isLoggedIn()) return null;
+        var md64str = rho.engine.getSession();
+        md64str = md64str.replace(/--.*$/, '').replace(/%0A/, '');
+        md64str = md64str.replace(/\s/, '');
+        md64str = md64str.replace(/^.*?login"/, '');
+        return md64str;
     }
 
     function syncAllSources() {
@@ -199,8 +211,13 @@ var RhoSync = (function($) {
 
     var allModelsLoaded = false;
 
+    function _resetModels() {
+        models = {};
+        allModelsLoaded = false;
+    }
+    
     function _loadModels(storageType, modelDefs) {
-        if (allModelsLoaded) return $.Deferred().done().promise();
+        if (allModelsLoaded) return $.Deferred().resolve().promise();
 
         function _addLoadedModel(defn) {
             var model = new rho.domain.Model(defn);

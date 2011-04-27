@@ -13,19 +13,8 @@
 
     // let's start here
     function doAppLaunch() {
-        // For the case we starting slowly it shows "wait please" message
-        var msg = Ext.Msg.alert('Application starting', 'Wait please..', Ext.emptyFn);
-
-        // First of all we initialize the RhoSync.js
-        initRhosync().done(function(){ // we using promise/deferred, so "done" means it is ready to use
-            // Initialized, now we can hide (do not destroy, it's kind of singletone) "wait please" message
-            msg.hide();
-            // Next is UI initialization
-            initUI();
-        }).fail(function(error){
-            // RhoSync.js hasn't been initialized properly
-            Ext.Msg.alert('Error', error, Ext.emptyFn);
-        });
+        // UI initialization
+        initUI();
     }
 
     // Here is model definitions. RhoSync.js don't need field definitions,
@@ -92,12 +81,193 @@
         ]
     };
 
+
+    // RhoSync.js initialization
+    function initRhosync(username, doReset) {
+        // For the case we starting slowly it shows "wait please" message
+        var msg = Ext.Msg.alert('Application initialization', 'Wait please..', Ext.emptyFn);
+
+        // At last, initialize RhoSync.js itself and return the promise object
+        return RhoSync.init(modelDefinitions, 'native', doReset).done(function(){
+            // Initialized, now we can hide (do not destroy, it's kind of singletone) "wait please" message
+            msg.hide();
+            // Reload all lists
+            reloadLists();
+        }).fail(function(error){
+            // RhoSync.js hasn't been initialized properly
+            Ext.Msg.alert('Error', error, Ext.emptyFn);
+        });
+    }
+
+    // To show the object list for exact model
+    function showObjects(record) {
+        var modPanel = Ext.getCmp('modelsPanel');
+        // Method "forth" stores current page before transition, to use later in method "back".
+        // Besides history handling it acts similar to setActiveItem().
+        // First parameter is id of page to transit on. It is based on the model name.
+        // Second parameter is animation to use
+        modPanel.getLayout().forth(record.data.name +'List', null /*use default animation*/, record.data.name);
+    }
+
+    // Show the edit form for exact object
+    function showForm(record) {
+        // Model name is accessible from store
+        var modelName = record.store.model.modelName;
+        // To load record to the form, we need obtain form firstly. Form id is based on the model name.
+        var form = Ext.getCmp(modelName+'Form');
+        form.loadRecord(record);
+
+        // Calculate proper title for known model names
+        var title = 'Product' == modelName
+                ? record.data.brand +' ' +record.data.name
+                : record.data.first +' ' +record.data.last;
+
+        // If empty, then it is new object
+        title = (title && title.replace(' ', '')) ?  title : 'New ' +modelName;
+
+        var modPanel = Ext.getCmp('modelsPanel');
+        // Method "forth" stores current page before transition, to use later in method "back".
+        // Besides history handling it acts similar to setActiveItem().
+        // First parameter is id of form to transit on.
+        // Second parameter is animation to use
+        modPanel.getLayout().forth(form.id, null /*use default animation*/, title);
+    }
+
+    // Show error message with OK button
+    function showError(title, errCode, err) {
+        // use error code as a message if error message is empty
+        Ext.Msg.alert(title, err || errCode, Ext.emptyFn);
+        // Send error record to console log
+        LOG.error(title +': ' +errCode +': ' +err);
+    }
+
+    // Active user name
+    var activeUserName = null;
+
+    // Perform login with username and password
+    function doLogin(username, password){
+        RhoSync.login(username, password, new RhoSync.SyncNotification()).done(function(){
+            // Store active user name
+            activeUserName = username;
+            // Init DB for the user on success
+            initRhosync(username).done(function(){
+                // Update UI state on success: hide login form and show navigation pages
+                updateLoggedInState();
+            });
+        }).fail(function(errCode, err){
+            // Show error on failure
+            showError('Login error', errCode, err);
+        });
+    }
+
+    // Perform logout
+    function doLogout(){
+        RhoSync.logout().done(function(){
+            // Reset login form to initial state
+            Ext.getCmp('loginForm').reset();
+            // Update UI state on success: show login form and hide navigation pages
+            updateLoggedInState();
+        }).fail(function(errCode, err){
+            // Show error on failure
+            showError('Logout error', errCode, err);
+        });
+    }
+
+    // Update UI state based on logged in status
+    function updateLoggedInState() {
+        if (RhoSync.isLoggedIn()) {
+            // If user is logged in OK
+            // Show navigational pages and forms panel
+            Ext.getCmp('mainPanel').setActiveItem('modelsPanel');
+            // Show logout and enable sync button
+            Ext.getCmp('logoutButton').show();
+            Ext.getCmp('syncButton').enable();
+        } else {
+            // Hide navigational pages and forms panel. Show login Form.
+            Ext.getCmp('mainPanel').setActiveItem('loginForm');
+            // Hide logout and disable sync button
+            Ext.getCmp('logoutButton').hide();
+            Ext.getCmp('syncButton').disable();
+        }
+        // Refresh UI
+        Ext.getCmp('mainPanel').doLayout();
+
+        reloadLists();
+
+        // Navigate back to the root list of models
+        var modPanel = Ext.getCmp("modelsPanel");
+        // Going back while history isn't empty
+        while(!modPanel.getLayout().isHistoryEmpty()) {
+            // Method "back" transits to last page from the history, then removes it from the history.
+            // Besides history handling it acts similar to setActiveItem().
+            // It uses transition animation which is reverse to stored in the history. Also it restores the title.
+            modPanel.getLayout().back();
+        }
+        modPanel.getLayout().setActiveItem('ModelList');
+        // Refresh models panel. It is the panel with all lists and forms.
+        modPanel.doLayout();
+        modPanel.doComponentLayout();
+    }
+
+    // Just reloads all object lists.
+    function reloadLists() {
+        $.each(modelDefinitions, function(i, model) {
+            Ext.getCmp(model.name +'List').store.read();
+        });
+    }
+
+    // Perform data synchronization with the server
+    function doSync(){
+        // Show "wait please" message
+        var msg = Ext.Msg.alert('Synchronizing now', 'Wait please..', Ext.emptyFn);
+        RhoSync.syncAllSources().done(function(){
+            // Hide message on success
+            msg.hide();
+            // Reload all lists
+            reloadLists();
+        }).fail(function(errCode, err){
+            // Show error message on failure
+            showError('Synchronization error', errCode, err);
+        });
+    }
+
+    // Update record from the form
+    function doUpdate(form) {
+        // Get edited record and store
+        var record = form.getRecord();
+        var store = record.store;
+        // Update record
+        form.updateRecord(record, true);
+        // Force store to flush the data to persistence layer
+        store.sync();
+        // Switch page back to the object list
+        Ext.getCmp('modelsPanel').getLayout().back();
+    }
+
+    // Delete record in the form
+    function doDelete(form){
+        // Ask for confirmation
+        Ext.Msg.confirm('Delete object', 'Are you sure?', function(yn){
+            // If yes, perform the object deletion
+            if ('yes' == yn.toLowerCase()) {
+                // Get record and store
+                var record = form.getRecord();
+                var store = record.store;
+                // Remove record
+                store.remove(record);
+                // Force store to flush the data to persistence layer
+                store.sync();
+                // Switch page back to the object list
+                Ext.getCmp('modelsPanel').getLayout().back();
+            }
+        });
+    }
+
     // All panels, used as pages/cards in mainPanel with CardHistoryLayout
     var allPages = [];
 
-    // RhoSync.js initialization
-    function initRhosync() {
-
+    // Init data-related parts of UI
+    function initDataPages() {
         // This function builds models list to use as root page/menu of navigation.
         // It doesn't participates in any data exchange.
         function buildModelsList(data) {
@@ -141,7 +311,7 @@
             return new Ext.data.Store({
                 // It forms id as <ModelName>Store
                 id: model.name+'Store',
-                autoLoad: true,
+                autoLoad: false,
                 model: model.name,
                 proxy: {
                     type: 'rhosync',
@@ -258,165 +428,14 @@
         var list = buildModelsList(modelsData);
         // Make list of all pages
         allPages = [list].concat(pgs);
-
-        // At last, initialize RhoSync.js itself and return the promise object
-        return RhoSync.init(modelDefinitions/*, 'native'*/);
-    }
-
-    // To show the object list for exact model
-    function showObjects(record) {
-        var modPanel = Ext.getCmp('modelsPanel');
-        // Method "forth" stores current page before transition, to use later in method "back".
-        // Besides history handling it acts similar to setActiveItem().
-        // First parameter is id of page to transit on. It is based on the model name.
-        // Second parameter is animation to use
-        modPanel.getLayout().forth(record.data.name +'List', null /*use default animation*/, record.data.name);
-    }
-
-    // Show the edit form for exact object
-    function showForm(record) {
-        // Model name is accessible from store
-        var modelName = record.store.model.modelName;
-        // To load record to the form, we need obtain form firstly. Form id is based on the model name.
-        var form = Ext.getCmp(modelName+'Form');
-        form.loadRecord(record);
-
-        // Calculate proper title for known model names
-        var title = 'Product' == modelName
-                ? record.data.brand +' ' +record.data.name
-                : record.data.first +' ' +record.data.last;
-
-        // If empty, then it is new object
-        title = (title && title.replace(' ', '')) ?  title : 'New ' +modelName;
-
-        var modPanel = Ext.getCmp('modelsPanel');
-        // Method "forth" stores current page before transition, to use later in method "back".
-        // Besides history handling it acts similar to setActiveItem().
-        // First parameter is id of form to transit on.
-        // Second parameter is animation to use
-        modPanel.getLayout().forth(form.id, null /*use default animation*/, title);
-    }
-
-    // Show error message with OK button
-    function showError(title, errCode, err) {
-        // use error code as a message if error message is empty
-        Ext.Msg.alert(title, err || errCode, Ext.emptyFn);
-        // Send error record to console log
-        LOG.error(title +': ' +errCode +': ' +err);
-    }
-
-    // Perform login with username and password
-    function doLogin(username, password){
-        RhoSync.login(username, password, new RhoSync.SyncNotification()).done(function(){
-            // Update UI state on success: hide login form and show navigation pages
-            updateLoggedInState();
-        }).fail(function(errCode, err){
-            // Show error on failure
-            showError('Login error', errCode, err);
-        });
-    }
-
-    // Perform logout
-    function doLogout(){
-        RhoSync.logout().done(function(){
-            // Reset login form to initial state
-            Ext.getCmp('loginForm').reset();
-            // Update UI state on success: show login form and hide navigation pages
-            updateLoggedInState();
-        }).fail(function(errCode, err){
-            // Show error on failure
-            showError('Logout error', errCode, err);
-        });
-    }
-
-    // Update UI state based on logged in status
-    function updateLoggedInState() {
-        if (RhoSync.isLoggedIn()) {
-            // If user is logged in OK
-            // Show navigational pages and forms panel
-            Ext.getCmp('mainPanel').setActiveItem('modelsPanel');
-            // Show logout and enable sync button
-            Ext.getCmp('logoutButton').show();
-            Ext.getCmp('syncButton').enable();
-        } else {
-            // Hide navigational pages and forms panel. Show login Form.
-            Ext.getCmp('mainPanel').setActiveItem('loginForm');
-            // Hide logout and disable sync button
-            Ext.getCmp('logoutButton').hide();
-            Ext.getCmp('syncButton').disable();
-        }
-        // Refresh UI
-        Ext.getCmp('mainPanel').doLayout();
-
-        // Navigate back to the root list of models
-        var modPanel = Ext.getCmp("modelsPanel");
-        // Going back while history isn't empty
-        while(!modPanel.getLayout().isHistoryEmpty()) {
-            // Method "back" transits to last page from the history, then removes it from the history.
-            // Besides history handling it acts similar to setActiveItem().
-            // It uses transition animation which is reverse to stored in the history. Also it restores the title.
-            modPanel.getLayout().back();
-        }
-        // Refresh models panel. It is the panel with all lists and forms.
-        modPanel.doLayout();
-    }
-
-    // Just reloads all object lists.
-    function reloadLists() {
-        $.each(modelDefinitions, function(i, model) {
-            Ext.getCmp(model.name +'List').store.read();
-        });
-    }
-
-    // Perform data synchronization with the server
-    function doSync(){
-        // Show "wait please" message
-        var msg = Ext.Msg.alert('Synchronizing now', 'Wait please..', Ext.emptyFn);
-        RhoSync.syncAllSources().done(function(){
-            // Hide message on success
-            msg.hide();
-            // Reload all lists
-            reloadLists();
-        }).fail(function(errCode, err){
-            // Show error message on failure
-            showError('Synchronization error', errCode, err);
-        });
-    }
-
-    // Update record from the form
-    function doUpdate(form) {
-        // Get edited record and store
-        var record = form.getRecord();
-        var store = record.store;
-        // Update record
-        form.updateRecord(record, true);
-        // Force store to flush the data to persistence layer
-        store.sync();
-        // Switch page back to the object list
-        Ext.getCmp('modelsPanel').getLayout().back();
-    }
-
-    // Delete record in the form
-    function doDelete(form){
-        // Ask for confirmation
-        Ext.Msg.confirm('Delete object', 'Are you sure?', function(yn){
-            // If yes, perform the object deletion
-            if ('yes' == yn.toLowerCase()) {
-                // Get record and store
-                var record = form.getRecord();
-                var store = record.store;
-                // Remove record
-                store.remove(record);
-                // Force store to flush the data to persistence layer
-                store.sync();
-                // Switch page back to the object list
-                Ext.getCmp('modelsPanel').getLayout().back();
-            }
-        });
     }
 
     // UI initialization
     function initUI() {
+
+        // Init data-related parts of UI firstly
+        initDataPages();
+        // then init general parts of UI
 
         // Logout button instance
         var logoutButton = new Ext.Button({
@@ -436,6 +455,13 @@
                 // Switch page back
                 modelsPanel.getLayout().back();
             }
+        });
+
+        // init DB button instance
+        var initDbButton = new Ext.Button({
+            id: 'initDbButton',
+            text: 'Init DB',
+            handler: function(){initRhosync(activeUserName, true /*do reset data*/);}
         });
 
         // sync button instance
@@ -542,9 +568,10 @@
                         backButton,         // on the left side
                         {xtype: 'spacer'},
                         {xtype: 'spacer'},
+                        logoutButton,       // on the right side
                         createButton,       // on the right side
                         deleteButton,       // on the right side
-                        logoutButton,       // on the right side
+                        initDbButton,       // on the right side
                         syncButton          // on the right side
                     ]
                 }
@@ -560,8 +587,10 @@
             items: [loginForm, modelsPanel]
         });
 
+        mainPanel.setActiveItem('loginForm');
+        
         // Ok, we have UI created and ready to use it. So just update logged in state.
-        updateLoggedInState();
+        //updateLoggedInState();
         // good luck!
     }
 
