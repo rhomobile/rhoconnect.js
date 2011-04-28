@@ -49,12 +49,12 @@ var RhoSync = (function($) {
         SYNC_SOURCE_END: 'rhoSyncSourceSynchronizationEnd'
     };
 
-    function init(modelDefs, storageType, doReset) {
+    function init(modelDefs, storageType, syncProgressCb, doReset) {
         return $.Deferred(function(dfr){
             rho.storage.init(doReset).done(function(){
                 rho.engine.restoreSession().done(function(){
                     _resetModels();
-                    _loadModels(storageType, modelDefs).done(function(){
+                    _loadModels(storageType, modelDefs, syncProgressCb).done(function(){
                         dfr.resolve();
                     }).fail(function(obj, error){
                         dfr.reject("models load error: " +error);
@@ -216,7 +216,7 @@ var RhoSync = (function($) {
         allModelsLoaded = false;
     }
     
-    function _loadModels(storageType, modelDefs) {
+    function _loadModels(storageType, modelDefs, syncProgressCb) {
         if (allModelsLoaded) return $.Deferred().resolve().promise();
 
         function _addLoadedModel(defn) {
@@ -250,7 +250,16 @@ var RhoSync = (function($) {
         }
         allModelsLoaded = true;
 
-        return _initSources(rho.engine.sources);
+        return _initSources(rho.engine.sources).done(function(){
+            $.each(rho.engine.sources, function(name, src){
+                rho.engine.getNotify().setNotification(src, new rho.notify.SyncNotification(function(){
+                    if ("function" == typeof syncProgressCb) {
+                        syncProgressCb(name);
+                        return false;
+                    }
+                }, false));
+            });
+        });
     }
 
     // rhosync internal parts we _have_to_ make a public

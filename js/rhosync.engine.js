@@ -10,6 +10,7 @@
             getSession: function() {return session},
             restoreSession: restoreSession,
             sources: sources,
+            sourcesArray: sourcesArray,
             maxConfigSrcId: 1,
             // methods
             login: login,

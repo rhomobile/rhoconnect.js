@@ -18,16 +18,11 @@
         'create': 3
     };
 
-    function SyncNotification(url, params, removeAfterFire){
-        this.url = url || '';
+    function SyncNotification(params, removeAfterFire){
         this.params = params || '';
         this.removeAfterFire = removeAfterFire || false;
-        if (this.url) {
-            this.url = __canonizeRhoUrl(this.url);
-        }
-
         this.toString = function() {
-            return "SyncNotification('" +this.url +"', '" +this.params +"', " +this.removeAfterFire +")";
+            return "SyncNotification({removeAfterFire: " +this.removeAfterFire +"})";
         }
     }
 
@@ -49,11 +44,6 @@
         var strNotifyBody = "";
         var hashSrcObjectCount = {};
 
-
-        SyncNotify.objectNotifyUrl = '';
-        this.__defineGetter__('objectNotifyUrl', function() {
-            return SyncNotify.objectNotifyUrl;
-        });
 
         function addObjectNotify(source, objectId) {
             if ("string" == typeof source) { // if source by name
@@ -96,11 +86,6 @@
         this.fireObjectsNotification = function() {
             var body = {};
             var strBody = "";
-            var strUrl = "";
-
-            if (!this.objectNotifyUrl) return;
-
-            strUrl = __resolveUrl(this.objectNotifyUrl);
 
             $.each(srcIDAndObject, function(srcId, hashObject) {
                 $.each(hashObject, function(strObject, nNotifyType) {
@@ -127,7 +112,7 @@
             });
 
             if (!strBody) return;
-            callNotify(new SyncNotification(strUrl, "", false), strBody);
+            callNotify(new SyncNotification("", false), strBody);
         };
 
         this.onObjectChanged = function(srcId, objectId, actionType) {
@@ -173,28 +158,17 @@
                     this.fireAllSyncNotifications(true, src.errCode, src.error, "");
                 }
             }
-            else
+            else {
                 this.fireSyncNotification(src, true, src.errCode, "");
+            }
 
             this.cleanCreateObjectErrors();
         };
 
-        function setSyncNotification(srcId, notification) {
-            LOG.info("Set notification. Source ID: " +srcId +";" +(notification ? notification.toString() : ""));
-            if (srcId == -1) {
-                allNotification = notification;
-            } else {
-                syncNotifications[srcId] = notification;
-            }
-        }
-
-        function setSearchNotification(url, params) {
-            LOG.info( "Set search notification. Url: " +url +"; Params: " +params );
-            var fullUrl = __resolveUrl(url);
-            if (fullUrl) {
-                searchNotification = new SyncNotification(fullUrl, params, true);
-                LOG.info( "Done Set search notification. Url :" +fullUrl +"; Params: " +params );
-            }
+        function setSearchNotification(params) {
+            LOG.info( "Set search notification. Params: " +params );
+            searchNotification = new SyncNotification(params, true);
+            LOG.info( "Done Set search notification. Params: " +params );
         }
 
         function setSyncStatusListener(listener) {
@@ -339,22 +313,24 @@
                     }
 
                     strBody += "&rho_callback=1";
+                    /*
                     if (pSN.params) {
                         if (!pSN.params.match(/^&/)) {
                             strBody += "&";
                         }
                         strBody += pSN.params;
                     }
+                    */
 
                     bRemoveAfterFire = bRemoveAfterFire && pSN.removeAfterFire;
                 }
                 if (bRemoveAfterFire) {
-                    clearNotification(src);
+                    this.clearNotification(src);
                 }
                 LOG.info("Fire notification. Source: " +(src ? src.name : "") +"; " +pSN.toString());
 
                 if (callNotify(pSN, strBody)) {
-                    clearNotification(src);
+                    this.clearNotification(src);
                 }
             } catch(exc) {
                 LOG.error("Fire notification failed.", exc);
@@ -366,9 +342,16 @@
                 strNotifyBody = strBody;
                 return false;
             }
-            if (!oNotify.url) return true;
 
             //TODO: implement real notification here!
+
+            // let's try this as an implementation
+            if (oNotify && "function" == typeof oNotify.params) {
+                return oNotify.params();
+            } else {
+                return true;
+            }
+
             //NetResponse resp = getNet().pushData( oNotify.m_strUrl, strBody, null );
             //if ( !resp.isOK() )
             //    LOG.error( "Fire object notification failed. Code: " + resp.getRespCode() + "; Error body: " + resp.getCharData() );
@@ -378,20 +361,33 @@
             //    return szData != null && szData.equals("stop");
             //}
 
-            return true;
         }
 
-        function clearNotification(src) {
-            LOG.info("Clear notification. Source: " +(src ? src.name() : ""));
+        this.setNotification = function(src, notification) {
+            if (!src) return;
+            this.setSyncNotification(src.id, notification);
+        };
+
+        this.setSyncNotification = function(srcId, notification) {
+            LOG.info("Set notification. Source ID: " +srcId +";" +(notification ? notification.toString() : ""));
+            if (srcId == -1) {
+                allNotification = notification;
+            } else {
+                syncNotifications[srcId] = notification;
+            }
+        };
+
+        this.clearNotification = function(src) {
+            LOG.info("Clear notification. Source: " +(src ? src.name : ""));
             if (engine.isSearch()) searchNotification = null;
             else syncNotifications[src.id] = null;
-        }
+        };
 
-        function clearSyncNotification(srcId) {
+        this.clearSyncNotification = function(srcId) {
             LOG.info("Clear notification. Source ID: " +srcId);
             if (srcId == -1) allNotification = null; //Clear all
             else syncNotifications[srcId] = null;
-        }
+        };
 
         this.cleanLastSyncObjectCount = function() {
             hashSrcObjectCount = {};
@@ -437,40 +433,16 @@
 
     function __getErrorText(key) {
         //TODO: to implement
+        return key;
     }
 
     function __getMessageText(key) {
         //TODO: to implement
+        return key;
     }
 
-    function __getHomeUrl() {
-        //TODO: to implement
-        return "";
-    }
-    function __isExternalUrl() {
-        //TODO: to implement
-        return false;
-    }
-
-    function __canonizeRhoUrl(url) {
-        //TODO: to implement
-/*
-        var strUrl = url;
-            if (!url)
-                return __getHomeUrl();
-            strUrl = strUrl.replace('\\', '/');
-            if ( !strUrl.startsWith(getHomeUrl()) && !isExternalUrl(strUrl) )
-                strUrl = FilePath.join(getHomeUrl(), strUrl);
-        return strUrl;
-*/
-        return url;
-    }
-
-    function __resolveUrl(url) {
-        return url;
-    }
-
-    function __urlEncode(param) {
+    function __urlEncode(value) {
+        return value;
     }
 
     function notifyByEvent(type /*, arg1, arg2, ... argN*/) {

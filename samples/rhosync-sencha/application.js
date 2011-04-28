@@ -88,7 +88,7 @@
         var msg = Ext.Msg.alert('Application initialization', 'Wait please..', Ext.emptyFn);
 
         // At last, initialize RhoSync.js itself and return the promise object
-        return RhoSync.init(modelDefinitions, 'native', doReset).done(function(){
+        return RhoSync.init(modelDefinitions, 'native', syncProgressUpdate, doReset).done(function(){
             // Initialized, now we can hide (do not destroy, it's kind of singletone) "wait please" message
             msg.hide();
             // Reload all lists
@@ -97,6 +97,46 @@
             // RhoSync.js hasn't been initialized properly
             Ext.Msg.alert('Error', error, Ext.emptyFn);
         });
+    }
+
+    // Utility array with model names to track a sync progress
+    var syncProgressArray = [];
+    // Utility variable with total models number to track a sync progress
+    var syncProgressLength = 0;
+
+    // Init progress variables before progress tracking
+    function initSyncProgress() {
+        syncProgressArray = [];
+        // Fill array with model names
+        $.each(modelDefinitions, function(idx, model){
+            syncProgressArray.push(model.name);
+        });
+        // Set the total number of models to sync
+        syncProgressLength = syncProgressArray.length;
+        // Reset progress indicator value
+        setProgress(0);
+    }
+
+    // Set progress indicator value in percents
+    function setProgress(percents) {
+        $('div.progressDone').css('width', percents +'%');
+    }
+
+    // Sync progress update callback, receives model name just has been synchronized
+    function syncProgressUpdate(modelName) {
+        // Exclude this model name from tracking array
+        for (var i=0; i<syncProgressArray.length; i++) {
+            if (syncProgressArray[i] == modelName) {
+                syncProgressArray.splice(i, 1);
+                break;
+            }
+        }
+        // New length of tracking array
+        var len = syncProgressArray.length;
+        // Calculate the progress
+        var progress = (syncProgressLength - len) * (100/syncProgressLength);
+        // Set progress indicator
+        setProgress(progress);
     }
 
     // To show the object list for exact model
@@ -131,6 +171,34 @@
         // First parameter is id of form to transit on.
         // Second parameter is animation to use
         modPanel.getLayout().forth(form.id, null /*use default animation*/, title);
+    }
+
+    var progressPanel = null;
+    function showProgressBar(title) {
+        // Inner HTML code to change style upon a progress
+        var html = '<div class="progressBar"><div class="progressDone"></div><div class="progressTodo"></div></div>';
+        // Make it singletone
+        if (!progressPanel) {
+            progressPanel = new Ext.Sheet({
+                id: 'progressPanel',
+                floating: true,
+                modal: true,
+                centered: true,
+                width: 300,
+                height: 140,
+                styleHtmlContent: true,
+                html: html,
+                dockedItems: [{
+                        dock: 'top',
+                        xtype: 'toolbar'
+                }]
+            });
+        }
+        // Show it with 'pop' animation
+        progressPanel.show('pop');
+        // Set the title
+        progressPanel.dockedItems.get(0).setTitle(title);
+        return progressPanel;
     }
 
     // Show error message with OK button
@@ -218,14 +286,16 @@
 
     // Perform data synchronization with the server
     function doSync(){
-        // Show "wait please" message
-        var msg = Ext.Msg.alert('Synchronizing now', 'Wait please..', Ext.emptyFn);
+        initSyncProgress();
+        // Show progress bar
+        var progress = showProgressBar('Synchronizing..');
         RhoSync.syncAllSources().done(function(){
-            // Hide message on success
-            msg.hide();
+            // Make progress bar disappear not so fast
+            setTimeout(function(){ progress.hide(); }, 500);
             // Reload all lists
             reloadLists();
         }).fail(function(errCode, err){
+            progress.hide();
             // Show error message on failure
             showError('Synchronization error', errCode, err);
         });
