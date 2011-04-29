@@ -284,6 +284,12 @@
         });
     }
 
+    function doResetDb() {
+        initRhosync(activeUserName, true /*do reset data*/).done(doLogout).fail(function(errCode, err){
+            showError('DB Initialization error', errCode, err);
+        });
+    }
+
     // Perform data synchronization with the server
     function doSync(){
         initSyncProgress();
@@ -528,10 +534,10 @@
         });
 
         // init DB button instance
-        var initDbButton = new Ext.Button({
+        var resetDbButton = new Ext.Button({
             id: 'initDbButton',
-            text: 'Init DB',
-            handler: function(){initRhosync(activeUserName, true /*do reset data*/);}
+            text: 'Reset DB',
+            handler: doResetDb
         });
 
         // sync button instance
@@ -636,13 +642,13 @@
                     title: 'Model',
                     items: [
                         backButton,         // on the left side
-                        {xtype: 'spacer'},
-                        {xtype: 'spacer'},
-                        logoutButton,       // on the right side
                         createButton,       // on the right side
                         deleteButton,       // on the right side
-                        initDbButton,       // on the right side
-                        syncButton          // on the right side
+                        {xtype: 'spacer'},
+                        {xtype: 'spacer'},
+                        syncButton,          // on the right side
+                        logoutButton,       // on the right side
+                        resetDbButton       // on the right side
                     ]
                 }
             ],

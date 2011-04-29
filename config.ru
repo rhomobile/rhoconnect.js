@@ -1,3 +1,3 @@
-require 'application'
+require 'samples/application'
 
-run MyApp.new
+run RhoSyncJSDemoApp.new
