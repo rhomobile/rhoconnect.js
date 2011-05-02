@@ -221,7 +221,10 @@
             initRhosync(username).done(function(){
                 // Update UI state on success: hide login form and show navigation pages
                 updateLoggedInState();
-            });
+                // Go to Models page
+                Ext.getCmp("modelsPanel").getLayout().resetHistory();
+                Ext.getCmp("modelsPanel").getLayout().setActiveItem('ModelList');
+                });
         }).fail(function(errCode, err){
             // Show error on failure
             showError('Login error', errCode, err);
@@ -259,20 +262,9 @@
         }
         // Refresh UI
         Ext.getCmp('mainPanel').doLayout();
-
         reloadLists();
-
-        // Navigate back to the root list of models
-        var modPanel = Ext.getCmp("modelsPanel");
-        // Going back while history isn't empty
-        while(!modPanel.getLayout().isHistoryEmpty()) {
-            // Method "back" transits to last page from the history, then removes it from the history.
-            // Besides history handling it acts similar to setActiveItem().
-            // It uses transition animation which is reverse to stored in the history. Also it restores the title.
-            modPanel.getLayout().back();
-        }
-        modPanel.getLayout().setActiveItem('ModelList');
         // Refresh models panel. It is the panel with all lists and forms.
+        var modPanel = Ext.getCmp("modelsPanel");
         modPanel.doLayout();
         modPanel.doComponentLayout();
     }

@@ -97,6 +97,17 @@ Ext.ux.layout.CardHistoryLayout = Ext.extend(Ext.layout.CardLayout, {
     },
 
     /**
+     * Reset history to empty state.
+     */
+    resetHistory: function() {
+        this.setBack(false, '');
+        if (0<this.history.length) {
+            this.setTitle(this.history[0].title);
+        }
+        this.history = [];
+    },
+
+    /**
      * Set new active item. Current active item is pushed to the history.
      * @param {Mixed} nextItem The item to set as active.
      * @param {Mixed} animation Animation to use in transition.
