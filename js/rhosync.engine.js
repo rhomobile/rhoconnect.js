@@ -6,11 +6,11 @@
             Client: Client,
             Source: Source,
             // fields
-            states: states,
+            STATES: STATES,
             getSession: function() {return session},
             restoreSession: restoreSession,
-            sources: sources,
-            sourcesArray: sourcesArray,
+            getSources: function() {return sources},
+            getSourcesArray: function() {return sourcesArray},
             maxConfigSrcId: 1,
             // methods
             login: login,
@@ -37,7 +37,7 @@
 
     var rho = RhoSync.rho;
 
-    var states = {
+    var STATES = {
         none: 0,
         syncAllSources: 1,
         syncSource: 2,
@@ -85,9 +85,9 @@
         return notify;
     }
 
-    var syncState = states.none;
+    var syncState = STATES.none;
     var isSearch = false;
-    var errCode = rho.errors.ERR_NONE;
+    var errCode = rho.ERRORS.ERR_NONE;
     var error = "";
     var serverError = "";
     var schemaChanged = false;
@@ -146,14 +146,14 @@
                 rho.storage.init(/*false - don't reset any data by default*/).done(function(){
                     if(!session) {
                         LOG.error("Return empty session.");
-                        var errCode = rho.errors.ERR_UNEXPECTEDSERVERRESPONSE;
+                        var errCode = rho.ERRORS.ERR_UNEXPECTEDSERVERRESPONSE;
                         getNotify().callLoginCallback(oNotify, errCode, "" );
                         dfr.reject(errCode, "");
                         return;
                     }
 
                     if (isStoppedByUser) {
-                        dfr.reject(rho.errors.ERR_CANCELBYUSER, "Stopped by user");
+                        dfr.reject(rho.ERRORS.ERR_CANCELBYUSER, "Stopped by user");
                         return;
                     }
 
@@ -170,7 +170,7 @@
                         }
 
                         rho.config["rho_sync_user"] = name;
-                        getNotify().callLoginCallback(oNotify, rho.errors.ERR_NONE, "" );
+                        getNotify().callLoginCallback(oNotify, rho.ERRORS.ERR_NONE, "" );
 
                         dfr.resolve();
                     }).fail(_rejectPassThrough(dfr));
@@ -179,9 +179,9 @@
             }).fail(function(status, error, xhr){
                 var errCode = rho.protocol.getErrCodeFromXHR(xhr);
                 if (_isTimeout(error)) {
-                    errCode = rho.errors.ERR_NOSERVERRESPONSE;
+                    errCode = rho.ERRORS.ERR_NOSERVERRESPONSE;
                 }
-                if (errCode != rho.errors.ERR_NONE) {
+                if (errCode != rho.ERRORS.ERR_NONE) {
                     getNotify().callLoginCallback(oNotify, errCode, xhr.responseText);
                 }
                 dfr.reject(errCode, error);
@@ -237,10 +237,10 @@
                         dfr.resolve(id);
                     }).fail(_rejectPassThrough(dfr));
                 } else {
-                    dfr.reject(rho.errors.ERR_UNEXPECTEDSERVERRESPONSE, data);
+                    dfr.reject(rho.ERRORS.ERR_UNEXPECTEDSERVERRESPONSE, data);
                 }
             }).fail(function(status, error){
-                var errCode = _isTimeout(error) ? rho.errors.ERR_NOSERVERRESPONSE : rho.errors.ERR_NETWORK;
+                var errCode = _isTimeout(error) ? rho.ERRORS.ERR_NOSERVERRESPONSE : rho.ERRORS.ERR_NETWORK;
                 dfr.reject(errCode, error);
             });
         }).promise();
@@ -252,10 +252,10 @@
                 if (data && data.sources){
                     dfr.resolve();
                 } else {
-                    dfr.reject(rho.errors.ERR_UNEXPECTEDSERVERRESPONSE, data);
+                    dfr.reject(rho.ERRORS.ERR_UNEXPECTEDSERVERRESPONSE, data);
                 }
             }).fail(function(status, error){
-                var errCode = _isTimeout(error) ? rho.errors.ERR_NOSERVERRESPONSE : rho.errors.ERR_NETWORK;
+                var errCode = _isTimeout(error) ? rho.ERRORS.ERR_NOSERVERRESPONSE : rho.ERRORS.ERR_NETWORK;
                 dfr.reject(errCode, error);
             });
 
@@ -269,21 +269,21 @@
     function doSyncAllSources() {
         return $.Deferred(function(dfr){
 
-            prepareSync(states.syncAllSources, null).done(function(){
+            prepareSync(STATES.syncAllSources, null).done(function(){
                 if (isContinueSync()) {
                     syncAllSources().done(function(){
                         _finally();
                         _localAfterIsContinueSync();
                     }).fail(function(errCode, errMsg){
                         _finally();
-                        rho.notify.byEvent(rho.events.ERROR, "Sync failed", errMsg);
+                        rho.notify.byEvent(rho.EVENTS.ERROR, "Sync failed", errMsg);
                         dfr.reject(errCode, errMsg);
                     });
                 } else {_localAfterIsContinueSync();}
 
                 function _finally(){
-                    if (getState() != states.exit) {
-                        setState(states.none);
+                    if (getState() != STATES.exit) {
+                        setState(STATES.none);
                     }
                 }
 
@@ -300,9 +300,9 @@
     function prepareSync(eState, oSrcID) {
         return $.Deferred(function(dfr){
             setState(eState);
-            isSearch =  (eState == states.search);
+            isSearch =  (eState == STATES.search);
             isStoppedByUser = false;
-            errCode = rho.errors.ERR_NONE;
+            errCode = rho.ERRORS.ERR_NONE;
             error = "";
             serverError = "";
             schemaChanged = false;
@@ -313,7 +313,7 @@
                     if (isSessionExist()) {
                         loadClientID().done(function(clnId){
                             clientId = clnId;
-                            if (errCode == rho.errors.ERR_NONE) {
+                            if (errCode == rho.ERRORS.ERR_NONE) {
                                 getNotify().cleanLastSyncObjectCount();
                                 //doBulkSync();
                                 dfr.resolve();
@@ -324,7 +324,7 @@
                             dfr.reject(errCode, error);
                         }).fail(_rejectPassThrough(dfr));
                     }else {
-                        errCode = rho.errors.ERR_CLIENTISNOTLOGGEDIN;
+                        errCode = rho.ERRORS.ERR_CLIENTISNOTLOGGEDIN;
                         _localFireErrorNotification();
                         stopSync();
                         dfr.reject(errCode, error);
@@ -539,8 +539,8 @@
             dfrMap.when().done(function(){
                 if (!isError && !isSchemaChanged()) {
                     // TODO: to implement RhoAppAdapter.getMessageText("sync_completed")
-                    getNotify().fireSyncNotification(null, true, rho.errors.ERR_NONE, "sync_completed");
-                    dfr.resolve(rho.errors.NONE, "Sync completed");
+                    getNotify().fireSyncNotification(null, true, rho.ERRORS.ERR_NONE, "sync_completed");
+                    dfr.resolve(rho.ERRORS.NONE, "Sync completed");
                 } else {
                     dfr.reject('Error for source"' +syncErrors[0].source +'": ' +(syncErrors[0].error||syncErrors[0].errCode));
                 }
@@ -565,21 +565,21 @@
             
             if ( source.sync_type == "bulk_sync_only") {
                 dfr.resolve(null); //TODO: do resolve it as a source?
-            } else if (isSessionExist() && getState() != states.stop ) {
+            } else if (isSessionExist() && getState() != STATES.stop ) {
                 source.sync().done(function(){
                     dfr.resolve(source);
                 }).fail(function(obj, error){
-                    if (source.errCode == rho.errors.ERR_NONE) {
-                        source.errCode = rho.errors.ERR_RUNTIME;
+                    if (source.errCode == rho.ERRORS.ERR_NONE) {
+                        source.errCode = rho.ERRORS.ERR_RUNTIME;
                     }
-                    setState(states.stop);
-                    dfr.reject(rho.errors.ERR_RUNTIME, "sync is stopped: " +error);
+                    setState(STATES.stop);
+                    dfr.reject(rho.ERRORS.ERR_RUNTIME, "sync is stopped: " +error);
                 }).then(_finally, _finally);
                 function _finally() {
                     getNotify().onSyncSourceEnd(index, sourcesArray);
                 }
             } else {
-                dfr.reject(rho.errors.ERR_RUNTIME, "sync is stopped");
+                dfr.reject(rho.ERRORS.ERR_RUNTIME, "sync is stopped");
             }
         }).promise();
     }
@@ -591,17 +591,17 @@
     
     function isContinueSync() {
         var st = getState();
-        return st != states.exit && st != states.stop;
+        return st != STATES.exit && st != STATES.stop;
     }
 
     function isSyncing() {
         var st = getState();
-        return st == states.syncAllSources || st == states.syncSource;
+        return st == STATES.syncAllSources || st == STATES.syncSource;
     }
 
     function stopSync() {
         if (isContinueSync()) {
-            setState(states.stop);
+            setState(STATES.stop);
             _cancelRequests();
         }
     }
@@ -651,7 +651,7 @@
 
     function _exitSync() {
         if (isContinueSync()) {
-            setState(states.exit);
+            setState(STATES.exit);
             _cancelRequests();
         }
     }
@@ -687,7 +687,7 @@
         };
 
         this.isTokenFromDb = true;
-        this.errCode = rho.errors.ERR_NONE;
+        this.errCode = rho.ERRORS.ERR_NONE;
         this.error = '';
         this.serverError = '';
 
@@ -840,7 +840,7 @@
                         LOG.error("Sync server send data with incompatible version. Client version: " +rho.protocol.getVersion()
                             +"; Server response version: " +item.version +". Source name: " +that.name);
                         that.engine.stopSync();
-                        that.errrCode = rho.errors.ERR_UNEXPECTEDSERVERRESPONSE;
+                        that.errrCode = rho.ERRORS.ERR_UNEXPECTEDSERVERRESPONSE;
                         dfr.reject(that.errCode, "Sync server send data with incompatible version.");
                         return;
                     }
@@ -957,7 +957,7 @@
 
                         function _localAfterIfContinueSync(){
                             if (that.curPageCount > 0) {
-                                that.getNotify().fireSyncNotification(this, false, rho.errors.ERR_NONE, "");
+                                that.getNotify().fireSyncNotification(this, false, rho.ERRORS.ERR_NONE, "");
                             }
                             dfr.resolve(); //TODO: do we need dfr.reject() on errors happen? reporting at least?
                         }
@@ -1001,7 +1001,7 @@
                         if (bCheckUIRequest) {
                             var nSyncObjectCount  = that.getNotify().incLastSyncObjectCount(that.id);
                             if ( that.progressStep > 0 && (nSyncObjectCount % that.progressStep == 0) ) {
-                                that.getNotify().fireSyncNotification(this, false, rho.errors.ERR_NONE, "");
+                                that.getNotify().fireSyncNotification(this, false, rho.ERRORS.ERR_NONE, "");
                             }
 
                             //TODO: to discuss with Evgeny
@@ -1080,7 +1080,7 @@
 
                     function _localAfterInserOrUpdate() {
                         if (that.sync_type != "none") {
-                            that.getNotify().onObjectChanged(that.id, strObject, rho.notify.actions.update);
+                            that.getNotify().onObjectChanged(that.id, strObject, rho.notify.ACTIONS.update);
                         }
                         that.insertedCount++;
                         dfr.resolve(tx);
@@ -1092,7 +1092,7 @@
                             [strObject, oAttrValue.m_strAttrib, that.id], tx).done(function(tx, rs){
 
                         if (that.sync_type != "none") {
-                            that.getNotify().onObjectChanged(that.id, strObject, rho.notify.actions['delete']);
+                            that.getNotify().onObjectChanged(that.id, strObject, rho.notify.ACTIONS['delete']);
                             // oo conflicts
                             rho.storage.executeSql("UPDATE changed_values SET sent=3 where object=? "+
                                     "and attrib=? and source_id=?",
@@ -1116,7 +1116,7 @@
                             rho.storage.executeSql("UPDATE changed_values SET object=?,sent=3 where object=? "+
                                     "and source_id=?",
                                     [oAttrValue.m_strValue, strObject, that.id], tx).done(function(){
-                                that.getNotify().onObjectChanged(that.id, strObject, rho.notify.actions.create);
+                                that.getNotify().onObjectChanged(that.id, strObject, rho.notify.ACTIONS.create);
                                 dfr.resolve(tx);
                             }).fail(_rejectOnDbAccessEror(dfr));
                         }).fail(_rejectOnDbAccessEror(dfr));
@@ -1195,7 +1195,7 @@
 
             function _localSetSourceErrors(errType) {
                 errorsFound = true;
-                that.ErrCode =rho.errors.ERR_CUSTOMSYNCSERVER;
+                that.ErrCode =rho.ERRORS.ERR_CUSTOMSYNCSERVER;
 
                 $.each(oCmds[errType], function(errSubtype, errObj){
                     that.serverError += that.serverError ? '&' : '';
@@ -1205,7 +1205,7 @@
 
             function _localSetObjectErrors(errType) {
                 errorsFound = true;
-                that.ErrCode =rho.errors.ERR_CUSTOMSYNCSERVER;
+                that.ErrCode =rho.ERRORS.ERR_CUSTOMSYNCSERVER;
 
                 $.each(oCmds[errType], function(objId, err){
                     if (objId.match(/-error$/i)) {
@@ -1246,7 +1246,7 @@
                     that.isPendingClientChanges().done(function(found){
                         if (bSyncedServer && found) {
                             LOG.info( "Server does not sent created items. Stop sync." );
-                            that.engine.setState(states.stop);
+                            that.engine.setState(STATES.stop);
                             _localAfterIfServerSentCreatedItems();
                         } else {
                             rho.storage.executeSql("SELECT object FROM changed_values "+
@@ -1372,7 +1372,7 @@
                             }).fail(function(status, error, xhr){
                                 that.engine.setState(rho.states.stop);
                                 that.errCode = rho.protocol.getErrCodeFromXHR(xhr);
-                                that.errCode = _isTimeout(error) ? rho.errors.ERR_NOSERVERRESPONSE : that.errCode;
+                                that.errCode = _isTimeout(error) ? rho.ERRORS.ERR_NOSERVERRESPONSE : that.errCode;
                                 that.error = error;
                                 dfr.reject(that.errCode, that.error);
                             });
@@ -1391,7 +1391,7 @@
                                             [that.id, updateType]).done(function(){
                                         dfrMap.resolve(updateType, []);
                                     }).fail(function(obj, err){
-                                        dfrMap.reject(updateType, [rho.errors.ERR_RUNTIME, "db access error: " +err]);
+                                        dfrMap.reject(updateType, [rho.ERRORS.ERR_RUNTIME, "db access error: " +err]);
                                     });
                                 } else {
                                 //
@@ -1400,7 +1400,7 @@
                                             [that.id, updateType]).done(function(){
                                         dfrMap.resolve(updateType, []);
                                     }).fail(function(obj, err){
-                                        dfrMap.reject(updateType, [rho.errors.ERR_RUNTIME, "db access error: " +err]);
+                                        dfrMap.reject(updateType, [rho.ERRORS.ERR_RUNTIME, "db access error: " +err]);
                                     });
                                 }
                             } else {
@@ -1635,7 +1635,7 @@
             //if ('object' == typeof error && undefined != error['message']) {
             //    err = error.message;
             //}
-            deferred.reject(rho.errors.ERR_RUNTIME, "db access error: " +err);
+            deferred.reject(rho.ERRORS.ERR_RUNTIME, "db access error: " +err);
         };
     }
 

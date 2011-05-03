@@ -2,7 +2,7 @@
 
     function publicInterface() {
         return {
-            actions: actions,
+            ACTIONS: ACTIONS,
             SyncNotify: SyncNotify,
             SyncNotification: SyncNotification,
             byEvent: notifyByEvent
@@ -11,7 +11,7 @@
 
     var rho = RhoSync.rho;
 
-    var actions = {
+    var ACTIONS = {
         'none': 0,
         'delete': 1,
         'update': 2,
@@ -57,7 +57,7 @@
                         hashObject = {};
                         srcIDAndObject[srcId] = hashObject;
                     }
-                    hashObject[objectId] = actions.none;
+                    hashObject[objectId] = ACTIONS.none;
                 }
             }
         }
@@ -75,7 +75,7 @@
         function processSingleObject() {
             if (!singleObjectSrcName) return;
 
-            var src = engine.sources[singleObjectSrcName];
+            var src = engine.getSources()[singleObjectSrcName];
             if (src) {
                 addObjectNotify(src,singleObjectID);
             }
@@ -90,24 +90,24 @@
             $.each(srcIDAndObject, function(srcId, hashObject) {
                 $.each(hashObject, function(strObject, nNotifyType) {
 
-                    if (nNotifyType == actions.none) return;
+                    if (nNotifyType == ACTIONS.none) return;
 
                     if (strBody) {
                         strBody += "&rho_callback=1&";
                     }
 
-                    if (nNotifyType == actions['delete']) {
+                    if (nNotifyType == ACTIONS['delete']) {
                         strBody += "deleted[][object]=" + strObject;
                         strBody += "&deleted[][source_id]=" + srcId;
-                    } else if (nNotifyType == actions.update) {
+                    } else if (nNotifyType == ACTIONS.update) {
                         strBody += "updated[][object]=" + strObject;
                         strBody += "&updated[][source_id]=" + srcId;
-                    } else if (nNotifyType == actions.create) {
+                    } else if (nNotifyType == ACTIONS.create) {
                         strBody += "created[][object]=" + strObject;
                         strBody += "&created[][source_id]=" + srcId;
                     }
 
-                    hashObject[strObject] = actions.none;
+                    hashObject[strObject] = ACTIONS.none;
                 });
             });
 
@@ -150,7 +150,7 @@
          this.onSyncSourceEnd = function(nSrc, sourcesArray) {
             var src = sourcesArray[nSrc];
 
-            if (engine.getState() == engine.states.stop && src.errCode != rho.errors.ERR_NONE) {
+            if (engine.getState() == engine.STATES.stop && src.errCode != rho.ERRORS.ERR_NONE) {
                 var pSN = getSyncNotifyBySrc(src);
                 if (pSN != null) {
                     this.fireSyncNotification(src, true, src.errCode, "");
@@ -177,15 +177,15 @@
 
         this.reportSyncStatus = function(status, errCode, details) {
             if (syncStatusListener != null
-                    && (isReportingEnabled() || errCode == rho.errors.ERR_SYNCVERSION)) {
-                if (errCode == rho.errors.ERR_SYNCVERSION) {
+                    && (isReportingEnabled() || errCode == rho.ERRORS.ERR_SYNCVERSION)) {
+                if (errCode == rho.ERRORS.ERR_SYNCVERSION) {
                     status = __getErrorText(errCode);
                 } else {
                     details = details || __getErrorText(errCode);
                     status += (details ? __getMessageText("details")+details : "");
                 }
                 LOG.info("Status: " +status);
-                rho.notify.byEvent(rho.events.STATUS_CHANGED, status, errCode);
+                rho.notify.byEvent(rho.EVENTS.STATUS_CHANGED, status, errCode);
             }
         };
 
@@ -211,9 +211,9 @@
 */
 
         this.fireAllSyncNotifications = function(isFinish, errCode, error, serverError ) {
-            if (engine.getState() == engine.states.exit) return;
+            if (engine.getState() == engine.STATES.exit) return;
 
-            if(errCode != rho.errors.ERR_NONE) {
+            if(errCode != rho.ERRORS.ERR_NONE) {
                 if (!engine.isSearch()) {
                     var strMessage = __getMessageText("sync_failed_for") + "all.";
                     this.reportSyncStatus(strMessage,errCode,error);
@@ -226,9 +226,9 @@
         };
 
         this.fireSyncNotification = function(src, isFinish, errCode, message ) {
-            if (engine.getState() == engine.states.exit) return;
+            if (engine.getState() == engine.STATES.exit) return;
 
-            if (message || errCode != rho.errors.ERR_NONE) {
+            if (message || errCode != rho.ERRORS.ERR_NONE) {
                 if (!engine.isSearch()) {
                     if (src != null && !message)
                         message = __getMessageText("sync_failed_for") + src.name + ".";
@@ -278,7 +278,7 @@
 
                     strBody += "&status=";
                     if (isFinish) {
-                        if (errCode == rho.errors.ERR_NONE) {
+                        if (errCode == rho.ERRORS.ERR_NONE) {
                             //if (engine.isSchemaChanged()) {
                             //    strBody += "schema_changed";
                             //} else {
@@ -286,7 +286,7 @@
                             //}
                         } else {
                             if (engine.isStoppedByUser()) {
-                                errCode = rho.errors.ERR_CANCELBYUSER;
+                                errCode = rho.ERRORS.ERR_CANCELBYUSER;
                             }
 
                             strBody += "error";

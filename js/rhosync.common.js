@@ -3,7 +3,7 @@
     function publicInterface() {
         return {
             Logger: Logger,
-            errors: RhoSync.errors,
+            ERRORS: RhoSync.ERRORS,
             deferredMapOn: deferredMapOn,
             passRejectTo: passRejectTo
         };

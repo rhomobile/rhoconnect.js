@@ -2,7 +2,7 @@ var RhoSync = (function($) {
 
     function publicInterface() {
         return {
-            errors: errors,
+            ERRORS: ERRORS,
             init: init,
             login: login,
             logout: logout,
@@ -24,7 +24,7 @@ var RhoSync = (function($) {
         }
     };
 
-    var errors = {
+    var ERRORS = {
         ERR_NONE: 'No error',
         ERR_NETWORK: 'Network error',
         ERR_REMOTESERVER: 'Remote server access error',
@@ -40,7 +40,7 @@ var RhoSync = (function($) {
         ERR_GEOLOCATION: 'Geolocation error'
     };
 
-    var events = {
+    var EVENTS = {
         GENERIC_NOTIFICATION: 'rhoSyncGenericNotification',
         ERROR: 'rhoSyncError',
         CLIENT_CREATED: 'rhoSyncClientCreated',
@@ -230,7 +230,7 @@ var RhoSync = (function($) {
                 rho.engine.maxConfigSrcId = sourceId;
             }
             models[defn.name] = model;
-            rho.engine.sources[defn.name] = model.source;
+            rho.engine.getSources()[defn.name] = model.source;
         }
 
         function _loadModel(defn) {
@@ -250,8 +250,8 @@ var RhoSync = (function($) {
         }
         allModelsLoaded = true;
 
-        return _initSources(rho.engine.sources).done(function(){
-            $.each(rho.engine.sources, function(name, src){
+        return _initSources(rho.engine.getSources()).done(function(){
+            $.each(rho.engine.getSources(), function(name, src){
                 rho.engine.getNotify().setNotification(src, new rho.notify.SyncNotification(function(){
                     if ("function" == typeof syncProgressCb) {
                         syncProgressCb(name);
@@ -265,8 +265,8 @@ var RhoSync = (function($) {
     // rhosync internal parts we _have_to_ make a public
     var rho = {
         config: $.extend({}, defaults, RhoConfig),
-        events: events,
-        models: models,
+        EVENTS: EVENTS,
+        getModels: function() {return models;},
 
         domain: null,
         protocol: null,

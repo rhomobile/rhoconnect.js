@@ -36,7 +36,7 @@ describe("RhoSync use cases", function(){
                     ]}*/
             ];
 
-            rhosync.init(models/*, 'native'*/).done(okHdlr).fail(errHdlr);
+            rhosync.init(models, 'native', null /*no progress update callback*/, false /*no data resey*/).done(okHdlr).fail(errHdlr);
 
             waitsForSpies([okHdlr, errHdlr], 'RhoSync init timeout', 3000);
             runs(function(){
@@ -46,29 +46,16 @@ describe("RhoSync use cases", function(){
                     jasmine.log(errHdlr.mostRecentCall.args);
                 }
 
-                expect(rhosync.rho.models).toBeDefined('models map');
-                expect(rhosync.rho.engine.sources).toBeDefined('sources map');
+                expect(rhosync.rho.getModels()).toBeDefined('models map');
+                expect(rhosync.rho.engine.getSources()).toBeDefined('sources map');
 
-                expect(rhosync.rho.models.Product).toBeSet('Product model');
-                expect(rhosync.rho.models.Product.name).toBeSet('Product model');
-                expect(rhosync.rho.engine.sources.Product).toBeSet('Product model');
-                expect(rhosync.rho.engine.sources.Product.name).toBeSet('Product model');
-                expect(rhosync.rho.engine.sources.Product.id).toBeGreaterThan(0);
-                expect(rhosync.rho.models.Product.name).toEqual(rhosync.rho.engine.sources.Product.name);
-                jasmine.log(rhosync.rho.models.Product.name +' source id = ' +rhosync.rho.engine.sources.Product.id);
-
-/*
-                expect(rhosync.rho.models.Order).toBeSet('Order model');
-                expect(rhosync.rho.models.Order.name).toBeSet('Order model');
-                expect(rhosync.rho.engine.sources.Order).toBeSet('Order model');
-                expect(rhosync.rho.engine.sources.Order.name).toBeSet('Order model');
-                expect(rhosync.rho.engine.sources.Order.id).toBeGreaterThan(0);
-                expect(rhosync.rho.models.Order.name).toEqual(rhosync.rho.engine.sources.Order.name);
-                jasmine.log(rhosync.rho.models.Order.name +' source id = ' +rhosync.rho.engine.sources.Order.id);
-
-                expect(rhosync.rho.engine.sources.Product.name).not.toEqual(rhosync.rho.engine.sources.Order.name);
-                expect(rhosync.rho.engine.sources.Product.id).not.toEqual(rhosync.rho.engine.sources.Order.id);
-*/
+                expect(rhosync.rho.getModels().Product).toBeSet('Product model');
+                expect(rhosync.rho.getModels().Product.name).toBeSet('Product model');
+                expect(rhosync.rho.engine.getSources().Product).toBeSet('Product source');
+                expect(rhosync.rho.engine.getSources().Product.name).toBeSet('Product source');
+                expect(rhosync.rho.engine.getSources().Product.id).toBeGreaterThan(0);
+                expect(rhosync.rho.getModels().Product.name).toEqual(rhosync.rho.engine.getSources().Product.name);
+                jasmine.log(rhosync.rho.getModels().Product.name +' source id = ' +rhosync.rho.engine.getSources().Product.id);
             });
         });
     });

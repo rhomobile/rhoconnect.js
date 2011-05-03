@@ -32,27 +32,27 @@ describe("RhoSync", function() {
             expect(errHdlr).not.toHaveBeenCalled();
             if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
 
-            expect(rhosync.rho.models).toBeDefined('models map');
-            expect(rhosync.rho.engine.sources).toBeDefined('sources map');
+            expect(rhosync.rho.getModels()).toBeDefined('models map');
+            expect(rhosync.rho.engine.getSources()).toBeDefined('sources map');
 
-            expect(rhosync.rho.models.Product).toBeSet('Product model');
-            expect(rhosync.rho.models.Product.name).toBeSet('Product model');
-            expect(rhosync.rho.engine.sources.Product).toBeSet('Product model');
-            expect(rhosync.rho.engine.sources.Product.name).toBeSet('Product model');
-            expect(rhosync.rho.engine.sources.Product.id).toBeGreaterThan(0);
-            expect(rhosync.rho.models.Product.name).toEqual(rhosync.rho.engine.sources.Product.name);
-            jasmine.log(rhosync.rho.models.Product.name +' source id = ' +rhosync.rho.engine.sources.Product.id);
+            expect(rhosync.rho.getModels().Product).toBeSet('Product model');
+            expect(rhosync.rho.getModels().Product.name).toBeSet('Product model');
+            expect(rhosync.rho.engine.getSources().Product).toBeSet('Product model');
+            expect(rhosync.rho.engine.getSources().Product.name).toBeSet('Product model');
+            expect(rhosync.rho.engine.getSources().Product.id).toBeGreaterThan(0);
+            expect(rhosync.rho.getModels().Product.name).toEqual(rhosync.rho.engine.getSources().Product.name);
+            jasmine.log(rhosync.rho.getModels().Product.name +' source id = ' +rhosync.rho.engine.getSources().Product.id);
 
-            expect(rhosync.rho.models.Order).toBeSet('Order model');
-            expect(rhosync.rho.models.Order.name).toBeSet('Order model');
-            expect(rhosync.rho.engine.sources.Order).toBeSet('Order model');
-            expect(rhosync.rho.engine.sources.Order.name).toBeSet('Order model');
-            expect(rhosync.rho.engine.sources.Order.id).toBeGreaterThan(0);
-            expect(rhosync.rho.models.Order.name).toEqual(rhosync.rho.engine.sources.Order.name);
-            jasmine.log(rhosync.rho.models.Order.name +' source id = ' +rhosync.rho.engine.sources.Order.id);
+            expect(rhosync.rho.getModels().Order).toBeSet('Order model');
+            expect(rhosync.rho.getModels().Order.name).toBeSet('Order model');
+            expect(rhosync.rho.engine.getSources().Order).toBeSet('Order model');
+            expect(rhosync.rho.engine.getSources().Order.name).toBeSet('Order model');
+            expect(rhosync.rho.engine.getSources().Order.id).toBeGreaterThan(0);
+            expect(rhosync.rho.getModels().Order.name).toEqual(rhosync.rho.engine.getSources().Order.name);
+            jasmine.log(rhosync.rho.getModels().Order.name +' source id = ' +rhosync.rho.engine.getSources().Order.id);
 
-            expect(rhosync.rho.engine.sources.Product.name).not.toEqual(rhosync.rho.engine.sources.Order.name);
-            expect(rhosync.rho.engine.sources.Product.id).not.toEqual(rhosync.rho.engine.sources.Order.id);
+            expect(rhosync.rho.engine.getSources().Product.name).not.toEqual(rhosync.rho.engine.getSources().Order.name);
+            expect(rhosync.rho.engine.getSources().Product.id).not.toEqual(rhosync.rho.engine.getSources().Order.id);
         });
     });
 
@@ -61,7 +61,7 @@ describe("RhoSync", function() {
 
         var okHdlr = jasmine.createSpy('ajax handler spy');
 
-        $(window).bind(rhosync.rho.events.GENERIC_NOTIFICATION, null, notify);
+        $(window).bind(rhosync.rho.EVENTS.GENERIC_NOTIFICATION, null, notify);
 
         rhosync.rho.protocol.login(userlogin, userpass).done(function(data, response){
             okHdlr("success", response);
@@ -73,7 +73,7 @@ describe("RhoSync", function() {
         runs(function(){
             expect(okHdlr).toHaveBeenCalledWith("success", null);
             expect(notified).toBeTruthy();
-            $(window).unbind(rhosync.rho.events.GENERIC_NOTIFICATION, notify);
+            $(window).unbind(rhosync.rho.EVENTS.GENERIC_NOTIFICATION, notify);
         });
     });
 
@@ -82,7 +82,7 @@ describe("RhoSync", function() {
 
         var okHdlr = jasmine.createSpy('ajax handler spy');
 
-        $(window).bind(rhosync.rho.events.GENERIC_NOTIFICATION, null, notify);
+        $(window).bind(rhosync.rho.EVENTS.GENERIC_NOTIFICATION, null, notify);
 
         rhosync.rho.protocol.login(userlogin, wrongpass).done(function(data, response){
             okHdlr("success", response);
@@ -94,7 +94,7 @@ describe("RhoSync", function() {
         runs(function(){
             expect(okHdlr).toHaveBeenCalledWith("error", "Unauthorized");
             expect(notified).toBeTruthy();
-            $(window).unbind(rhosync.rho.events.GENERIC_NOTIFICATION, notify);
+            $(window).unbind(rhosync.rho.EVENTS.GENERIC_NOTIFICATION, notify);
         });
     });
 

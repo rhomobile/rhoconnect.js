@@ -20,7 +20,7 @@
 
     var SESSION_COOKIE = 'rhosync_session';
 
-    var respCodes = {
+    var RESP_CODES = {
         HTTP_OK: 200,
         HTTP_PARTIAL_CONTENT: 206,
         HTTP_MOVED_TEMPORARILY: 302,
@@ -36,10 +36,10 @@
 
     function getErrCodeFromXHR(xhr) {
         switch(xhr.status) {
-            case respCodes.HTTP_UNAUTHORIZED: return rho.errors.ERR_UNATHORIZED;
-            case respCodes.HTTP_OK: return rho.errors.ERR_NONE;
-            case respCodes.HTTP_PARTIAL_CONTENT: return rho.errors.ERR_NONE;
-            default: return rho.errors.ERR_REMOTESERVER;
+            case RESP_CODES.HTTP_UNAUTHORIZED: return rho.ERRORS.ERR_UNATHORIZED;
+            case RESP_CODES.HTTP_OK: return rho.ERRORS.ERR_NONE;
+            case RESP_CODES.HTTP_PARTIAL_CONTENT: return rho.ERRORS.ERR_NONE;
+            default: return rho.ERRORS.ERR_REMOTESERVER;
         }
     }
 
@@ -107,10 +107,10 @@
                 data: $.toJSON(data),
                 dataType: 'json'
             }).done(function(data, status, xhr){
-                rho.notify.byEvent(rho.events.GENERIC_NOTIFICATION, status, data, xhr);
+                rho.notify.byEvent(rho.EVENTS.GENERIC_NOTIFICATION, status, data, xhr);
                 dfr.resolve(status, data, xhr);
             }).fail(function(xhr, status, error){
-                rho.notify.byEvent(rho.events.GENERIC_NOTIFICATION, status, error, xhr);
+                rho.notify.byEvent(rho.EVENTS.GENERIC_NOTIFICATION, status, error, xhr);
                 dfr.reject(status, error, xhr);
             });
         }).promise();
