@@ -133,22 +133,24 @@
         var readyDfr = $._Deferred();
         var dfr = $.Deferred();
         function resolveTx(db) {
+            // Some old browsers have incomplete WebSQL support where db.readTransaction hasn't implemented yet
+            // http://stackoverflow.com/questions/3809229/html5-readtransaction-not-supported-on-ipad-ios-3-2
+            var txFn = ("function" == typeof db.readTransaction) ? db.readTransaction : db.transaction;
+            // select proper type of transaction
             if (readWrite && readWrite != "read-only") {
-                db.transaction(function(tx){
+                txFn = db.transaction;
+            }
+            // run it
+            try {
+                txFn.apply(db, [function(tx){
                     readyDfr.resolve(db, tx);
                 }, function (err) {
                     dfr.reject(db, err);
                 }, function(){
                     dfr.resolve(db, "ok");
-                });
-            } else {
-                db.readTransaction(function(tx){
-                    readyDfr.resolve(db, tx);
-                }, function (err) {
-                    dfr.reject(db, err);
-                }, function(){
-                    dfr.resolve(db, "ok");
-                });
+                }]);
+            } catch(ex) {
+                dfr.reject(db, ex.message);
             }
         }
         if (optionalDb) {

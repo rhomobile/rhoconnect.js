@@ -10,11 +10,19 @@
         <script type="text/javascript" language="javascript" src="../../external/jquery/jquery-1.5.2.js"></script>
         <script type="text/javascript" language="javascript" src="../../external/jquery/json.js"></script>
         <script type="text/javascript" language="javascript" src="../../external/jquery/jquery.base64.js"></script>
+<!--
         <script type="text/javascript" language="javascript" src="sencha/sencha-touch-bb_os6_notouch.js"></script>
+-->
+        <script type="text/javascript" language="javascript" src="sencha/sencha-touch.js"></script>
         <script type="text/javascript" language="javascript" src="sencha/cardHistoryLayout.js"></script>
 
         <script type="text/javascript">
+            // For cross-domain configuration
+            //var syncUrl = 'http://192.168.0.21:9292/application';
+
+            // For non-cross-domain use this settings:
             var syncUrl = window.location.protocol +'//' +window.location.host +'/application';
+
             RhoConfig = {
                 syncServer: syncUrl,
                 logLevel: 'trace'

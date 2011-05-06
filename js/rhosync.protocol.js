@@ -105,7 +105,8 @@
                 contentType: contentType || 'application/json',
                 processData: false,
                 data: $.toJSON(data),
-                dataType: 'json'
+                dataType: 'json',
+                xhrFields: {withCredentials: true}
             }).done(function(data, status, xhr){
                 rho.notify.byEvent(rho.EVENTS.GENERIC_NOTIFICATION, status, data, xhr);
                 dfr.resolve(status, data, xhr);

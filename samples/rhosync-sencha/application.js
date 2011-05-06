@@ -224,7 +224,10 @@
                 // Go to Models page
                 Ext.getCmp("modelsPanel").getLayout().resetHistory();
                 Ext.getCmp("modelsPanel").getLayout().setActiveItem('ModelList');
-                });
+            }).fail(function(errCode, err){
+                // Show error on failure
+                showError('Login error', errCode, err);
+            });
         }).fail(function(errCode, err){
             // Show error on failure
             showError('Login error', errCode, err);
