@@ -9,6 +9,7 @@
             deleteSession: deleteSession,
             getServerQueryUrl: getServerQueryUrl,
             login: login,
+            logout: logout,
             clientCreate: clientCreate,
             clientReset: clientReset,
             serverQuery: serverQuery,
@@ -97,15 +98,24 @@
         }
     }
 
+    var session = null;
+
     function _net_call(url, data, method /*='post'*/, contentType /*='application/json'*/) {
         return $.Deferred(function(dfr){
+            function _getOrigin() {
+                var loc = document.location;
+                return loc.href.substring(0, loc.href.length - loc.pathname.length);
+            }
+
+            var sParam = (/\?/.test(url) ? '&' : '?') + SESSION_COOKIE+'='+session;
             $.ajax({
-                url: url,
+                url: url + (session ? sParam : ''),
                 type: method || 'post',
                 contentType: contentType || 'application/json',
                 processData: false,
                 data: $.toJSON(data),
                 dataType: 'json',
+                headers: {'X-Origin': _getOrigin()},
                 xhrFields: {withCredentials: true}
             }).done(function(data, status, xhr){
                 rho.notify.byEvent(rho.EVENTS.GENERIC_NOTIFICATION, status, data, xhr);
@@ -118,18 +128,26 @@
     }
 
     function login(login, password) {
-        return _net_call(rho.config.syncServer+'/clientlogin', {login:login, password:password, rememberme: 1});
+        return $.Deferred(function(dfr){
+            _net_call(rho.config.syncServer+'/clientlogin',
+                {login:login, password:password, rememberme: 1}).done(function(status, data, xhr){
+                if (data) {
+                    session = data[SESSION_COOKIE] || null;
+                }
+                dfr.resolve(data, status, xhr);
+            }).fail(function(error, status, xhr){
+                dfr.reject(error, status, xhr);
+            });
+        }).promise();
     }
 
-    /*
     function isLoggedIn() {
-        return _getCookie(SESSION_COOKIE) ? true : false;
+        return session ? true : false;
     }
 
     function logout() {
-        _deleteCookie(SESSION_COOKIE);
+        session = null;
     }
-    */
 
     var clientCreate = function() {
         return _net_call(rho.config.syncServer+'/clientcreate', "", "get", "text/plain");

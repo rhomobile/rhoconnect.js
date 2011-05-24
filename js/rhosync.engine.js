@@ -117,7 +117,7 @@
                         break;
                     }
                 }
-                rho.protocol.setSession(session);
+                //rho.protocol.setSession(session);
                 dfr.resolve();
             }).fail(_rejectOnDbAccessEror(dfr));
         }).promise();
@@ -128,6 +128,7 @@
             _cancelRequests();
             rho.storage.executeSql("UPDATE client_info SET session = NULL").done(function(){
                 session = "";
+                rho.protocol.logout();
                 dfr.resolve();
             }).fail(_rejectOnDbAccessEror(dfr));
             //loadAllSources();
@@ -139,13 +140,16 @@
             isStoppedByUser = false;
             
             rho.protocol.login(login, password).done(function(){
-                session = rho.protocol.getSession();
+                session = /*rho.protocol.getSession()*/ login;
 
                 rho.config.database.name = rho.config.database.namePrefix + login;
+                if(!session) {
+                    LOG.error("Server responds with empty session cookie.");
+                }
 
                 rho.storage.init(/*false - don't reset any data by default*/).done(function(){
                     if(!session) {
-                        LOG.error("Return empty session.");
+                        LOG.error("DB doesn't contains this session.");
                         var errCode = rho.ERRORS.ERR_UNEXPECTEDSERVERRESPONSE;
                         getNotify().callLoginCallback(oNotify, errCode, "" );
                         dfr.reject(errCode, "");
@@ -157,7 +161,7 @@
                         return;
                     }
 
-                    _updateClientSession(rho.protocol.getSession()).done(function(client){
+                    _updateClientSession(/*rho.protocol.getSession()*/ login).done(function(client){
                         if (rho.config["rho_sync_user"]) {
                             var strOldUser = rho.config["rho_sync_user"];
                             if (name != strOldUser) {

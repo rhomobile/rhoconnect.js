@@ -18,10 +18,11 @@
 
         <script type="text/javascript">
             // For cross-domain configuration
-            //var syncUrl = 'http://192.168.0.21:9292/application';
+            var syncUrl = 'http://192.168.0.21:9292/application';
+            //var syncUrl = 'http://rhodes-store-server.heroku.com/application';
 
             // For non-cross-domain use this settings:
-            var syncUrl = window.location.protocol +'//' +window.location.host +'/application';
+            //var syncUrl = window.location.protocol +'//' +window.location.host +'/application';
 
             RhoConfig = {
                 syncServer: syncUrl,

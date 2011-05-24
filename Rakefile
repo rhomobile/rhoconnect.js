@@ -18,7 +18,7 @@ ver = File.read("version.txt").chomp.gsub(/\./, "_").gsub(/,/, "_")
 
 src_dir = "js"
 build_dir = "build"
-samples_js_dir = "samples/javascript"
+samples_js_dir = "samples/js"
 dist_dir = "distrib"
 
 max_name = "rhosync-"+ver+".js"

@@ -7,13 +7,13 @@ var RhoSync = (function($) {
             login: login,
             logout: logout,
             isLoggedIn: isLoggedIn,
-            getLoggedInUsername: getLoggedInUsername,
             syncAllSources: syncAllSources
         };
     }
 
     var defaults = {
         syncServer: '',
+        consoleServer: '',
         pollInterval: 20,
         database: {
             namePrefix: 'rhoSyncDb_',
@@ -84,15 +84,6 @@ var RhoSync = (function($) {
 
     function isLoggedIn() {
         return rho.engine.isSessionExist();
-    }
-
-    function getLoggedInUsername() {
-        if (!isLoggedIn()) return null;
-        var md64str = rho.engine.getSession();
-        md64str = md64str.replace(/--.*$/, '').replace(/%0A/, '');
-        md64str = md64str.replace(/\s/, '');
-        md64str = md64str.replace(/^.*?login"/, '');
-        return md64str;
     }
 
     function syncAllSources() {
