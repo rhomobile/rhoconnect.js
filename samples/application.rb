@@ -3,5 +3,8 @@ require 'sinatra'
 
 class RhoSyncJSDemoApp < Sinatra::Base
   set :static, true
-#  set :public, File.dirname(__FILE__) + '../'
+
+  get '/samples/rhosync-sencha' do
+    erb :'rhosync-sencha'
+  end
 end

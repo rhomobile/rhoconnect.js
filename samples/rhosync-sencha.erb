@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!--<meta http-equiv="Content-Type" content="text/html; charset=utf-8">-->
+        <title>Rhosync.js demo</title>
+
+        <link href="rhosync-sencha/sencha/sencha-touch.css" rel="stylesheet" type="text/css" />
+        <link href="rhosync-sencha/application.css" rel="stylesheet" type="text/css" />
+
+      <% if 'development' == ENV['RACK_ENV'] %>
+          <script type="text/javascript" language="javascript" src="../external/jquery/jquery-1.5.2.js"></script>
+      <% else %>
+          <script type="text/javascript" language="javascript" src="../external/jquery/jquery-1.5.2.min.js"></script>
+      <% end %>
+        <script type="text/javascript" language="javascript" src="../external/jquery/json.js"></script>
+        <script type="text/javascript" language="javascript" src="../external/jquery/jquery.base64.js"></script>
+        <script type="text/javascript" language="javascript" src="rhosync-sencha/sencha/sencha-touch.js"></script>
+        <script type="text/javascript" language="javascript" src="rhosync-sencha/sencha/cardHistoryLayout.js"></script>
+
+        <script type="text/javascript">
+            var syncUrl = '';
+            <% if 'development' == ENV['RACK_ENV'] %>
+                // For cross-domain configuration
+                syncUrl = 'http://192.168.0.21:9292/application';
+                // For non-cross-domain use this settings:
+                //syncUrl = window.location.protocol +'//' +window.location.host +'/application';
+            <% else %>
+                syncUrl = 'http://rhodes-store-server.heroku.com/application';
+            <% end %>
+
+            RhoConfig = {
+                syncServer: syncUrl,
+                logLevel: 'trace'
+            };
+        </script>
+      <% if 'development' == ENV['RACK_ENV'] %>
+        <script type="text/javascript" language="javascript" src="../js/rhosync.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhosync.common.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhosync.protocol.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhosync.domain.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhosync.storage.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhosync.engine.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhosync.notify.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhosync.ext.js"></script>
+      <% else %>
+        <script type="text/javascript" src="../distrib/rhosync-0_9.js"></script>
+      <% end %>
+        <script type="text/javascript" language="javascript" src="rhosync-sencha/application.js"></script>
+    </head>
+    <body></body>
+</html>
