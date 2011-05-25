@@ -18,16 +18,15 @@ ver = File.read("version.txt").chomp.gsub(/\./, "_").gsub(/,/, "_")
 
 src_dir = "js"
 build_dir = "build"
-samples_js_dir = "samples/js"
 dist_dir = "distrib"
 
 max_name = "rhosync-"+ver+".js"
 min_name = "rhosync-"+ver+".min.js"
+zip_name = "rhosync-"+ver+".zip"
 
 desc "Build rhosync.js client package"
 task :clean do
   rm_rf dist_dir
-  rm_rf samples_js_dir
 end
 
 
@@ -37,7 +36,6 @@ namespace "build" do
   task :rhosync_js do
 
     mkdir_p dist_dir
-    mkdir_p samples_js_dir
 
     #cp_r src_dir, tmp_dir, :preserve => true
 
@@ -63,11 +61,9 @@ namespace "build" do
 
     max_pathname = dist_dir+"/"+max_name
     min_pathname = dist_dir+"/"+min_name
+    zip_pathname = dist_dir+"/"+zip_name
 
     puts `java -jar #{build_dir}/google-compiler.jar --js #{max_pathname} --warning_level QUIET --js_output_file #{min_pathname}`
-
-    Dir.glob(dist_dir+"/*").each do |f|
-        cp f, samples_js_dir
-    end
+    puts `jar cvMf #{zip_pathname} -c #{dist_dir} #{max_name} #{min_name}`
   end
 end
