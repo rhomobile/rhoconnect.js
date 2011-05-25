@@ -31,7 +31,7 @@
         };
     }
 
-    var rho = RhoSync.rho;
+    var rho = RhoConnect.rho;
 
     var initDbSchemaSQL = ''
         +'DROP TABLE IF EXISTS client_info;'

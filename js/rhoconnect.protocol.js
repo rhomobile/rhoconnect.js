@@ -17,7 +17,7 @@
         };
     }
 
-    var rho = RhoSync.rho;
+    var rho = RhoConnect.rho;
 
     var SESSION_COOKIE = 'rhosync_session';
 

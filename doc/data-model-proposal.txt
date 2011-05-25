@@ -23,7 +23,7 @@ Touch, expanding it as it needed.
 Here is the sample of models description for different storage interfaces concurently:
 
 
-Rhosync.storage.define(
+Rhoconnect.storage.define(
     "SenchaTouch_adapter": [
         {
             type: "model",

@@ -3,13 +3,13 @@
     function publicInterface() {
         return {
             Logger: Logger,
-            ERRORS: RhoSync.ERRORS,
+            ERRORS: RhoConnect.ERRORS,
             deferredMapOn: deferredMapOn,
             passRejectTo: passRejectTo
         };
     }
 
-    var rho = RhoSync.rho;
+    var rho = RhoConnect.rho;
 
     function Logger(name) {
 
@@ -123,6 +123,6 @@
     }
 
     $.extend(rho, publicInterface());
-    $.extend(RhoSync, {Logger: Logger});
+    $.extend(RhoConnect, {Logger: Logger});
 
 })(jQuery);

@@ -4,22 +4,22 @@ if(Ext){(function($, Ext) {
 
     /**
      * @author DmitryP@rhomobile.com
-     * @class Ext.data.RhosyncStorageProxy
+     * @class Ext.data.RhoconnectStorageProxy
      * @extends Ext.data.ClientProxy
      *
-     * <p>The RhosyncStorageProxy uses the new HTML5 WebSQL API to save {@link Ext.data.Model Model} data locally on
-     * the client browser in the database instance with Rhosync schema.</p>
+     * <p>The RhoconnectStorageProxy uses the new HTML5 WebSQL API to save {@link Ext.data.Model Model} data locally on
+     * the client browser in the database instance with Rhoconnect schema.</p>
      *
      * @constructor
-     * Creates the proxy, throws an error if Rhosync WebSQL database is not available
+     * Creates the proxy, throws an error if Rhoconnect WebSQL database is not available
      * @param {Object} config Optional config object
      */
-    Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
+    Ext.data.RhoconnectStorageProxy = Ext.extend(Ext.data.ClientProxy, {
 
-        LOG: new RhoSync.rho.Logger('Rhosync.plugin-extjs.js'),
+        LOG: new RhoConnect.rho.Logger('Rhoconnect.plugin-extjs.js'),
 
         /**
-         * @cfg {String} dbName The Rhosync database instance name to store all record data
+         * @cfg {String} dbName The Rhoconnect database instance name to store all record data
          */
         dbName: undefined,
 
@@ -27,21 +27,21 @@ if(Ext){(function($, Ext) {
          * @ignore
          */
         constructor: function(config) {
-            Ext.data.RhosyncStorageProxy.superclass.constructor.call(this, config);
+            Ext.data.RhoconnectStorageProxy.superclass.constructor.call(this, config);
 
             //ensures that the reader has been instantiated properly
             this.setReader(this.reader);
 
             if (this.getStorageObject() == undefined) {
-                throw "Rhosync Storage is not available, please ensure you have rhosync.js scripts properly loaded";
+                throw "Rhoconnect Storage is not available, please ensure you have rhoconnect.js scripts properly loaded";
             }
 
             //if an dbName is not given, try to use the store's id instead
             this.dbName = this.dbName || (this.store ? this.store.storeId : undefined);
 
             if (this.dbName == undefined) {
-                throw "No database name was provided to the rhosync storage proxy. " +
-                        "See Ext.data.RhosyncStorageProxy documentation for details";
+                throw "No database name was provided to the rhoconnect storage proxy. " +
+                        "See Ext.data.RhoconnectStorageProxy documentation for details";
             }
 
             this.initialize();
@@ -55,7 +55,7 @@ if(Ext){(function($, Ext) {
 
             operation.setStarted();
 
-            var dfrMap = RhoSync.rho.deferredMapOn(records);
+            var dfrMap = RhoConnect.rho.deferredMapOn(records);
 
             $.each(records, function(i, record){
                 if (record.phantom) {
@@ -150,7 +150,7 @@ if(Ext){(function($, Ext) {
 
             operation.setStarted();
 
-            var dfrMap = RhoSync.rho.deferredMapOn(records);
+            var dfrMap = RhoConnect.rho.deferredMapOn(records);
 
             $.each(records, function(i, record){
                 that.setRecord(record).done(function(record){
@@ -184,7 +184,7 @@ if(Ext){(function($, Ext) {
 
             operation.setStarted();
 
-            var dfrMap = RhoSync.rho.deferredMapOn(records);
+            var dfrMap = RhoConnect.rho.deferredMapOn(records);
 
             $.each(records, function(i, record){
                 that.removeRecord(record).done(function(record){
@@ -417,7 +417,7 @@ if(Ext){(function($, Ext) {
                             +' update_type'
                             +' ) VALUES (?, ?, ?, ?, ?)';
 
-                    //var dfrMap = RhoSync.rho.deferredMapOn(fields);
+                    //var dfrMap = RhoConnect.rho.deferredMapOn(fields);
                     storage.rwTx().ready(function(db, tx){
                         $.each(fields, function(i, field) {
                             var name = field.name;
@@ -477,7 +477,7 @@ if(Ext){(function($, Ext) {
         },
 
         /**
-         * Physically removes a given record from the rhosync storage. Used internally by {@link #destroy}.
+         * Physically removes a given record from the rhoconnect storage. Used internally by {@link #destroy}.
          * @param {Ext.data.Model} record The model instance
          * @param {String} id The id of record to remove
          */
@@ -574,7 +574,7 @@ if(Ext){(function($, Ext) {
 
         /**
          * @private
-         * Physically removes a given record from the rhosync storage. Used internally by {@link #destroy}, which you should
+         * Physically removes a given record from the rhoconnect storage. Used internally by {@link #destroy}, which you should
          * use instead because it updates the list of currently-stored record ids
          * @param {String|Number|Ext.data.Model} id The id of the record to remove, or an Ext.data.Model instance
          */
@@ -622,7 +622,7 @@ if(Ext){(function($, Ext) {
          * @return {Object} The storage object
          */
         getStorageObject: function() {
-            return RhoSync.rho.storage;
+            return RhoConnect.rho.storage;
         },
 
         getNextId: function() {
@@ -632,6 +632,6 @@ if(Ext){(function($, Ext) {
         }
     });
 
-    Ext.data.ProxyMgr.registerType('rhosync', Ext.data.RhosyncStorageProxy);
+    Ext.data.ProxyMgr.registerType('rhoconnect', Ext.data.RhoconnectStorageProxy);
 
 })(jQuery, Ext)}

@@ -3,12 +3,12 @@ Sample Application Specification
 
 ## Purpose
 
-To demonstrate Rhosync protocol support and javascript API using.
+To demonstrate Rhoconnect protocol support and javascript API using.
 
 ## General Requirements
 
 Sample application needs to be implemented using jQuery and jQuery Mobule. No any specific persistence API needs to
-be used at the moment. All javascript libraries and html files should be load from the same server as Rhosync runs on.
+be used at the moment. All javascript libraries and html files should be load from the same server as Rhoconnect runs on.
 
 ## User interface
 
@@ -74,29 +74,29 @@ This code should be used to initialize API:
         };
     </script>
 
-    <script type="text/javascript" language="javascript" src="../javascript/rhosync/rhosync.js"></script>
-    <script type="text/javascript" language="javascript" src="../javascript/rhosync/rhosync.common.js"></script>
-    <script type="text/javascript" language="javascript" src="../javascript/rhosync/rhosync.protocol.js"></script>
-    <script type="text/javascript" language="javascript" src="../javascript/rhosync/rhosync.domain.js"></script>
-    <script type="text/javascript" language="javascript" src="../javascript/rhosync/rhosync.storage.js"></script>
-    <script type="text/javascript" language="javascript" src="../javascript/rhosync/rhosync.engine.js"></script>
-    <script type="text/javascript" language="javascript" src="../javascript/rhosync/rhosync.notify.js"></script>
+    <script type="text/javascript" language="javascript" src="../javascript/rhoconnect/rhoconnect.js"></script>
+    <script type="text/javascript" language="javascript" src="../javascript/rhoconnect/rhoconnect.common.js"></script>
+    <script type="text/javascript" language="javascript" src="../javascript/rhoconnect/rhoconnect.protocol.js"></script>
+    <script type="text/javascript" language="javascript" src="../javascript/rhoconnect/rhoconnect.domain.js"></script>
+    <script type="text/javascript" language="javascript" src="../javascript/rhoconnect/rhoconnect.storage.js"></script>
+    <script type="text/javascript" language="javascript" src="../javascript/rhoconnect/rhoconnect.engine.js"></script>
+    <script type="text/javascript" language="javascript" src="../javascript/rhoconnect/rhoconnect.notify.js"></script>
 
 ## API using sample
 
 To login/logout:
 
-    rhosync.login(userlogin, userpass, new rhosync.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
-    rhosync.logout().done(okHdlr).fail(errHdlr);
+    rhoconnect.login(userlogin, userpass, new rhoconnect.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
+    rhoconnect.logout().done(okHdlr).fail(errHdlr);
 
 To change attributes or insert new ones on client side:
 
     var q ="INSERT INTO changed_values (source_id,object,attrib,value,update_type,sent) VALUES (1,5266,'zip2','value12345','create',5)";
-    rhosync.rho.storage.executeSql(q).done(okHdlr).fail(errHdlr);
+    rhoconnect.rho.storage.executeSql(q).done(okHdlr).fail(errHdlr);
 
 To fire the synchronization:
 
-    rhosync.syncAllSources().done(okHdlr).fail(errHdlr)
+    rhoconnect.syncAllSources().done(okHdlr).fail(errHdlr)
 
 Where *errHdlr* and *okHdlr* are handler functions like:
 

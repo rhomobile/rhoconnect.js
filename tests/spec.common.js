@@ -25,7 +25,7 @@ beforeEach(function() {
     userpass = "userpass";
     wrongpass = "wrongpass";
 
-    rhosync = RhoSync;
+    rhoconnect = RhoConnect;
     notified = false;
     notify = function(evt, obj){
         jasmine.log(evt.type + ': ' + $.toJSON(obj));

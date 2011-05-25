@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!--<meta http-equiv="Content-Type" content="text/html; charset=utf-8">-->
+        <title>RhoConnect.js demo</title>
+
+        <link href="rhoconnect-sencha/sencha/sencha-touch.css" rel="stylesheet" type="text/css" />
+        <link href="rhoconnect-sencha/application.css" rel="stylesheet" type="text/css" />
+
+      <% if 'development' == ENV['RACK_ENV'] %>
+          <script type="text/javascript" language="javascript" src="../external/jquery/jquery-1.5.2.js"></script>
+      <% else %>
+          <script type="text/javascript" language="javascript" src="../external/jquery/jquery-1.5.2.min.js"></script>
+      <% end %>
+        <script type="text/javascript" language="javascript" src="../external/jquery/json.js"></script>
+        <script type="text/javascript" language="javascript" src="../external/jquery/jquery.base64.js"></script>
+        <script type="text/javascript" language="javascript" src="rhoconnect-sencha/sencha/sencha-touch.js"></script>
+        <script type="text/javascript" language="javascript" src="rhoconnect-sencha/sencha/cardHistoryLayout.js"></script>
+
+        <script type="text/javascript">
+            var syncUrl = '';
+            <% if 'development' == ENV['RACK_ENV'] %>
+                // For cross-domain configuration
+                syncUrl = 'http://192.168.0.21:9292/application';
+                // For non-cross-domain use this settings:
+                //syncUrl = window.location.protocol +'//' +window.location.host +'/application';
+            <% else %>
+                syncUrl = 'http://192.168.0.21:9292/application';
+                //syncUrl = 'http://rhoconnect-js-server/application';
+                //syncUrl = 'http://rhodes-store-server.heroku.com/application';
+            <% end %>
+
+            RhoConfig = {
+                syncServer: syncUrl,
+                logLevel: 'trace'
+            };
+        </script>
+      <% if 'development' == ENV['RACK_ENV'] %>
+        <script type="text/javascript" language="javascript" src="../js/rhoconnect.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhoconnect.common.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhoconnect.protocol.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhoconnect.domain.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhoconnect.storage.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhoconnect.engine.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhoconnect.notify.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhoconnect.plugin-extjs.js"></script>
+      <% else %>
+        <script type="text/javascript" src="../distrib/rhoconnect-0_9.min.js"></script>
+      <% end %>
+        <script type="text/javascript" language="javascript" src="rhoconnect-sencha/application.js"></script>
+    </head>
+    <body></body>
+</html>

@@ -9,7 +9,7 @@
         };
     }
 
-    var rho = RhoSync.rho;
+    var rho = RhoConnect.rho;
 
     var ACTIONS = {
         'none': 0,
@@ -453,6 +453,6 @@
     $.extend(rho, {
         notify: publicInterface()
     });
-    $.extend(RhoSync, {SyncNotification: SyncNotification});
+    $.extend(RhoConnect, {SyncNotification: SyncNotification});
 
 })(jQuery);

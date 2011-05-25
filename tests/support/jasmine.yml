@@ -12,7 +12,7 @@
 #
 src_files:
     - public/javascript/jquery-1.5.js
-    - public/rhosync/**/*.js
+    - public/rhoconnect/**/*.js
 
 # stylesheets
 #

@@ -20,13 +20,13 @@ src_dir = "js"
 build_dir = "build"
 dist_dir = "distrib"
 
-max_name = "rhosync-"+ver+".js"
-min_name = "rhosync-"+ver+".min.js"
-max_ext_name = "rhosync.ext-"+ver+".js"
-min_ext_name = "rhosync.ext-"+ver+".min.js"
-zip_name = "rhosync-"+ver+".zip"
+max_name = "rhoconnect-"+ver+".js"
+min_name = "rhoconnect-"+ver+".min.js"
+max_ext_name = "rhoconnect.ext-"+ver+".js"
+min_ext_name = "rhoconnect.ext-"+ver+".min.js"
+zip_name = "rhoconnect-"+ver+".zip"
 
-desc "Build rhosync.js client package"
+desc "Build rhoconnect.js client package"
 task :clean do
   rm_rf dist_dir
 end
@@ -34,22 +34,22 @@ end
 
 namespace "build" do
 
-  desc "Build rhosync.js client package"
-  task :rhosync_js do
+  desc "Build rhoconnect.js client package"
+  task :rhoconnect_js do
 
     mkdir_p dist_dir
 
     #cp_r src_dir, tmp_dir, :preserve => true
 
     modnames = [
-        "rhosync.js",
-        "rhosync.common.js",
-        "rhosync.protocol.js",
-        "rhosync.domain.js",
-        "rhosync.storage.js",
-        "rhosync.engine.js",
-        "rhosync.notify.js",
-        "rhosync.plugin-extjs.js"
+        "rhoconnect.js",
+        "rhoconnect.common.js",
+        "rhoconnect.protocol.js",
+        "rhoconnect.domain.js",
+        "rhoconnect.storage.js",
+        "rhoconnect.engine.js",
+        "rhoconnect.notify.js",
+        "rhoconnect.plugin-extjs.js"
     ]
 
     File.open(dist_dir+"/"+max_name, "w") do |of|

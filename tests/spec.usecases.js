@@ -1,11 +1,11 @@
-describe("RhoSync use cases", function(){
+describe("RhoConnect use cases", function(){
 
     describe("API", function(){
         it("should have methods defined", function() {
-            expect(rhosync.rho.notify.SyncNotification).toBeDefined();
-            expect(rhosync.isLoggedIn).toBeDefined();
-            expect(rhosync.login).toBeDefined();
-            expect(rhosync.logout).toBeDefined();
+            expect(rhoconnect.rho.notify.SyncNotification).toBeDefined();
+            expect(rhoconnect.isLoggedIn).toBeDefined();
+            expect(rhoconnect.login).toBeDefined();
+            expect(rhoconnect.logout).toBeDefined();
         });
 
     });
@@ -16,7 +16,7 @@ describe("RhoSync use cases", function(){
             var okHdlr = jasmine.createSpy('for ok');
             var errHdlr = jasmine.createSpy('for errors');
 
-            expect(rhosync.init).toBeDefined();
+            expect(rhoconnect.init).toBeDefined();
 
             var models = [
                 {name: 'Product', fields: [
@@ -36,9 +36,9 @@ describe("RhoSync use cases", function(){
                     ]}*/
             ];
 
-            rhosync.init(models, 'native', null /*no progress update callback*/, false /*no data resey*/).done(okHdlr).fail(errHdlr);
+            rhoconnect.init(models, 'native', null /*no progress update callback*/, false /*no data resey*/).done(okHdlr).fail(errHdlr);
 
-            waitsForSpies([okHdlr, errHdlr], 'RhoSync init timeout', 3000);
+            waitsForSpies([okHdlr, errHdlr], 'RhoConnect init timeout', 3000);
             runs(function(){
                 expect(errHdlr).not.toHaveBeenCalled();
                 if(0 < errHdlr.callCount) {
@@ -46,16 +46,16 @@ describe("RhoSync use cases", function(){
                     jasmine.log(errHdlr.mostRecentCall.args);
                 }
 
-                expect(rhosync.rho.getModels()).toBeDefined('models map');
-                expect(rhosync.rho.engine.getSources()).toBeDefined('sources map');
+                expect(rhoconnect.rho.getModels()).toBeDefined('models map');
+                expect(rhoconnect.rho.engine.getSources()).toBeDefined('sources map');
 
-                expect(rhosync.rho.getModels().Product).toBeSet('Product model');
-                expect(rhosync.rho.getModels().Product.name).toBeSet('Product model');
-                expect(rhosync.rho.engine.getSources().Product).toBeSet('Product source');
-                expect(rhosync.rho.engine.getSources().Product.name).toBeSet('Product source');
-                expect(rhosync.rho.engine.getSources().Product.id).toBeGreaterThan(0);
-                expect(rhosync.rho.getModels().Product.name).toEqual(rhosync.rho.engine.getSources().Product.name);
-                jasmine.log(rhosync.rho.getModels().Product.name +' source id = ' +rhosync.rho.engine.getSources().Product.id);
+                expect(rhoconnect.rho.getModels().Product).toBeSet('Product model');
+                expect(rhoconnect.rho.getModels().Product.name).toBeSet('Product model');
+                expect(rhoconnect.rho.engine.getSources().Product).toBeSet('Product source');
+                expect(rhoconnect.rho.engine.getSources().Product.name).toBeSet('Product source');
+                expect(rhoconnect.rho.engine.getSources().Product.id).toBeGreaterThan(0);
+                expect(rhoconnect.rho.getModels().Product.name).toEqual(rhoconnect.rho.engine.getSources().Product.name);
+                jasmine.log(rhoconnect.rho.getModels().Product.name +' source id = ' +rhoconnect.rho.engine.getSources().Product.id);
             });
         });
     });
@@ -63,16 +63,16 @@ describe("RhoSync use cases", function(){
 /*
     describe("USE CASE: User login with proper credentials", function(){
         beforeEach(function(){
-            rhosync.logout();
+            rhoconnect.logout();
         });
 
         it("should login ok with proper credentials", function() {
             var okHdlr = jasmine.createSpy('for ok');
             var errHdlr = jasmine.createSpy('for errors');
 
-            expect(rhosync.isLoggedIn()).not.toBeTruthy();
+            expect(rhoconnect.isLoggedIn()).not.toBeTruthy();
 
-            rhosync.login(userlogin, userpass, new rhosync.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
+            rhoconnect.login(userlogin, userpass, new rhoconnect.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
 
             waitsForSpies([okHdlr, errHdlr], 'login timeout');
             runs(function(){
@@ -82,23 +82,23 @@ describe("RhoSync use cases", function(){
                     jasmine.log(errHdlr.mostRecentCall.args);
                 }
                 expect(okHdlr).toHaveBeenCalled();
-                expect(rhosync.isLoggedIn()).toBeTruthy();
+                expect(rhoconnect.isLoggedIn()).toBeTruthy();
             });
         });
     });
 
     describe("USE CASE: User login with wrong credentials", function(){
         beforeEach(function(){
-            rhosync.logout();
+            rhoconnect.logout();
         });
 
         it("should fail", function() {
             var okHdlr = jasmine.createSpy('for ok');
             var errHdlr = jasmine.createSpy('for errors');
 
-            expect(rhosync.isLoggedIn()).not.toBeTruthy();
+            expect(rhoconnect.isLoggedIn()).not.toBeTruthy();
 
-            rhosync.login(userlogin, wrongpass, new rhosync.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
+            rhoconnect.login(userlogin, wrongpass, new rhoconnect.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
 
             waitsForSpies([okHdlr, errHdlr], 'login timeout');
             runs(function(){
@@ -108,7 +108,7 @@ describe("RhoSync use cases", function(){
                     jasmine.log(okHdlr.mostRecentCall.args);
                 }
                 expect(errHdlr).toHaveBeenCalled();
-                expect(rhosync.isLoggedIn()).not.toBeTruthy();
+                expect(rhoconnect.isLoggedIn()).not.toBeTruthy();
             });
         });
     });
@@ -116,7 +116,7 @@ describe("RhoSync use cases", function(){
     describe("USE CASE: User logout", function(){
         beforeEach(function(){
             //runs(function(){
-                rhosync.login(userlogin, userpass, new rhosync.rho.notify.SyncNotification());
+                rhoconnect.login(userlogin, userpass, new rhoconnect.rho.notify.SyncNotification());
             //});
         });
 
@@ -125,8 +125,8 @@ describe("RhoSync use cases", function(){
             var errHdlr = jasmine.createSpy('for errors');
 
             runs(function(){
-                expect(rhosync.isLoggedIn()).toBeTruthy();
-                rhosync.logout().done(okHdlr).fail(errHdlr);
+                expect(rhoconnect.isLoggedIn()).toBeTruthy();
+                rhoconnect.logout().done(okHdlr).fail(errHdlr);
             });
 
             waitsForSpies([okHdlr, errHdlr], 'logout timeout');
@@ -137,7 +137,7 @@ describe("RhoSync use cases", function(){
                     jasmine.log(errHdlr.mostRecentCall.args);
                 }
                 expect(okHdlr).toHaveBeenCalled();
-                expect(rhosync.isLoggedIn()).not.toBeTruthy();
+                expect(rhoconnect.isLoggedIn()).not.toBeTruthy();
             });
         });
     });
@@ -148,12 +148,12 @@ describe("RhoSync use cases", function(){
         var okHdlr = jasmine.createSpy('for ok');
         var errHdlr = jasmine.createSpy('for errors');
 
-        expect(rhosync.rho.notify.SyncNotification).toBeDefined();
-        expect(rhosync.login).toBeDefined();
-        expect(rhosync.isLoggedIn).toBeDefined();
+        expect(rhoconnect.rho.notify.SyncNotification).toBeDefined();
+        expect(rhoconnect.login).toBeDefined();
+        expect(rhoconnect.isLoggedIn).toBeDefined();
 
         runs(function(){
-            rhosync.login(userlogin, userpass, new rhosync.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
+            rhoconnect.login(userlogin, userpass, new rhoconnect.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
         });
 
         waitsForSpies([okHdlr, errHdlr], 'login timeout');
@@ -164,7 +164,7 @@ describe("RhoSync use cases", function(){
                 jasmine.log(errHdlr.mostRecentCall.args);
             }
             expect(okHdlr).toHaveBeenCalled();
-            expect(rhosync.isLoggedIn()).toBeTruthy();
+            expect(rhoconnect.isLoggedIn()).toBeTruthy();
         });
     });
 
@@ -172,12 +172,12 @@ describe("RhoSync use cases", function(){
         var okHdlr = jasmine.createSpy('for ok');
         var errHdlr = jasmine.createSpy('for errors');
 
-        expect(rhosync.logout).toBeDefined();
-        expect(rhosync.isLoggedIn).toBeDefined();
+        expect(rhoconnect.logout).toBeDefined();
+        expect(rhoconnect.isLoggedIn).toBeDefined();
 
         runs(function(){
             jasmine.log('login');
-            rhosync.login(userlogin, userpass, new rhosync.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
+            rhoconnect.login(userlogin, userpass, new rhoconnect.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
         });
 
         waitsForSpies([okHdlr, errHdlr], 'login timeout');
@@ -188,12 +188,12 @@ describe("RhoSync use cases", function(){
                 jasmine.log(errHdlr.mostRecentCall.args);
             }
             expect(okHdlr).toHaveBeenCalled();
-            expect(rhosync.isLoggedIn()).toBeTruthy();
+            expect(rhoconnect.isLoggedIn()).toBeTruthy();
         });
 
         runs(function(){
             jasmine.log('logout');
-            rhosync.logout().done(okHdlr).fail(errHdlr);
+            rhoconnect.logout().done(okHdlr).fail(errHdlr);
         });
 
         waitsForSpies([okHdlr, errHdlr], 'logout timeout');
@@ -204,7 +204,7 @@ describe("RhoSync use cases", function(){
                 jasmine.log(errHdlr.mostRecentCall.args);
             }
             expect(okHdlr).toHaveBeenCalled();
-            expect(rhosync.isLoggedIn()).not.toBeTruthy();
+            expect(rhoconnect.isLoggedIn()).not.toBeTruthy();
         });
     });
 
@@ -212,11 +212,11 @@ describe("RhoSync use cases", function(){
         var okHdlr = jasmine.createSpy('for ok');
         var errHdlr = jasmine.createSpy('for errors');
 
-        expect(rhosync.rho.notify.SyncNotification).toBeDefined();
-        expect(rhosync.login).toBeDefined();
-        expect(rhosync.isLoggedIn).toBeDefined();
+        expect(rhoconnect.rho.notify.SyncNotification).toBeDefined();
+        expect(rhoconnect.login).toBeDefined();
+        expect(rhoconnect.isLoggedIn).toBeDefined();
 
-        rhosync.login(userlogin, wrongpass, new rhosync.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
+        rhoconnect.login(userlogin, wrongpass, new rhoconnect.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
 
         waitsForSpies([okHdlr, errHdlr], 'login timeout');
         runs(function(){
@@ -226,7 +226,7 @@ describe("RhoSync use cases", function(){
                 jasmine.log(okHdlr.mostRecentCall.args);
             }
             expect(errHdlr).toHaveBeenCalled();
-            expect(rhosync.isLoggedIn()).not.toBeTruthy();
+            expect(rhoconnect.isLoggedIn()).not.toBeTruthy();
         });
     });
 
@@ -235,12 +235,12 @@ describe("RhoSync use cases", function(){
         var okHdlr = jasmine.createSpy('for ok');
         var errHdlr = jasmine.createSpy('for errors');
 
-        expect(rhosync.rho.notify.SyncNotification).toBeDefined();
-        expect(rhosync.login).toBeDefined();
-        expect(rhosync.syncAllSources).toBeDefined();
+        expect(rhoconnect.rho.notify.SyncNotification).toBeDefined();
+        expect(rhoconnect.login).toBeDefined();
+        expect(rhoconnect.syncAllSources).toBeDefined();
 
         runs(function(){
-            rhosync.login(userlogin, userpass, new rhosync.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
+            rhoconnect.login(userlogin, userpass, new rhoconnect.rho.notify.SyncNotification()).done(okHdlr).fail(errHdlr);
         });
 
         waitsForSpies([okHdlr, errHdlr], 'login timeout');
@@ -251,12 +251,12 @@ describe("RhoSync use cases", function(){
                 jasmine.log(errHdlr.mostRecentCall.args);
             }
             expect(okHdlr).toHaveBeenCalled();
-            expect(rhosync.isLoggedIn()).toBeTruthy();
+            expect(rhoconnect.isLoggedIn()).toBeTruthy();
         });
 
         runs(function(){
             var q ="INSERT INTO changed_values (source_id,object,attrib,value,update_type,sent) VALUES (1,5266,'zip','test-value-12345','update',0)";
-            rhosync.rho.storage.executeSql(q).done(okHdlr).fail(errHdlr);
+            rhoconnect.rho.storage.executeSql(q).done(okHdlr).fail(errHdlr);
         });
         waitsForSpies([okHdlr, errHdlr], 'changed value insert');
         runs(function(){
@@ -266,11 +266,11 @@ describe("RhoSync use cases", function(){
                 jasmine.log(errHdlr.mostRecentCall.args);
             }
             expect(okHdlr).toHaveBeenCalled();
-            expect(rhosync.isLoggedIn()).toBeTruthy();
+            expect(rhoconnect.isLoggedIn()).toBeTruthy();
         });
 
         runs(function(){
-            rhosync.syncAllSources().done(okHdlr).fail(errHdlr)
+            rhoconnect.syncAllSources().done(okHdlr).fail(errHdlr)
         });
 /*
 
@@ -282,7 +282,7 @@ describe("RhoSync use cases", function(){
                 jasmine.log(errHdlr.mostRecentCall.args);
             }
             expect(okHdlr).toHaveBeenCalled();
-            expect(rhosync.isLoggedIn()).toBeTruthy();
+            expect(rhoconnect.isLoggedIn()).toBeTruthy();
         });
 */
     });

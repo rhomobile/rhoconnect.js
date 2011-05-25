@@ -1,4 +1,4 @@
-var RhoSync = (function($) {
+var RhoConnect = (function($) {
 
     function publicInterface() {
         return {
@@ -16,10 +16,10 @@ var RhoSync = (function($) {
         consoleServer: '',
         pollInterval: 20,
         database: {
-            namePrefix: 'rhoSyncDb_',
+            namePrefix: 'rhoConnectDb_',
             name: 'UNINITIALIZED',
             version: '1.0',
-            comment: 'RhoSync database',
+            comment: 'RhoConnect database',
             size: (2*1024*1024)
         }
     };
@@ -41,12 +41,12 @@ var RhoSync = (function($) {
     };
 
     var EVENTS = {
-        GENERIC_NOTIFICATION: 'rhoSyncGenericNotification',
-        ERROR: 'rhoSyncError',
-        CLIENT_CREATED: 'rhoSyncClientCreated',
-        STATUS_CHANGED: 'rhoSyncStatusChanged',
-        SYNCHRONIZING: 'rhoSyncSourceSynchronizing',
-        SYNC_SOURCE_END: 'rhoSyncSourceSynchronizationEnd'
+        GENERIC_NOTIFICATION: 'rhoConnectGenericNotification',
+        ERROR: 'rhoConnectError',
+        CLIENT_CREATED: 'rhoConnectClientCreated',
+        STATUS_CHANGED: 'rhoConnectStatusChanged',
+        SYNCHRONIZING: 'rhoConnectSourceSynchronizing',
+        SYNC_SOURCE_END: 'rhoConnectSourceSynchronizationEnd'
     };
 
     function init(modelDefs, storageType, syncProgressCb, doReset) {
@@ -253,7 +253,7 @@ var RhoSync = (function($) {
         });
     }
 
-    // rhosync internal parts we _have_to_ make a public
+    // rhoconnect internal parts we _have_to_ make a public
     var rho = {
         config: $.extend({}, defaults, RhoConfig),
         EVENTS: EVENTS,

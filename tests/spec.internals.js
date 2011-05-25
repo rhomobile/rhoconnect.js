@@ -1,6 +1,6 @@
-describe("RhoSync", function() {
+describe("RhoConnect", function() {
     it("able to be configured", function() {
-        expect(rhosync.rho.config.syncServer).toEqual(syncUrl);
+        expect(rhoconnect.rho.config.syncServer).toEqual(syncUrl);
     });
 
     it("is able to be initialized with models", function() {
@@ -8,7 +8,7 @@ describe("RhoSync", function() {
         var okHdlr = jasmine.createSpy('for ok');
         var errHdlr = jasmine.createSpy('for errors');
 
-        expect(rhosync.init).toBeDefined();
+        expect(rhoconnect.init).toBeDefined();
 
         var models = [
             {name: 'Product', fields: [
@@ -25,34 +25,34 @@ describe("RhoSync", function() {
                 ]}
         ];
 
-        rhosync.init(models /*, 'native'*/).done(okHdlr).fail(errHdlr);
+        rhoconnect.init(models /*, 'native'*/).done(okHdlr).fail(errHdlr);
 
-        waitsForSpies([okHdlr, errHdlr], 'RhoSync init timeout', 3000);
+        waitsForSpies([okHdlr, errHdlr], 'RhoConnect init timeout', 3000);
         runs(function(){
             expect(errHdlr).not.toHaveBeenCalled();
             if(0 < errHdlr.callCount) jasmine.log(errHdlr.mostRecentCall.args);
 
-            expect(rhosync.rho.getModels()).toBeDefined('models map');
-            expect(rhosync.rho.engine.getSources()).toBeDefined('sources map');
+            expect(rhoconnect.rho.getModels()).toBeDefined('models map');
+            expect(rhoconnect.rho.engine.getSources()).toBeDefined('sources map');
 
-            expect(rhosync.rho.getModels().Product).toBeSet('Product model');
-            expect(rhosync.rho.getModels().Product.name).toBeSet('Product model');
-            expect(rhosync.rho.engine.getSources().Product).toBeSet('Product model');
-            expect(rhosync.rho.engine.getSources().Product.name).toBeSet('Product model');
-            expect(rhosync.rho.engine.getSources().Product.id).toBeGreaterThan(0);
-            expect(rhosync.rho.getModels().Product.name).toEqual(rhosync.rho.engine.getSources().Product.name);
-            jasmine.log(rhosync.rho.getModels().Product.name +' source id = ' +rhosync.rho.engine.getSources().Product.id);
+            expect(rhoconnect.rho.getModels().Product).toBeSet('Product model');
+            expect(rhoconnect.rho.getModels().Product.name).toBeSet('Product model');
+            expect(rhoconnect.rho.engine.getSources().Product).toBeSet('Product model');
+            expect(rhoconnect.rho.engine.getSources().Product.name).toBeSet('Product model');
+            expect(rhoconnect.rho.engine.getSources().Product.id).toBeGreaterThan(0);
+            expect(rhoconnect.rho.getModels().Product.name).toEqual(rhoconnect.rho.engine.getSources().Product.name);
+            jasmine.log(rhoconnect.rho.getModels().Product.name +' source id = ' +rhoconnect.rho.engine.getSources().Product.id);
 
-            expect(rhosync.rho.getModels().Order).toBeSet('Order model');
-            expect(rhosync.rho.getModels().Order.name).toBeSet('Order model');
-            expect(rhosync.rho.engine.getSources().Order).toBeSet('Order model');
-            expect(rhosync.rho.engine.getSources().Order.name).toBeSet('Order model');
-            expect(rhosync.rho.engine.getSources().Order.id).toBeGreaterThan(0);
-            expect(rhosync.rho.getModels().Order.name).toEqual(rhosync.rho.engine.getSources().Order.name);
-            jasmine.log(rhosync.rho.getModels().Order.name +' source id = ' +rhosync.rho.engine.getSources().Order.id);
+            expect(rhoconnect.rho.getModels().Order).toBeSet('Order model');
+            expect(rhoconnect.rho.getModels().Order.name).toBeSet('Order model');
+            expect(rhoconnect.rho.engine.getSources().Order).toBeSet('Order model');
+            expect(rhoconnect.rho.engine.getSources().Order.name).toBeSet('Order model');
+            expect(rhoconnect.rho.engine.getSources().Order.id).toBeGreaterThan(0);
+            expect(rhoconnect.rho.getModels().Order.name).toEqual(rhoconnect.rho.engine.getSources().Order.name);
+            jasmine.log(rhoconnect.rho.getModels().Order.name +' source id = ' +rhoconnect.rho.engine.getSources().Order.id);
 
-            expect(rhosync.rho.engine.getSources().Product.name).not.toEqual(rhosync.rho.engine.getSources().Order.name);
-            expect(rhosync.rho.engine.getSources().Product.id).not.toEqual(rhosync.rho.engine.getSources().Order.id);
+            expect(rhoconnect.rho.engine.getSources().Product.name).not.toEqual(rhoconnect.rho.engine.getSources().Order.name);
+            expect(rhoconnect.rho.engine.getSources().Product.id).not.toEqual(rhoconnect.rho.engine.getSources().Order.id);
         });
     });
 
@@ -61,9 +61,9 @@ describe("RhoSync", function() {
 
         var okHdlr = jasmine.createSpy('ajax handler spy');
 
-        $(window).bind(rhosync.rho.EVENTS.GENERIC_NOTIFICATION, null, notify);
+        $(window).bind(rhoconnect.rho.EVENTS.GENERIC_NOTIFICATION, null, notify);
 
-        rhosync.rho.protocol.login(userlogin, userpass).done(function(data, response){
+        rhoconnect.rho.protocol.login(userlogin, userpass).done(function(data, response){
             okHdlr("success", response);
         }).fail(function(data, response){
             okHdlr("error", response);
@@ -73,7 +73,7 @@ describe("RhoSync", function() {
         runs(function(){
             expect(okHdlr).toHaveBeenCalledWith("success", null);
             expect(notified).toBeTruthy();
-            $(window).unbind(rhosync.rho.EVENTS.GENERIC_NOTIFICATION, notify);
+            $(window).unbind(rhoconnect.rho.EVENTS.GENERIC_NOTIFICATION, notify);
         });
     });
 
@@ -82,9 +82,9 @@ describe("RhoSync", function() {
 
         var okHdlr = jasmine.createSpy('ajax handler spy');
 
-        $(window).bind(rhosync.rho.EVENTS.GENERIC_NOTIFICATION, null, notify);
+        $(window).bind(rhoconnect.rho.EVENTS.GENERIC_NOTIFICATION, null, notify);
 
-        rhosync.rho.protocol.login(userlogin, wrongpass).done(function(data, response){
+        rhoconnect.rho.protocol.login(userlogin, wrongpass).done(function(data, response){
             okHdlr("success", response);
         }).fail(function(data, response){
             okHdlr("error", response);
@@ -94,7 +94,7 @@ describe("RhoSync", function() {
         runs(function(){
             expect(okHdlr).toHaveBeenCalledWith("error", "Unauthorized");
             expect(notified).toBeTruthy();
-            $(window).unbind(rhosync.rho.EVENTS.GENERIC_NOTIFICATION, notify);
+            $(window).unbind(rhoconnect.rho.EVENTS.GENERIC_NOTIFICATION, notify);
         });
     });
 
@@ -105,8 +105,8 @@ describe("RhoSync", function() {
             var errHdlr = jasmine.createSpy('for errors');
 
             runs(function(){
-                expect(rhosync.rho.storage.open).toBeDefined();
-                rhosync.rho.storage.open().done(okHdlr).fail(errHdlr);
+                expect(rhoconnect.rho.storage.open).toBeDefined();
+                rhoconnect.rho.storage.open().done(okHdlr).fail(errHdlr);
             });
             waitsForSpies([okHdlr, errHdlr], 'open database timeout');
             runs(function(){
@@ -115,8 +115,8 @@ describe("RhoSync", function() {
             });
             runs(function(){
                 try {
-                    expect(rhosync.rho.storage.tx).toBeDefined();
-                    rhosync.rho.storage.tx().ready(okHdlr).fail(errHdlr);
+                    expect(rhoconnect.rho.storage.tx).toBeDefined();
+                    rhoconnect.rho.storage.tx().ready(okHdlr).fail(errHdlr);
                 } catch (ex) {
                     jasmine.log(ex);
                 }
@@ -132,8 +132,8 @@ describe("RhoSync", function() {
             var okHdlr = jasmine.createSpy('for ok');
             var errHdlr = jasmine.createSpy('for errors');
 
-            expect(rhosync.rho.storage.executeSql).toBeDefined();
-            rhosync.rho.storage.executeSql("SELECT name FROM sqlite_master WHERE type='table'", null).done(function(){
+            expect(rhoconnect.rho.storage.executeSql).toBeDefined();
+            rhoconnect.rho.storage.executeSql("SELECT name FROM sqlite_master WHERE type='table'", null).done(function(){
                 okHdlr(arguments);
             }).fail(function(){
                 errHdlr(arguments);
@@ -150,8 +150,8 @@ describe("RhoSync", function() {
             var okHdlr = jasmine.createSpy('for ok');
             var errHdlr = jasmine.createSpy('for errors');
 
-            expect(rhosync.rho.storage.initSchema).toBeDefined();
-            rhosync.rho.storage.initSchema().done(okHdlr).fail(errHdlr);
+            expect(rhoconnect.rho.storage.initSchema).toBeDefined();
+            rhoconnect.rho.storage.initSchema().done(okHdlr).fail(errHdlr);
 
             waitsForSpies([okHdlr, errHdlr], 'db initialization timeout');
             runs(function(){
@@ -160,8 +160,8 @@ describe("RhoSync", function() {
             });
 
             runs(function(){
-                expect(rhosync.rho.storage.getAllTableNames).toBeDefined();
-                rhosync.rho.storage.getAllTableNames().done($.proxy(function(tx, tbNames){
+                expect(rhoconnect.rho.storage.getAllTableNames).toBeDefined();
+                rhoconnect.rho.storage.getAllTableNames().done($.proxy(function(tx, tbNames){
                     okHdlr(arguments);
                     this.names = tbNames;
                 }, this)).done(okHdlr).fail(errHdlr);
@@ -182,27 +182,27 @@ describe("RhoSync", function() {
             var okHdlr = jasmine.createSpy('for ok');
             var errHdlr = jasmine.createSpy('for errors');
 
-            expect(rhosync.rho.engine.Client).toBeDefined();
-            expect(rhosync.rho.storage.listClientsId).toBeDefined();
-            expect(rhosync.rho.storage.insertClient).toBeDefined();
-            expect(rhosync.rho.storage.storeClient).toBeDefined();
-            expect(rhosync.rho.storage.loadClient).toBeDefined();
-            expect(rhosync.rho.storage.deleteClient).toBeDefined();
+            expect(rhoconnect.rho.engine.Client).toBeDefined();
+            expect(rhoconnect.rho.storage.listClientsId).toBeDefined();
+            expect(rhoconnect.rho.storage.insertClient).toBeDefined();
+            expect(rhoconnect.rho.storage.storeClient).toBeDefined();
+            expect(rhoconnect.rho.storage.loadClient).toBeDefined();
+            expect(rhoconnect.rho.storage.deleteClient).toBeDefined();
 
             var id1 = 'testId1_#' +Date.now().toString();
             var id2 = 'testId2_#' +Date.now().toString();
 
             // create clients
-            var client1 = new rhosync.rho.engine.Client(id1);
+            var client1 = new rhoconnect.rho.engine.Client(id1);
             client1.session = "session1";
-            var client2 = new rhosync.rho.engine.Client(id2);
+            var client2 = new rhoconnect.rho.engine.Client(id2);
             client2.session = "session2";
 
             // store them
             runs(function(){
                 jasmine.log('insertClient()');
-                rhosync.rho.storage.insertClient(client1).done(function(){
-                        rhosync.rho.storage.insertClient(client2).done(okHdlr).fail(errHdlr);
+                rhoconnect.rho.storage.insertClient(client1).done(function(){
+                        rhoconnect.rho.storage.insertClient(client2).done(okHdlr).fail(errHdlr);
                 }).fail(errHdlr);
             });
             waitsForSpies([okHdlr, errHdlr], 'clients insert query timeout');
@@ -214,7 +214,7 @@ describe("RhoSync", function() {
             // check there are two clients at least
             runs(function(){
                 jasmine.log('listClientsId()');
-                rhosync.rho.storage.listClientsId().done($.proxy(function(tx, ids){
+                rhoconnect.rho.storage.listClientsId().done($.proxy(function(tx, ids){
                     this.ids = ids;
                     this.idsLengthWithTestClients = ids.length;
                 }, this)).done(okHdlr).fail(errHdlr);
@@ -231,12 +231,12 @@ describe("RhoSync", function() {
             // read and verify clients
             runs(function(){
                 jasmine.log('loadClient()');
-                rhosync.rho.storage.tx().ready($.proxy(function(db, tx){
+                rhoconnect.rho.storage.tx().ready($.proxy(function(db, tx){
                     $.when(
-                            rhosync.rho.storage.loadClient(id1, tx).done($.proxy(function(tx, client){
+                            rhoconnect.rho.storage.loadClient(id1, tx).done($.proxy(function(tx, client){
                                 this.client1 = client;
                             }, this)),
-                            rhosync.rho.storage.loadClient(id2, tx).done($.proxy(function(tx, client){
+                            rhoconnect.rho.storage.loadClient(id2, tx).done($.proxy(function(tx, client){
                                 this.client2 = client;
                             }, this))
                     ).done(okHdlr).fail(errHdlr);
@@ -263,14 +263,14 @@ describe("RhoSync", function() {
                 client1.session = "updatedSession1";
                 client2.session = "updatedSession2";
                 jasmine.log('storeClient()');
-//                rhosync.rho.storage.storeClient(client1).done(function(){
-//                        rhosync.rho.storage.storeClient(client2).done(okHdlr).fail(errHdlr);
+//                rhoconnect.rho.storage.storeClient(client1).done(function(){
+//                        rhoconnect.rho.storage.storeClient(client2).done(okHdlr).fail(errHdlr);
 //                }).fail(errHdlr);
-                rhosync.rho.storage.tx("read-write").ready(function(db, tx){
+                rhoconnect.rho.storage.tx("read-write").ready(function(db, tx){
                     $.when(
-                            rhosync.rho.storage.storeClient(client1, tx).done(function(tx, client){
+                            rhoconnect.rho.storage.storeClient(client1, tx).done(function(tx, client){
                             }),
-                            rhosync.rho.storage.storeClient(client2, tx).done(function(tx, client){
+                            rhoconnect.rho.storage.storeClient(client2, tx).done(function(tx, client){
                             })
                     ).done(function(obj, status){
                         okHdlr(obj, status);
@@ -293,13 +293,13 @@ describe("RhoSync", function() {
             // read and verify updates
             runs(function(){
                 jasmine.log('loadClient()');
-                rhosync.rho.storage.tx().ready($.proxy(function(db, tx){
+                rhoconnect.rho.storage.tx().ready($.proxy(function(db, tx){
                     $.when(
-                            rhosync.rho.storage.loadClient(id1, tx).done($.proxy(function(tx, client){
+                            rhoconnect.rho.storage.loadClient(id1, tx).done($.proxy(function(tx, client){
                                 this.client1 = client;
                                 this.c1 = client;
                             }, this)),
-                            rhosync.rho.storage.loadClient(id2, tx).done($.proxy(function(tx, client){
+                            rhoconnect.rho.storage.loadClient(id2, tx).done($.proxy(function(tx, client){
                                 this.client2 = client;
                                 this.c2 = client;
                             }, this))
@@ -333,9 +333,9 @@ describe("RhoSync", function() {
             // delete them
             runs(function(){
                 jasmine.log('deleteClient()');
-                rhosync.rho.storage.deleteClient(this.client1).done($.proxy(function(tx, client){
+                rhoconnect.rho.storage.deleteClient(this.client1).done($.proxy(function(tx, client){
                     this.client1 = client;
-                    rhosync.rho.storage.deleteClient(this.client2).done($.proxy(function(tx, client){
+                    rhoconnect.rho.storage.deleteClient(this.client2).done($.proxy(function(tx, client){
                         this.client2 = client;
                     }, this)).done(okHdlr).fail(errHdlr);
                 }, this)).fail(errHdlr);
@@ -349,7 +349,7 @@ describe("RhoSync", function() {
             // check there are two clients has been deleted
             runs(function(){
                 jasmine.log('listClientsId()');
-                rhosync.rho.storage.listClientsId().done($.proxy(function(tx, ids){
+                rhoconnect.rho.storage.listClientsId().done($.proxy(function(tx, ids){
                     this.ids = ids;
                 }, this)).done(okHdlr).fail(errHdlr);
             });
@@ -366,12 +366,12 @@ describe("RhoSync", function() {
             // check load failure for absent clients
             runs(function(){
                 jasmine.log('loadClient()');
-                rhosync.rho.storage.tx().ready($.proxy(function(db, tx){
+                rhoconnect.rho.storage.tx().ready($.proxy(function(db, tx){
                     $.when(
-                            rhosync.rho.storage.loadClient(id1, tx).done($.proxy(function(tx, client){
+                            rhoconnect.rho.storage.loadClient(id1, tx).done($.proxy(function(tx, client){
                                 this.client1 = client;
                             }, this)),
-                            rhosync.rho.storage.loadClient(id2, tx).done($.proxy(function(tx, client){
+                            rhoconnect.rho.storage.loadClient(id2, tx).done($.proxy(function(tx, client){
                                 this.client2 = client;
                             }, this))
                     ).done(okHdlr).fail(errHdlr);
@@ -390,27 +390,27 @@ describe("RhoSync", function() {
             var okHdlr = jasmine.createSpy('for ok');
             var errHdlr = jasmine.createSpy('for errors');
 
-            expect(rhosync.rho.engine.Source).toBeDefined();
-            expect(rhosync.rho.storage.listSourcesId).toBeDefined();
-            expect(rhosync.rho.storage.insertSource).toBeDefined();
-            expect(rhosync.rho.storage.storeSource).toBeDefined();
-            expect(rhosync.rho.storage.loadSource).toBeDefined();
-            expect(rhosync.rho.storage.deleteSource).toBeDefined();
+            expect(rhoconnect.rho.engine.Source).toBeDefined();
+            expect(rhoconnect.rho.storage.listSourcesId).toBeDefined();
+            expect(rhoconnect.rho.storage.insertSource).toBeDefined();
+            expect(rhoconnect.rho.storage.storeSource).toBeDefined();
+            expect(rhoconnect.rho.storage.loadSource).toBeDefined();
+            expect(rhoconnect.rho.storage.deleteSource).toBeDefined();
 
             var id1 = 'testId1_#' +Date.now().toString();  // It shouldn't work at all!!! client_id is BIGINT !
             var id2 = 'testId2_#' +Date.now().toString();
 
             // create sources
-            var source1 = new rhosync.rho.engine.Source(id1);
+            var source1 = new rhoconnect.rho.engine.Source(id1);
             source1.name = "name1";
-            var source2 = new rhosync.rho.engine.Source(id2);
+            var source2 = new rhoconnect.rho.engine.Source(id2);
             source2.name = "name2";
 
             // store them
             runs(function(){
                 jasmine.log('insertSource()');
-                rhosync.rho.storage.insertSource(source1).done(function(){
-                        rhosync.rho.storage.insertSource(source2).done(okHdlr).fail(errHdlr);
+                rhoconnect.rho.storage.insertSource(source1).done(function(){
+                        rhoconnect.rho.storage.insertSource(source2).done(okHdlr).fail(errHdlr);
                 }).fail(errHdlr);
             });
             waitsForSpies([okHdlr, errHdlr], 'sources insert query timeout');
@@ -422,7 +422,7 @@ describe("RhoSync", function() {
             // check there are two sources at least
             runs(function(){
                 jasmine.log('listSourcesId()');
-                rhosync.rho.storage.listSourcesId().done($.proxy(function(tx, ids){
+                rhoconnect.rho.storage.listSourcesId().done($.proxy(function(tx, ids){
                     this.ids = ids;
                     this.idsLengthWithTestSources = ids.length;
                 }, this)).done(okHdlr).fail(errHdlr);
@@ -439,12 +439,12 @@ describe("RhoSync", function() {
             // read and verify sources
             runs(function(){
                 jasmine.log('loadSource()');
-                rhosync.rho.storage.tx().ready($.proxy(function(db, tx){
+                rhoconnect.rho.storage.tx().ready($.proxy(function(db, tx){
                     $.when(
-                            rhosync.rho.storage.loadSource(id1, tx).done($.proxy(function(tx, source){
+                            rhoconnect.rho.storage.loadSource(id1, tx).done($.proxy(function(tx, source){
                                 this.source1 = source;
                             }, this)),
-                            rhosync.rho.storage.loadSource(id2, tx).done($.proxy(function(tx, source){
+                            rhoconnect.rho.storage.loadSource(id2, tx).done($.proxy(function(tx, source){
                                 this.source2 = source;
                             }, this))
                     ).done(okHdlr).fail(errHdlr);
@@ -471,14 +471,14 @@ describe("RhoSync", function() {
                 source1.name = "updatedName1";
                 source2.name = "updatedName2";
                 jasmine.log('storeSource()');
-//                rhosync.rho.storage.storeSource(source1).done(function(){
-//                        rhosync.rho.storage.storeSource(source2).done(okHdlr).fail(errHdlr);
+//                rhoconnect.rho.storage.storeSource(source1).done(function(){
+//                        rhoconnect.rho.storage.storeSource(source2).done(okHdlr).fail(errHdlr);
 //                }).fail(errHdlr);
-                rhosync.rho.storage.tx("read-write").ready(function(db, tx){
+                rhoconnect.rho.storage.tx("read-write").ready(function(db, tx){
                     $.when(
-                            rhosync.rho.storage.storeSource(source1, tx).done(function(tx, source){
+                            rhoconnect.rho.storage.storeSource(source1, tx).done(function(tx, source){
                             }),
-                            rhosync.rho.storage.storeSource(source2, tx).done(function(tx, source){
+                            rhoconnect.rho.storage.storeSource(source2, tx).done(function(tx, source){
                             })
                     ).done(function(obj, status){
                         okHdlr(obj, status);
@@ -500,13 +500,13 @@ describe("RhoSync", function() {
             // read and verify updates
             runs(function(){
                 jasmine.log('loadSource()');
-                rhosync.rho.storage.tx().ready($.proxy(function(db, tx){
+                rhoconnect.rho.storage.tx().ready($.proxy(function(db, tx){
                     $.when(
-                            rhosync.rho.storage.loadSource(id1, tx).done($.proxy(function(tx, source){
+                            rhoconnect.rho.storage.loadSource(id1, tx).done($.proxy(function(tx, source){
                                 this.source1 = source;
                                 this.s1 = source;
                             }, this)),
-                            rhosync.rho.storage.loadSource(id2, tx).done($.proxy(function(tx, source){
+                            rhoconnect.rho.storage.loadSource(id2, tx).done($.proxy(function(tx, source){
                                 this.source2 = source;
                                 this.s2 = source;
                             }, this))
@@ -541,9 +541,9 @@ describe("RhoSync", function() {
             // delete them
             runs(function(){
                 jasmine.log('deleteSource()');
-                rhosync.rho.storage.deleteSource(this.source1).done($.proxy(function(tx, source){
+                rhoconnect.rho.storage.deleteSource(this.source1).done($.proxy(function(tx, source){
                     this.source1 = source;
-                    rhosync.rho.storage.deleteSource(this.source2).done($.proxy(function(tx, source){
+                    rhoconnect.rho.storage.deleteSource(this.source2).done($.proxy(function(tx, source){
                         this.source2 = source;
                     }, this)).done(okHdlr).fail(errHdlr);
                 }, this)).fail(errHdlr);
@@ -557,7 +557,7 @@ describe("RhoSync", function() {
             // check there are two sources has been deleted
             runs(function(){
                 jasmine.log('listSourcesId()');
-                rhosync.rho.storage.listSourcesId().done($.proxy(function(tx, ids){
+                rhoconnect.rho.storage.listSourcesId().done($.proxy(function(tx, ids){
                     this.ids = ids;
                 }, this)).done(okHdlr).fail(errHdlr);
             });
@@ -573,12 +573,12 @@ describe("RhoSync", function() {
             // check load failure for absent sources
             runs(function(){
                 jasmine.log('loadSource()');
-                rhosync.rho.storage.tx().ready($.proxy(function(db, tx){
+                rhoconnect.rho.storage.tx().ready($.proxy(function(db, tx){
                     $.when(
-                            rhosync.rho.storage.loadSource(id1, tx).done($.proxy(function(tx, source){
+                            rhoconnect.rho.storage.loadSource(id1, tx).done($.proxy(function(tx, source){
                                 this.source1 = source;
                             }, this)),
-                            rhosync.rho.storage.loadSource(id2, tx).done($.proxy(function(tx, source){
+                            rhoconnect.rho.storage.loadSource(id2, tx).done($.proxy(function(tx, source){
                                 this.source2 = source;
                             }, this))
                     ).done(okHdlr).fail(errHdlr);

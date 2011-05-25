@@ -1,6 +1,6 @@
 (function($, Ext) {
 
-    var LOG = new RhoSync.Logger('application.js');
+    var LOG = new RhoConnect.Logger('application.js');
 
     Ext.setup({
         // Mobile app setup options goes here if needed.
@@ -17,9 +17,9 @@
         initUI();
     }
 
-    // Here is model definitions. RhoSync.js don't need field definitions,
+    // Here is model definitions. RhoConnect.js don't need field definitions,
     // but it is needed for Ext.data.Model instances initializing.
-    // At the moment RhoSync.js stores all values as strings.
+    // At the moment RhoConnect.js stores all values as strings.
     var modelDefinitions = [
         {
             name: 'Product',
@@ -58,7 +58,7 @@
     };
 
     // Edit form definitions. The same as above: fields are needed for Ext.formFormPanel instances.
-    // At the moment RhoSync.js stores all values as strings.
+    // At the moment RhoConnect.js stores all values as strings.
     var editForms = {
         'Product': [
             {xtype: 'textfield', name: 'name', label: 'Name', required: true},
@@ -82,19 +82,19 @@
     };
 
 
-    // RhoSync.js initialization
-    function initRhosync(username, doReset) {
+    // RhoConnect.js initialization
+    function initRhoconnect(username, doReset) {
         // For the case we starting slowly it shows "wait please" message
         var msg = Ext.Msg.alert('Application initialization', 'Wait please..', Ext.emptyFn);
 
-        // At last, initialize RhoSync.js itself and return the promise object
-        return RhoSync.init(modelDefinitions, 'native', syncProgressUpdate, doReset).done(function(){
+        // At last, initialize RhoConnect.js itself and return the promise object
+        return RhoConnect.init(modelDefinitions, 'native', syncProgressUpdate, doReset).done(function(){
             // Initialized, now we can hide (do not destroy, it's kind of singletone) "wait please" message
             msg.hide();
             // Reload all lists
             reloadLists();
         }).fail(function(error){
-            // RhoSync.js hasn't been initialized properly
+            // RhoConnect.js hasn't been initialized properly
             Ext.Msg.alert('Error', error, Ext.emptyFn);
         });
     }
@@ -214,11 +214,11 @@
 
     // Perform login with username and password
     function doLogin(username, password){
-        RhoSync.login(username, password, new RhoSync.SyncNotification()).done(function(){
+        RhoConnect.login(username, password, new RhoConnect.SyncNotification()).done(function(){
             // Store active user name
             activeUserName = username;
             // Init DB for the user on success
-            initRhosync(username).done(function(){
+            initRhoconnect(username).done(function(){
                 // Update UI state on success: hide login form and show navigation pages
                 updateLoggedInState();
                 // Go to Models page
@@ -236,7 +236,7 @@
 
     // Perform logout
     function doLogout(){
-        RhoSync.logout().done(function(){
+        RhoConnect.logout().done(function(){
             // Reset login form to initial state
             Ext.getCmp('loginForm').reset();
             // Update UI state on success: show login form and hide navigation pages
@@ -249,7 +249,7 @@
 
     // Update UI state based on logged in status
     function updateLoggedInState() {
-        if (RhoSync.isLoggedIn()) {
+        if (RhoConnect.isLoggedIn()) {
             // If user is logged in OK
             // Show navigational pages and forms panel
             Ext.getCmp('mainPanel').setActiveItem('modelsPanel');
@@ -280,7 +280,7 @@
     }
 
     function doResetDb() {
-        initRhosync(activeUserName, true /*do reset data*/).done(doLogout).fail(function(errCode, err){
+        initRhoconnect(activeUserName, true /*do reset data*/).done(doLogout).fail(function(errCode, err){
             showError('DB Initialization error', errCode, err);
         });
     }
@@ -290,7 +290,7 @@
         initSyncProgress();
         // Show progress bar
         var progress = showProgressBar('Synchronizing..');
-        RhoSync.syncAllSources().done(function(){
+        RhoConnect.syncAllSources().done(function(){
             // Make progress bar disappear not so fast
             setTimeout(function(){ progress.hide(); }, 500);
             // Reload all lists
@@ -385,10 +385,10 @@
                 autoLoad: false,
                 model: model.name,
                 proxy: {
-                    type: 'rhosync',
+                    type: 'rhoconnect',
                     // Here is special type of Proxy used. It is
-                    // Ext.data.RhosyncStorageProxy defined in the rhosync.plugin-extjs.js file
-                    dbName: 'rhoSyncDb',
+                    // Ext.data.RhoconnectStorageProxy defined in the rhoconnect.plugin-extjs.js file
+                    dbName: 'rhoConnectDb',
                     root: 'items',
                     reader: {
                         type: 'json',

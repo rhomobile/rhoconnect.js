@@ -7,7 +7,7 @@
         };
     }
 
-    var rho = RhoSync.rho;
+    var rho = RhoConnect.rho;
 
     function SyncObject(defn) {
         this.id = null;

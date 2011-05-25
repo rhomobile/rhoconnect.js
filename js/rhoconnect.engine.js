@@ -35,7 +35,7 @@
         };
     }
 
-    var rho = RhoSync.rho;
+    var rho = RhoConnect.rho;
 
     var STATES = {
         none: 0,
