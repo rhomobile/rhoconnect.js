@@ -22,6 +22,8 @@ dist_dir = "distrib"
 
 max_name = "rhosync-"+ver+".js"
 min_name = "rhosync-"+ver+".min.js"
+max_ext_name = "rhosync.ext-"+ver+".js"
+min_ext_name = "rhosync.ext-"+ver+".min.js"
 zip_name = "rhosync-"+ver+".zip"
 
 desc "Build rhosync.js client package"
@@ -46,7 +48,8 @@ namespace "build" do
         "rhosync.domain.js",
         "rhosync.storage.js",
         "rhosync.engine.js",
-        "rhosync.notify.js"
+        "rhosync.notify.js",
+        "rhosync.plugin-extjs.js"
     ]
 
     File.open(dist_dir+"/"+max_name, "w") do |of|
@@ -64,6 +67,6 @@ namespace "build" do
     zip_pathname = dist_dir+"/"+zip_name
 
     puts `java -jar #{build_dir}/google-compiler.jar --js #{max_pathname} --warning_level QUIET --js_output_file #{min_pathname}`
-    puts `jar cvMf #{zip_pathname} -c #{dist_dir} #{max_name} #{min_name}`
+    puts `jar cvMf #{zip_pathname} -C #{dist_dir} #{max_name} -C #{dist_dir} #{min_name}`
   end
 end

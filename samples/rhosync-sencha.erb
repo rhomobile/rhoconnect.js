@@ -25,7 +25,8 @@
                 // For non-cross-domain use this settings:
                 //syncUrl = window.location.protocol +'//' +window.location.host +'/application';
             <% else %>
-                syncUrl = 'http://rhodes-store-server.heroku.com/application';
+                syncUrl = 'http://192.168.0.21:9292/application';
+                //syncUrl = 'http://rhodes-store-server.heroku.com/application';
             <% end %>
 
             RhoConfig = {
@@ -41,9 +42,9 @@
         <script type="text/javascript" language="javascript" src="../js/rhosync.storage.js"></script>
         <script type="text/javascript" language="javascript" src="../js/rhosync.engine.js"></script>
         <script type="text/javascript" language="javascript" src="../js/rhosync.notify.js"></script>
-        <script type="text/javascript" language="javascript" src="../js/rhosync.ext.js"></script>
+        <script type="text/javascript" language="javascript" src="../js/rhosync.plugin-extjs.js"></script>
       <% else %>
-        <script type="text/javascript" src="../distrib/rhosync-0_9.js"></script>
+        <script type="text/javascript" src="../distrib/rhosync-0_9.min.js"></script>
       <% end %>
         <script type="text/javascript" language="javascript" src="rhosync-sencha/application.js"></script>
     </head>

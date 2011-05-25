@@ -1,4 +1,4 @@
-(function($, Ext) {
+if(Ext){(function($, Ext) {
 
     var baseTempId = null;
 
@@ -16,7 +16,7 @@
      */
     Ext.data.RhosyncStorageProxy = Ext.extend(Ext.data.ClientProxy, {
 
-        LOG: new RhoSync.rho.Logger('Rhosync.ext.js'),
+        LOG: new RhoSync.rho.Logger('Rhosync.plugin-extjs.js'),
 
         /**
          * @cfg {String} dbName The Rhosync database instance name to store all record data
@@ -634,4 +634,4 @@
 
     Ext.data.ProxyMgr.registerType('rhosync', Ext.data.RhosyncStorageProxy);
 
-})(jQuery, Ext);
+})(jQuery, Ext)}

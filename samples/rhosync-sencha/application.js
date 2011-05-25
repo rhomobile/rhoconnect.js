@@ -387,7 +387,7 @@
                 proxy: {
                     type: 'rhosync',
                     // Here is special type of Proxy used. It is
-                    // Ext.data.RhosyncStorageProxy defined in the rhosync.ext.js file
+                    // Ext.data.RhosyncStorageProxy defined in the rhosync.plugin-extjs.js file
                     dbName: 'rhoSyncDb',
                     root: 'items',
                     reader: {
