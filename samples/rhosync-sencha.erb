@@ -21,7 +21,7 @@
             var syncUrl = '';
             <% if 'development' == ENV['RACK_ENV'] %>
                 // For cross-domain configuration
-                syncUrl = 'http://192.168.0.21:9292/application';
+                syncUrl = 'http://rhoconnect-js-server/application';
                 // For non-cross-domain use this settings:
                 //syncUrl = window.location.protocol +'//' +window.location.host +'/application';
             <% else %>
