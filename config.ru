@@ -1,3 +1,4 @@
+require 'sinatra'
 require 'samples/application'
 
 RhoSyncJSDemoApp.set :public, File.dirname(__FILE__) + '/'
