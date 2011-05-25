@@ -21,11 +21,11 @@
             var syncUrl = '';
             <% if 'development' == ENV['RACK_ENV'] %>
                 // For cross-domain configuration
-                syncUrl = 'http://rhoconnect-js-server/application';
+                syncUrl = 'http://192.168.0.21:9292/application';
                 // For non-cross-domain use this settings:
                 //syncUrl = window.location.protocol +'//' +window.location.host +'/application';
             <% else %>
-                syncUrl = 'http://192.168.0.21:9292/application';
+                syncUrl = 'http://rhoconnect-js-server/application';
                 //syncUrl = 'http://rhodes-store-server.heroku.com/application';
             <% end %>
 
