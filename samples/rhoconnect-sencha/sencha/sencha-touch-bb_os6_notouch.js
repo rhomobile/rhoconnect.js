@@ -10858,7 +10858,7 @@ Ext.Application = Ext.extend(Ext.util.Observable, {
                 name,
                 name + ".views",
                 name + ".stores",
-                name + ".models",
+                name + ".definedModels",
                 name + ".controllers"
             );
         }

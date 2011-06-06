@@ -12,12 +12,11 @@ var RhoConnect = (function($) {
     }
 
     var defaults = {
+        appName: 'rhoConnect',
         syncServer: '',
-        consoleServer: '',
         pollInterval: 20,
         database: {
-            namePrefix: 'rhoConnectDb_',
-            name: 'UNINITIALIZED',
+            nameSuffix: 'Db_',
             version: '1.0',
             comment: 'RhoConnect database',
             size: (2*1024*1024)

@@ -142,7 +142,7 @@
             rho.protocol.login(login, password).done(function(){
                 session = /*rho.protocol.getSession()*/ login;
 
-                rho.config.database.name = rho.config.database.namePrefix + login;
+                rho.config.database.name = rho.config.appName + rho.config.database.nameSuffix + login;
                 if(!session) {
                     LOG.error("Server responds with empty session cookie.");
                 }
@@ -1594,10 +1594,22 @@
 
                     function _localSyncClient() {
                         that.syncClientChanges().done(function(serverSyncDone){
+/*
                             if (!serverSyncDone) that.syncServerChanges().done(function(){
                                 _finally();
                                 dfr.resolve();
                             }).fail(_catch);
+*/
+                            if (!serverSyncDone) {
+                                that.syncServerChanges().done(function(){
+                                    _finally();
+                                    dfr.resolve();
+                                }).fail(_catch);
+                            } else {
+                                _finally(); //TODO: ?!
+                                dfr.resolve();
+                            }
+
                         }).fail(_catch);
                     }
                 }

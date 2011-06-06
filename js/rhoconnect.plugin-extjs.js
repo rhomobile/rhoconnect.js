@@ -1,4 +1,4 @@
-if(Ext){(function($, Ext) {
+if('undefined' != typeof Ext){(function($, Ext) {
 
     var baseTempId = null;
 

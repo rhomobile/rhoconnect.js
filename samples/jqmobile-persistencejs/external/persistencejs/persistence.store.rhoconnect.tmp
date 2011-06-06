@@ -1,0 +1,136 @@
+    function saveRecords(srcName, records) {
+        var that = this;
+        
+        $.each(records, function(idx, record){
+            
+        });
+
+
+        var srcId = null;
+        var isNew = false;
+
+        if (id) {
+            record.setId(id);
+            isNew = true;
+        } else {
+            id = record.getId();
+        }
+
+        var rawData = record.data,
+            data    = {},
+            model   = that.model,
+            fields  = model.prototype.fields.items;
+
+        return $.Deferred(function(dfr){
+
+            if(undefined != record.dirty && !record.dirty) {
+                dfr.resolve(id);
+                return;
+            }
+
+            // Read source_id for stored object (object should be already stored)
+            storage.executeSql("SELECT source_id FROM sources WHERE name=?",
+                    [srcName]).done(function(tx, rs){
+                if (rs.rows && rs.rows.length && rs.rows.length > 0) {
+                    srcId = rs.rows.item(0)['source_id'];
+                }
+                _localWithSrcId();
+            }).fail(function(obj, err){
+                that.LOG.error('setRecord() read source_id error: ' +err);
+                dfr.reject(obj, err);
+            });
+
+            // to select UPDATE/INSERT query we firstly need to know which attributes already present for the object
+            var attrsToUpdate = {};
+            function _localWithSrcId() {
+                storage.executeSql("SELECT attrib FROM object_values WHERE object=?",
+                        [id.toString()]).done(function(tx, rs){
+                    for (var i=0; i< rs.rows.length; i++) {
+                        var attrName = rs.rows.item(i)['attrib'];
+                        if (attrName) attrsToUpdate[attrName] = true;
+                    }
+                    _localWithAttrsToUpdate();
+                }).fail(function(obj, err){
+                    that.LOG.error('setRecord() read attr names error: ' +err);
+                    dfr.reject(obj, err);
+                });
+            }
+
+            function _localWithAttrsToUpdate() {
+                var updateQuery = 'UPDATE object_values SET'
+                        +' value=?'
+                        +' WHERE source_id=? and object=? and attrib=?';
+
+                var insertQuery = 'INSERT INTO object_values ('
+                        +' value,'
+                        +' source_id,'
+                        +' object,'
+                        +' attrib'
+                        +' ) VALUES (?, ?, ?, ?)';
+
+                var insertChangedQuery = 'INSERT INTO changed_values ('
+                        +' value,'
+                        +' source_id,'
+                        +' object,'
+                        +' attrib,'
+                        +' update_type'
+                        +' ) VALUES (?, ?, ?, ?, ?)';
+
+                //var dfrMap = RhoConnect.rho.deferredMapOn(fields);
+                storage.rwTx().ready(function(db, tx){
+                    $.each(fields, function(i, field) {
+                        var name = field.name;
+
+                        if (typeof field.encode == 'function') {
+                            data[name] = field.encode(rawData[name], record);
+                        } else {
+                            data[name] = rawData[name];
+                        }
+
+                        var query = attrsToUpdate[name] ? updateQuery : insertQuery;
+                        var value = data[name];
+                        if (name != 'id') {
+                            storage.executeSql(query, [value, srcId.toString(), id.toString(), name], tx)/*.done(function(tx, rs){
+                                //dfrMap.resolve(i, []);
+                                that.LOG.warning('OK: setRecord() update/insert object_values ok');
+                                //that.LOG.warning('  "' +query +'", [' +value +', ' +srcId +', ' +id +', ' +name +']');
+                                //that.LOG.warning('  rs.rowsaffected: ' +rs.rowsAffected);
+                            }).fail(function(obj, err){
+                                //dfrMap.reject(i, [obj, err]);
+                                that.LOG.warning('ERR: setRecord() update/insert object_values error: ' +err);
+                            })*/;
+                            if (!isNew) {
+                                storage.executeSql(insertChangedQuery,
+                                        [value, srcId.toString(), id.toString(), name, 'update'], tx)/*.done(function(tx, rs){
+                                    //dfrMap.resolve(i, []);
+                                    that.LOG.warning('OK: setRecord() update/insert changed_values ok');
+                                    that.LOG.warning('  "' +query +'", [' +value +', ' +srcId +', ' +id +', ' +name +']');
+                                    that.LOG.warning('  rs.rowsaffected: ' +rs.rowsAffected);
+                                }).fail(function(obj, err){
+                                    //dfrMap.reject(i, [obj, err]);
+                                    that.LOG.warning('ERR: setRecord() update/insert changed_values error: ' +err);
+                                })*/;
+                            }
+                        }
+                    });
+                    if (isNew) {
+                        storage.executeSql(insertChangedQuery,
+                                [null/*id.toString()*/, srcId.toString(), id.toString(), 'object', 'create'], tx)/*.done(function(tx, rs){
+                            //dfrMap.resolve(i, []);
+                            that.LOG.warning('OK: setRecord() update/insert changed_values ok');
+                            that.LOG.warning('  "' +query +'", [' +value +', ' +srcId +', ' +id +', ' +name +']');
+                            that.LOG.warning('  rs.rowsaffected: ' +rs.rowsAffected);
+                        }).fail(function(obj, err){
+                            //dfrMap.reject(i, [obj, err]);
+                            that.LOG.warning('ERR: setRecord() update/insert changed_values error: ' +err);
+                        })*/;
+                    }
+                }).done(function(db){
+                    record.dirty = false;
+                    dfr.resolve(id);
+                }).fail(function(obj, err){
+                    dfr.reject(null, 'setRecord() update/insert attr error');
+                });
+            }
+        }).promise();
+    }
