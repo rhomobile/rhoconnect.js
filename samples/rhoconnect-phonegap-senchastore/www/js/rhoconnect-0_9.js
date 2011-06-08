@@ -67,9 +67,9 @@ var RhoConnect = (function($) {
         }).promise();
     }
 
-    function login(login, password, oNotify) {
+    function login(login, password, oNotify, doInitDb) {
         return $.Deferred(function(dfr){
-            rho.engine.login(login, password, oNotify).done(function(){
+            rho.engine.login(login, password, oNotify, doInitDb).done(function(){
                 dfr.resolve();
             }).fail(function(errCode, errMsg){
                 dfr.reject(errCode, errMsg);
@@ -1454,7 +1454,7 @@ var RhoConnect = (function($) {
         }).promise();
     }
 
-    function login(login, password, oNotify) {
+    function login(login, password, oNotify, doInitDb) {
         return $.Deferred(function(dfr){
             isStoppedByUser = false;
             
@@ -1466,7 +1466,7 @@ var RhoConnect = (function($) {
                     LOG.error("Server responds with empty session cookie.");
                 }
 
-                rho.storage.init(/*false - don't reset any data by default*/).done(function(){
+                rho.storage.init(doInitDb).done(function(){
                     if(!session) {
                         LOG.error("DB doesn't contains this session.");
                         var errCode = rho.ERRORS.ERR_UNEXPECTEDSERVERRESPONSE;

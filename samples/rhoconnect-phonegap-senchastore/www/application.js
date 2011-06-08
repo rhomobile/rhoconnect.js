@@ -1,6 +1,6 @@
 onLoad = (function($, Ext) {
 
-    var APP_TAG = 'PhoneGap-RhoConnect';
+    var APP_TAG = 'GMap-RhoConnect';
 
     // let's start here
     function doAppLaunch() {
@@ -45,14 +45,6 @@ onLoad = (function($, Ext) {
             mapTypeId: google.maps.MapTypeId.ROADMAP
         };
         map = new google.maps.Map(document.getElementById("map_canvas"), mapOpts);
-
-        var name = APP_TAG +' '+ myUuid;
-
-        //markers[name] = new google.maps.Marker({
-        //    position: startHere,
-        //    map: map,
-        //    title: name
-        //});
     }
 
     function initLocationTest() {
@@ -116,12 +108,16 @@ onLoad = (function($, Ext) {
                 try {
                     if (!myRecord) {
                         myRecord = store.add({
-                             first: APP_TAG,
-                             last: myUuid,
-                             lat: lat,
-                             'long': lng
+                            city: APP_TAG,
+                            address: myUuid,
+                            first: APP_TAG,
+                            last: myUuid,
+                            lat: lat,
+                            'long': lng
                          })[0];
                     } else {
+                        myRecord.set('city', APP_TAG);
+                        myRecord.set('address', myUuid);
                         myRecord.set('first', APP_TAG);
                         myRecord.set('last', myUuid);
                         myRecord.set('lat', lat);
@@ -152,30 +148,32 @@ onLoad = (function($, Ext) {
             for (var i=0; i<store.getCount(); i++) {
                 var record = store.getAt(i);
 
+                var city = record.get('city') || '';
+                var address = record.get('address') || '';
                 var first = record.get('first') || '';
                 var last = record.get('last') || '';
 
                 var lat = record.get('lat');
                 var lng = record.get('long');
 
-                if (first == APP_TAG && last && lat && lng) {
-                    updateMarker(first+' '+last, lat, lng);
+                if (city == APP_TAG && address && lat && lng) {
+                    updateMarker(city+' '+address, first+' '+last, lat, lng);
                     //if (last == 'UNDEFINED-2') alert('UNDEFINED-2\n' +'lat: ' +lat +'\n' +'long: ' +lng +'\n');
                 }
             }
         }
     }
 
-    function updateMarker(name, lat, lng) {
+    function updateMarker(id, name, lat, lng) {
         var pos = new google.maps.LatLng(lat, lng);
-        if (!markers[name]) {
-            markers[name] = new google.maps.Marker({
+        if (!markers[id]) {
+            markers[id] = new google.maps.Marker({
                 position: pos,
                 map: map,
                 title: name
             });
         } else {
-            markers[name].setPosition(pos);
+            markers[id].setPosition(pos);
         }
     }
 
@@ -238,7 +236,8 @@ onLoad = (function($, Ext) {
 
     function loginRhoConnect(username, password) {
         return $.Deferred(function(dfr){
-            RhoConnect.login(username, password, new RhoConnect.SyncNotification()).done(function(){
+            RhoConnect.login(username, password,
+                    new RhoConnect.SyncNotification(), true /*do db init*/).done(function(){
                 // Init DB for the user on success
                 initRhoconnect(username, false).done(function(){
                     dfr.resolve();

@@ -67,9 +67,9 @@ var RhoConnect = (function($) {
         }).promise();
     }
 
-    function login(login, password, oNotify) {
+    function login(login, password, oNotify, doInitDb) {
         return $.Deferred(function(dfr){
-            rho.engine.login(login, password, oNotify).done(function(){
+            rho.engine.login(login, password, oNotify, doInitDb).done(function(){
                 dfr.resolve();
             }).fail(function(errCode, errMsg){
                 dfr.reject(errCode, errMsg);

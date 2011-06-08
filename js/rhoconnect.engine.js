@@ -135,7 +135,7 @@
         }).promise();
     }
 
-    function login(login, password, oNotify) {
+    function login(login, password, oNotify, doInitDb) {
         return $.Deferred(function(dfr){
             isStoppedByUser = false;
             
@@ -147,7 +147,7 @@
                     LOG.error("Server responds with empty session cookie.");
                 }
 
-                rho.storage.init(/*false - don't reset any data by default*/).done(function(){
+                rho.storage.init(doInitDb).done(function(){
                     if(!session) {
                         LOG.error("DB doesn't contains this session.");
                         var errCode = rho.ERRORS.ERR_UNEXPECTEDSERVERRESPONSE;

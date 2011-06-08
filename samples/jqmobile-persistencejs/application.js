@@ -5,7 +5,7 @@ var secondName = null;
 
 onLoad = (function($) {
 
-    var APP_TAG = 'jQMobile-RhoConnect';
+    var APP_TAG = 'GMap-RhoConnect';
 
     // let's start here
     function doAppLaunch() {
@@ -239,7 +239,8 @@ onLoad = (function($) {
 
     function loginRhoConnect(username, password) {
         return $.Deferred(function(dfr){
-            RhoConnect.login(username, password, new RhoConnect.SyncNotification()).done(function(){
+            RhoConnect.login(username, password,
+                    new RhoConnect.SyncNotification(), true /*do db init*/).done(function(){
                 // Init DB for the user on success
                 initRhoconnect(username, false).done(function(){
                     dfr.resolve();
