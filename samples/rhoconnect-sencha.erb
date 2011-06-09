@@ -21,11 +21,12 @@
             var syncUrl = '';
             <% if 'development' == ENV['RACK_ENV'] %>
                 // For cross-domain configuration
-                syncUrl = 'http://192.168.0.21:9292/application';
+                syncUrl = 'http://rhohub-lars-692f63a7.rhosync.com/application';
+                //syncUrl = 'http://192.168.0.21:9292/application';
                 // For non-cross-domain use this settings:
                 //syncUrl = window.location.protocol +'//' +window.location.host +'/application';
             <% else %>
-                var syncUrl = 'http://rhohub-lars-692f63a7.rhosync.com/application';
+                syncUrl = 'http://rhohub-lars-692f63a7.rhosync.com/application';
                 //syncUrl = 'http://rhoconnect-js-server/application';
                 //syncUrl = 'http://rhodes-store-server.heroku.com/application';
             <% end %>
@@ -46,7 +47,7 @@
         <script type="text/javascript" language="javascript" src="../js/rhoconnect.notify.js"></script>
         <script type="text/javascript" language="javascript" src="../js/rhoconnect.plugin-extjs.js"></script>
       <% else %>
-        <script type="text/javascript" src="../distrib/rhoconnect-0_9.min.js"></script>
+        <script type="text/javascript" src="../distrib/rhoconnect-0_9.js"></script>
       <% end %>
         <script type="text/javascript" language="javascript" src="rhoconnect-sencha/application.js"></script>
     </head>
