@@ -38,6 +38,7 @@ onLoad = (function($, Ext) {
     }
 
     var map = null;
+    var infowindow = null;
     var markers = {};
 
     function initGMap() {
@@ -49,6 +50,7 @@ onLoad = (function($, Ext) {
             mapTypeId: google.maps.MapTypeId.ROADMAP
         };
         map = new google.maps.Map(document.getElementById("map_canvas"), mapOpts);
+        infowindow = new google.maps.InfoWindow();
     }
 
     function initLocationTest() {
@@ -178,6 +180,10 @@ onLoad = (function($, Ext) {
                 position: pos,
                 map: map,
                 title: name
+            });
+            google.maps.event.addListener(markers[id], 'click', function() {
+                infowindow.setContent(name);
+                infowindow.open(map, markers[id]);
             });
         } else {
             markers[id].setPosition(pos);

@@ -1,7 +1,7 @@
-var map = null;
-var definedModels = {};
 var firstName = null;
 var secondName = null;
+
+var definedModels = {};
 
 onLoad = (function($) {
 
@@ -39,6 +39,8 @@ onLoad = (function($) {
         }
     }
 
+    var map = null;
+    var infowindow = null;
     var markers = {};
 
     function initGMap() {
@@ -50,6 +52,7 @@ onLoad = (function($) {
             mapTypeId: google.maps.MapTypeId.ROADMAP
         };
         map = new google.maps.Map(document.getElementById("map_canvas"), mapOpts);
+        infowindow = new google.maps.InfoWindow();
 
         $('div#map').live('pageshow',function(event, ui){
             //alert('Page show, RESIZE!');
@@ -184,6 +187,10 @@ onLoad = (function($) {
                 position: pos,
                 map: map,
                 title: name
+            });
+            google.maps.event.addListener(markers[id], 'click', function() {
+                infowindow.setContent(name);
+                infowindow.open(map, markers[id]);
             });
         } else {
             markers[id].setPosition(pos);
