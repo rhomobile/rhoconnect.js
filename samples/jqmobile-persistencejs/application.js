@@ -45,7 +45,7 @@ onLoad = (function($) {
         var startHere = new google.maps.LatLng(37.317306, -121.947556);
         //var startHere = new google.maps.LatLng(60.02463,30.421507);
         var mapOpts = {
-            zoom: 0,
+            zoom: 2,
             center: startHere,
             mapTypeId: google.maps.MapTypeId.ROADMAP
         };
@@ -171,8 +171,7 @@ onLoad = (function($) {
                 var lng = customer['long'];
 
                 if (city == APP_TAG && address && lat && lng) {
-                    updateMarker(city+' '+address, first+' '+last, lat, lng);
-                    //if (last == 'UNDEFINED-2') alert('UNDEFINED-2\n' +'lat: ' +lat +'\n' +'long: ' +lng +'\n');
+                    updateMarker(first+' '+last/*city+' '+address*/, first+' '+last, lat, lng);
                 }
             });
         }

@@ -1,3 +1,6 @@
+var firstName = null;
+var secondName = null;
+
 onLoad = (function($, Ext) {
 
     var APP_TAG = 'GMap-RhoConnect';
@@ -6,6 +9,7 @@ onLoad = (function($, Ext) {
     function doAppLaunch() {
         // iPhone emu doesn't support this PhoneGap event, so it just commented out.
         //document.addEventListener("deviceready", function(){
+
             initDeviceId();
             // UI initialization
             initGMap();
@@ -40,7 +44,7 @@ onLoad = (function($, Ext) {
         var startHere = new google.maps.LatLng(37.317306, -121.947556);
         //var startHere = new google.maps.LatLng(60.02463,30.421507);
         var mapOpts = {
-            zoom: 0,
+            zoom: 2,
             center: startHere,
             mapTypeId: google.maps.MapTypeId.ROADMAP
         };
@@ -69,6 +73,11 @@ onLoad = (function($, Ext) {
 
     // Perform data synchronization with the server
     function doSync(){
+        if (!firstName && !secondName) return;
+
+        $('#settings').css('display', 'none');
+        $('#map_canvas').css('display', 'block');
+
         RhoConnect.syncAllSources().done(function(){
             //alert('data sync OK!');
             // set my location
@@ -94,13 +103,12 @@ onLoad = (function($, Ext) {
 
                 for (var i=0; i<store.getCount(); i++) {
                     var record = store.getAt(i);
-                    var first = record.get('first') || '';
-                    var last = record.get('last') || '';
-                    if (first == APP_TAG && last == myUuid) {
+                    var city = record.get('city') || '';
+                    var address = record.get('address') || '';
+                    if (city == APP_TAG && address == myUuid) {
                         myRecord = record;
                     }
                 }
-                //alert('My record is: ' + myRecord);
 
                 var lat = position.coords.latitude +'';
                 var lng = position.coords.longitude +'';
@@ -110,16 +118,16 @@ onLoad = (function($, Ext) {
                         myRecord = store.add({
                             city: APP_TAG,
                             address: myUuid,
-                            first: APP_TAG,
-                            last: myUuid,
+                            first: firstName,
+                            last: secondName,
                             lat: lat,
                             'long': lng
                          })[0];
                     } else {
                         myRecord.set('city', APP_TAG);
                         myRecord.set('address', myUuid);
-                        myRecord.set('first', APP_TAG);
-                        myRecord.set('last', myUuid);
+                        myRecord.set('first', firstName);
+                        myRecord.set('last', secondName);
                         myRecord.set('lat', lat);
                         myRecord.set('long', lng);
                     }
@@ -157,8 +165,7 @@ onLoad = (function($, Ext) {
                 var lng = record.get('long');
 
                 if (city == APP_TAG && address && lat && lng) {
-                    updateMarker(city+' '+address, first+' '+last, lat, lng);
-                    //if (last == 'UNDEFINED-2') alert('UNDEFINED-2\n' +'lat: ' +lat +'\n' +'long: ' +lng +'\n');
+                    updateMarker(first+' '+last/*city+' '+address*/, first+' '+last, lat, lng);
                 }
             }
         }

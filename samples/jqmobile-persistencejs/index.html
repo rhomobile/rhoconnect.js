@@ -7,14 +7,15 @@
             html { height: 100%; }
             body { height: 100%; margin: 0; padding: 0; }
          /* #map, #map > .ui-content { height: 100%; } */
-            #map, #map > .ui-content { height: 300px; }
+            #map, #map > .ui-content { height: 400px; }
             #map_canvas { width: 100%; height: 100%; }
         </style>
 
         <link rel="stylesheet" href="application.css">
+        <script type="text/javascript" charset="utf-8" src="external/phonegap.0.9.5.1.js"></script>
 
-        <script type="text/javascript" charset="utf-8" src="external/jquery/jquery-1.6.1.js"></script>
-        <script type="text/javascript" charset="utf-8" src="external/jquery/jquery.base64.js"></script>
+        <script type="text/javascript" charset="utf-8" src="external/jquery/jquery-1.6.1.min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="external/jquery/jquery.base64.min.js"></script>
         <script type="text/javascript" charset="utf-8" src="external/jquery/json.js"></script>
 
         <script type="text/javascript">
@@ -22,8 +23,8 @@
             //$(document).bind("mobileinit", function(){
             //});
         </script>
-        <link rel="stylesheet" href="external/jqmobile/jquery.mobile-1.0b1pre.css">
-        <script type="text/javascript" charset="utf-8" src="external/jqmobile/jquery.mobile-1.0b1pre.js"></script>
+        <link rel="stylesheet" href="external/jqmobile/jquery.mobile-1.0b1pre.min.css">
+        <script type="text/javascript" charset="utf-8" src="external/jqmobile/jquery.mobile-1.0b1pre.min.js"></script>
 
         <script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=true"></script>
 
@@ -40,14 +41,24 @@
             var setNames = function(){
                 firstName = $('#firstName')[0].value;
                 secondName = $('#secondName')[0].value;
-                return true;
             };
         </script>
-        <script type="text/javascript" charset="utf-8" src="js/rhoconnect-0_9.js"></script>
-
         <script src="external/persistencejs/persistence.js" type="application/javascript"></script>
         <script src="external/persistencejs/persistence.store.sql.js" type="application/javascript"></script>
-        <script src="external/persistencejs/persistence.store.rhoconnect.js" type="application/javascript"></script>
+
+        <script type="text/javascript" charset="utf-8" src="js/rhoconnect-0_9.min.js"></script>
+
+<!--
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.common.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.protocol.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.domain.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.storage.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.engine.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.notify.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.plugin-extjs.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.plugin-persistencejs.js"></script>
+-->
 
         <script type="text/javascript" language="javascript" src="application.js"></script>
 
@@ -64,7 +75,7 @@
                 <input type="text" name="firstName" id="firstName" value=""/>
                 <label for="secondName">Second name:</label>
                 <input type="text" name="secondName" id="secondName" value=""/>
-                <a href="#map" data-role="button" onclick="setNames();">Start</a>
+                <a href="#map" data-role="button" onclick="setNames(); return false;">Start</a>
             </div>
         </div>
     </div>

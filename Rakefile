@@ -1,4 +1,5 @@
 require 'find'
+#require 'dir'
 require 'erb'
 require 'rake/rdoctask'
 require 'digest/sha2'
@@ -19,6 +20,7 @@ ver = File.read("version.txt").chomp.gsub(/\./, "_").gsub(/,/, "_")
 src_dir = "js"
 build_dir = "build"
 dist_dir = "distrib"
+samples_dir = "samples"
 
 max_name = "rhoconnect-"+ver+".js"
 min_name = "rhoconnect-"+ver+".min.js"
@@ -49,7 +51,8 @@ namespace "build" do
         "rhoconnect.storage.js",
         "rhoconnect.engine.js",
         "rhoconnect.notify.js",
-        "rhoconnect.plugin-extjs.js"
+        "rhoconnect.plugin-extjs.js",
+        "rhoconnect.plugin-persistencejs.js"
     ]
 
     File.open(dist_dir+"/"+max_name, "w") do |of|
@@ -66,7 +69,15 @@ namespace "build" do
     min_pathname = dist_dir+"/"+min_name
     zip_pathname = dist_dir+"/"+zip_name
 
-    puts `java -jar #{build_dir}/google-compiler.jar --js #{max_pathname} --warning_level QUIET --js_output_file #{min_pathname}`
+    puts `java -jar #{build_dir}/google-compiler.jar --compilation_level WHITESPACE_ONLY --js #{max_pathname} --warning_level QUIET --js_output_file #{min_pathname}`
     puts `jar cvMf #{zip_pathname} -C #{dist_dir} #{max_name} -C #{dist_dir} #{min_name}`
+    Dir.foreach samples_dir do |dir|
+      if !/(apk)|(\.)|(\.\.)/.match(dir)
+        target = samples_dir+"/"+dir+"/js/"
+        cp max_pathname, target
+        cp min_pathname, target
+      end
+    end
+
   end
 end

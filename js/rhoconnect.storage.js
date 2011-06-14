@@ -192,9 +192,9 @@
                 _tx(readWrite).ready(function(db, tx){
                     execInTx(tx, sql, values);
                 }).done(function(obj, status){
-                    dfr.resolve(obj, status);
+                    // dfr.resolve(obj, status);
                 }).fail(function(obj, err){
-                    dfr.reject(obj, err);
+                    // dfr.reject(obj, err);
                 });
             }
         }).promise();

@@ -1590,26 +1590,23 @@
                         that.processToken(1).done(function(){
                             _localSyncClient();
                         }).fail(_catch);
-                    } else {_localSyncClient();}
+                    } else {
+                        //TODO: Google Closure compiler has optimization failure here!
+                        // _localSyncClient() get assigned to var after calling it
+                        _localSyncClient();
+                    }
 
                     function _localSyncClient() {
                         that.syncClientChanges().done(function(serverSyncDone){
-/*
-                            if (!serverSyncDone) that.syncServerChanges().done(function(){
-                                _finally();
-                                dfr.resolve();
-                            }).fail(_catch);
-*/
                             if (!serverSyncDone) {
                                 that.syncServerChanges().done(function(){
                                     _finally();
                                     dfr.resolve();
                                 }).fail(_catch);
                             } else {
-                                _finally(); //TODO: ?!
+                                _finally();
                                 dfr.resolve();
                             }
-
                         }).fail(_catch);
                     }
                 }
@@ -1643,7 +1640,7 @@
             return this.deletedCount;
         }
 
-    }
+    } //Source
 
     function _rejectOnDbAccessEror(deferred) {
         return function(obj, error){

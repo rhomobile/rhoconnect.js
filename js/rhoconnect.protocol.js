@@ -111,6 +111,7 @@
             $.ajax({
                 url: url + (session ? sParam : ''),
                 type: method || 'post',
+                cache: false,
                 contentType: contentType || 'application/json',
                 processData: false,
                 data: $.toJSON(data),
