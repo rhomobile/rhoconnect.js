@@ -1,12 +1,12 @@
-#require 'rubygems'
-#require 'bundler'
-#Bundler.setup(:default, :test)
-#require 'bundler/gem_tasks'
+require 'rubygems'
+require 'bundler'
+Bundler.setup(:default, :test)
+require 'bundler/gem_tasks'
 require 'rspec/core/rake_task'
 
 require 'find'
 require 'erb'
-#require 'rake/rdoctask'
+require 'rake/rdoctask'
 require 'digest/sha2'
 require 'rexml/document'
 
