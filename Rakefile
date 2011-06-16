@@ -33,6 +33,10 @@ task :clean do
   rm_rf dist_dir
 end
 
+task :test do
+  puts "pending ..."
+end
+
 
 namespace "build" do
 
