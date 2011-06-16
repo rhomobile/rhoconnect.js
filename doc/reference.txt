@@ -18,9 +18,9 @@ Rhoconnect.js API implemented as public fields of global *RhoConnect* object. Th
 - *RhoConnect.logout()* - Disconnects application from the server, returns *promise* object. Have no arguments.
 - *RhoConnect.isLoggedIn()* - Returns *true* value if aplication is logged in on the server. Have no arguments.
 - *RhoConnect.syncAllSources()* - Synchronize application data with the RhoSync server, returns *promise* object. Have no arguments.
-- *RhoConnect.dataAccessObjects()* - Returns array of data access objects which are data API specific. Have no arguments. Objects are instances of:
-    - *Ext.data.Store* - for 'extjs' type of data API
-    - *Model* - for 'persistencejs' type of data API
+- *RhoConnect.dataAccessObjects()* - Returns the hash of data access objects which are data API specific. Have no arguments. In returned hash object the *key* is model name and the *value* is instances of:
+    - [Ext.data.Store](http://dev.sencha.com/deploy/touch/docs/) - for 'extjs' type of data API
+    - [model](http://persistencejs.org/objects) - for 'persistencejs' type of data API
 
 ## Errors
 Are defined as:
