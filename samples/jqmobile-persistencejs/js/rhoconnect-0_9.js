@@ -16,6 +16,7 @@ var RhoConnect = (function($) {
         appName: 'rhoConnect',
         syncServer: '',
         pollInterval: 20,
+        logLevel: 'warning',
         database: {
             nameSuffix: 'Db_',
             version: '1.0',
