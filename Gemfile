@@ -1,7 +1,7 @@
 source "http://rubygems.org"
 gem "sinatra", "1.2.6"
 
-gemspec
+#gemspec
 gem 'rake'
 
 group :test do

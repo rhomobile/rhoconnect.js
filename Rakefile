@@ -1,7 +1,7 @@
 require 'rubygems'
 require 'bundler'
 Bundler.setup(:default, :test)
-require 'bundler/gem_tasks'
+#require 'bundler/gem_tasks'
 require 'rspec/core/rake_task'
 
 require 'find'
