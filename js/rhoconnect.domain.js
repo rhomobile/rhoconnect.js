@@ -7,6 +7,13 @@
         };
     }
 
+    function storageInterface() {
+        return {
+            initModels: initModels,
+            dataAccessObjects: dataAccessObjects
+        };
+    }
+
     var rho = RhoConnect.rho;
 
     function SyncObject(defn) {
@@ -98,6 +105,16 @@
         this.canModify = function() {};
     }
 
+    function initModels(modelDefs) {
+        //TODO: to implement!
+    }
+
+    function dataAccessObjects() {
+        //TODO: to implement!
+        return {};
+    }
+
     $.extend(rho, {domain: publicInterface()});
+    $.extend(rho.plugins, {rhom: storageInterface()});
 
 })(jQuery);

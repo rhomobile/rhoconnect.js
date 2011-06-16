@@ -1,4 +1,4 @@
-rhoconnect.js
+RhoConnect.js
 ===
 
 A javascript client library for the [RhoSync](http://rhomobile.com/products/rhosync) App Integration Server.

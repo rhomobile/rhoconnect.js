@@ -1,6 +1,17 @@
 if('undefined' != typeof Ext){(function($, Ext) {
 
+    function publicInterface() {
+        return {
+            initModels: initModels,
+            dataAccessObjects: dataAccessObjects
+        };
+    }
+
+    var rho = RhoConnect.rho;
+
     var baseTempId = null;
+
+    var stores = {};
 
     /**
      * @author DmitryP@rhomobile.com
@@ -456,7 +467,8 @@ if('undefined' != typeof Ext){(function($, Ext) {
                         });
                         if (isNew) {
                             storage.executeSql(insertChangedQuery,
-                                    [null/*id.toString()*/, srcId.toString(), id.toString(), 'object', 'create'], tx)/*.done(function(tx, rs){
+                                    [null/*id.toString()*/, srcId.toString(), id.toString(), 'object', 'create'],
+                                    tx)/*.done(function(tx, rs){
                                 //dfrMap.resolve(i, []);
                                 that.LOG.warning('OK: setRecord() update/insert changed_values ok');
                                 that.LOG.warning('  "' +query +'", [' +value +', ' +srcId +', ' +id +', ' +name +']');
@@ -510,13 +522,15 @@ if('undefined' != typeof Ext){(function($, Ext) {
                     storage.rwTx().ready(function(db, tx) {
 
                         var attrsToDelete = {};
-                        storage.executeSql("SELECT * FROM object_values WHERE object=? AND source_id=?", [id.toString(), srcId.toString()], tx).done(function(tx, rs){
+                        storage.executeSql("SELECT * FROM object_values WHERE object=? AND source_id=?",
+                                [id.toString(), srcId.toString()], tx).done(function(tx, rs){
                             for (var i=0; i< rs.rows.length; i++) {
                                 var attrName = rs.rows.item(i)['attrib'];
                                 var attrValue = rs.rows.item(i)['value'];
                                 if (attrName) attrsToDelete[attrName] = attrValue;
                             }
-                            storage.executeSql("DELETE FROM object_values WHERE object=? AND source_id=?", [id.toString(), srcId.toString()], tx).done(function(tx, rs){
+                            storage.executeSql("DELETE FROM object_values WHERE object=? AND source_id=?",
+                                    [id.toString(), srcId.toString()], tx).done(function(tx, rs){
                                 _localWithObjValsDeleted();
                             });
                         });
@@ -524,11 +538,15 @@ if('undefined' != typeof Ext){(function($, Ext) {
                         function _localWithObjValsDeleted() {
 
                             var updateType = 'delete';
-                            storage.executeSql("SELECT update_type FROM changed_values WHERE object=? AND update_type=? AND sent=?", [id.toString(), 'create', 0], tx).done(function(tx, rs){
+                            storage.executeSql("SELECT update_type FROM changed_values" +
+                                    " WHERE object=? AND update_type=? AND sent=?",
+                                    [id.toString(), 'create', 0], tx).done(function(tx, rs){
                                 if (0 < rs.rows.length) {
                                     updateType = null;
                                 }
-                                storage.executeSql("DELETE FROM changed_values WHERE object=? AND source_id=? AND sent=?", [id.toString(), srcId.toString(), 0], tx).done(function(tx, rs){
+                                storage.executeSql("DELETE FROM changed_values" +
+                                        " WHERE object=? AND source_id=? AND sent=?",
+                                        [id.toString(), srcId.toString(), 0], tx).done(function(tx, rs){
 
                                     var doInsert = false;
                                     $.each(attrsToDelete, function(name, value) {
@@ -550,7 +568,8 @@ if('undefined' != typeof Ext){(function($, Ext) {
                                         +' update_type'
                                         +' ) VALUES (?, ?, ?, ?, ?)';
                                 $.each(attrsToDelete, function(name, value) {
-                                    storage.executeSql(insertChangedQuery, [value, srcId.toString(), id.toString(), name, updateType], tx)/*.done(function(tx, rs){
+                                    storage.executeSql(insertChangedQuery, [value, srcId.toString(), id.toString(),
+                                        name, updateType], tx)/*.done(function(tx, rs){
                                     //dfrMap.resolve(i, []);
                                         that.LOG.warning('OK: setRecord() update/insert changed_values ok');
                                         that.LOG.warning('  "' +query +'", [' +value +', ' +srcId +', ' +id +', ' +name +']');
@@ -632,6 +651,43 @@ if('undefined' != typeof Ext){(function($, Ext) {
         }
     });
 
+    function initModels(modelDefs) {
+        var proxy = {
+            type: 'rhoconnect',
+            // Here is special type of Proxy used. It is
+            // Ext.data.RhoconnectStorageProxy defined in the rhoconnect.plugin-extjs.js file
+            dbName: 'rhoConnectDb',
+            root: 'items',
+            reader: {
+                type: 'json',
+                root: 'items'
+            }
+        };
+        // This function builds store for provided model
+        function buildStoreFor(model) {
+            return new Ext.data.Store({
+                // It forms id as <ModelName>Store
+                id: model.name+'Store',
+                autoLoad: false,
+                model: model.name,
+                proxy: proxy
+            });
+        }
+        // For each of model definition
+        $.each(modelDefs, function(idx, model){
+            // we are register the model with Ext.ModelMgr
+            Ext.regModel(model.name, Ext.apply(model, {proxy: proxy}));
+            // build store, list and form
+            stores[model.name] = buildStoreFor(model);
+        });
+    }
+
+    function dataAccessObjects() {
+        return stores;
+    }
+
     Ext.data.ProxyMgr.registerType('rhoconnect', Ext.data.RhoconnectStorageProxy);
+
+    $.extend(rho.plugins, {extjs: publicInterface()});
 
 })(jQuery, Ext)}

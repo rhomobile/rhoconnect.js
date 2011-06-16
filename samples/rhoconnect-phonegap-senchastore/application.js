@@ -14,7 +14,6 @@ onLoad = (function($, Ext) {
             // UI initialization
             initGMap();
             //initLocationTest();
-            initStore();
             loginRhoConnect("testUserToFailAuth", "userpass").done(function(){
                 startSync();
             });
@@ -97,7 +96,7 @@ onLoad = (function($, Ext) {
         if ("undefined" == typeof navigator || null == navigator) return;
 
         navigator.geolocation.getCurrentPosition(function(position){
-            var store = stores['Customer'];
+            var store = RhoConnect.dataAccessObjects()['Customer'];
             store.load(storeLoaded);
 
             function storeLoaded(records, operation, success) {
@@ -151,7 +150,7 @@ onLoad = (function($, Ext) {
     }
 
     function updateLocations() {
-        var store = stores['Customer'];
+        var store = RhoConnect.dataAccessObjects()['Customer'];
         store.load(storeLoaded);
 
         function storeLoaded(records, operation, success) {
@@ -214,39 +213,6 @@ onLoad = (function($, Ext) {
         }
     ];
 
-    var stores = {};
-
-    function initStore() {
-        var proxy = {
-            type: 'rhoconnect',
-            // Here is special type of Proxy used. It is
-            // Ext.data.RhoconnectStorageProxy defined in the rhoconnect.plugin-extjs.js file
-            dbName: 'rhoConnectDb',
-            root: 'items',
-            reader: {
-                type: 'json',
-                root: 'items'
-            }
-        };
-        // This function builds store for provided model
-        function buildStoreFor(model) {
-            return new Ext.data.Store({
-                // It forms id as <ModelName>Store
-                id: model.name+'Store',
-                autoLoad: false,
-                model: model.name,
-                proxy: proxy
-            });
-        }
-        // For each of model definition
-        $.each(modelDefinitions, function(idx, model){
-            // we are register the model with Ext.ModelMgr
-            Ext.regModel(model.name, Ext.apply(model, {proxy: proxy}));
-            // build store, list and form
-            stores[model.name] = buildStoreFor(model);
-        });
-    }
-
     function loginRhoConnect(username, password) {
         return $.Deferred(function(dfr){
             RhoConnect.login(username, password,
@@ -267,7 +233,7 @@ onLoad = (function($, Ext) {
 
     // RhoConnect.js initialization
     function initRhoconnect(username, doReset) {
-        return RhoConnect.init(modelDefinitions, 'native', null, doReset);
+        return RhoConnect.init(modelDefinitions, 'extjs', null, doReset);
     }
 
     return doAppLaunch;

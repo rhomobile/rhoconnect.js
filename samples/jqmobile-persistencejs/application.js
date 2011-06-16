@@ -1,8 +1,6 @@
 var firstName = null;
 var secondName = null;
 
-var definedModels = {};
-
 onLoad = (function($) {
 
     var APP_TAG = 'GMap-RhoConnect';
@@ -16,7 +14,6 @@ onLoad = (function($) {
             initDeviceId();
             // UI initialization
             initGMap();
-            initStore();
             loginRhoConnect("testUserToFailAuth", "userpass").done(function(){
                 startSync();
             });
@@ -90,7 +87,7 @@ onLoad = (function($) {
         if ("undefined" == typeof navigator || null == navigator) return;
 
         navigator.geolocation.getCurrentPosition(function(position){
-            var model = definedModels['Customer'];
+            var model = RhoConnect.dataAccessObjects()['Customer'];
 
             persistence.loadFromRhoConnect(function() {
                 storeLoaded();
@@ -157,7 +154,7 @@ onLoad = (function($) {
     }
 
     function updateLocations() {
-        var model = definedModels['Customer'];
+        var model = RhoConnect.dataAccessObjects()['Customer'];
 
         persistence.loadFromRhoConnect(function() {
             storeLoaded();
@@ -221,29 +218,9 @@ onLoad = (function($) {
         }
     ];
 
-    function initStore() {
-
+    function loginRhoConnect(username, password) {
         persistence.store.rhoconnect.config(persistence);
 
-
-        function convertType(type) {
-            if (!type) return 'TEXT';
-            switch(type) {
-                case 'string': return 'TEXT';
-                default: return type.toUpperCase();
-            }
-        }
-
-        $.each(modelDefinitions, function(idx, model){
-            var mHash = {};
-            $.each(model.fields, function(idx, fld){
-                mHash[fld.name] = convertType(fld.type);
-            });
-            definedModels[model.name] = persistence.define(model.name, mHash);
-        });
-    }
-
-    function loginRhoConnect(username, password) {
         return $.Deferred(function(dfr){
             RhoConnect.login(username, password,
                     new RhoConnect.SyncNotification(), true /*do db init*/).done(function(){
@@ -263,7 +240,7 @@ onLoad = (function($) {
 
     // RhoConnect.js initialization
     function initRhoconnect(username, doReset) {
-        return RhoConnect.init(modelDefinitions, 'native', null, doReset);
+        return RhoConnect.init(modelDefinitions, 'persistencejs', null, doReset);
     }
 
     return doAppLaunch;

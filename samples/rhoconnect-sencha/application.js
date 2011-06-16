@@ -88,7 +88,11 @@
         var msg = Ext.Msg.alert('Application initialization', 'Wait please..', Ext.emptyFn);
 
         // At last, initialize RhoConnect.js itself and return the promise object
-        return RhoConnect.init(modelDefinitions, 'native', syncProgressUpdate, doReset).done(function(){
+        // Usage note:
+        //   Here we using 'custom' type of storage API. It means we don't asking RhoConnect to initialize
+        //   the storage API of any kind. Instead, we are doing it themselves in buildStoreFor(modeldefinition)
+        //   function. Look at function implementation and using for details.
+        return RhoConnect.init(modelDefinitions, 'custom', syncProgressUpdate, doReset).done(function(){
             // Initialized, now we can hide (do not destroy, it's kind of singletone) "wait please" message
             msg.hide();
             // Reload all lists

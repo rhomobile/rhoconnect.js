@@ -1,5 +1,16 @@
 if('undefined' != typeof window.persistence){(function($, persistence) {
 
+    function publicInterface() {
+        return {
+            initModels: initModels,
+            dataAccessObjects: dataAccessObjects
+        };
+    }
+
+    var rho = RhoConnect.rho;
+
+    var definedModels = {};
+
     if (!persistence.store) {
         persistence.store = {};
     }
@@ -145,8 +156,6 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
             }
 
         };
-
-
 
         function getStorageObject() {
             return RhoConnect.rho.storage;
@@ -507,6 +516,28 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
         };
     };
 
+    function initModels(modelDefs) {
+        function convertType(type) {
+            if (!type) return 'TEXT';
+            switch(type) {
+                case 'string': return 'TEXT';
+                default: return type.toUpperCase();
+            }
+        }
+
+        $.each(modelDefs, function(idx, model){
+            var mHash = {};
+            $.each(model.fields, function(idx, fld){
+                mHash[fld.name] = convertType(fld.type);
+            });
+            definedModels[model.name] = persistence.define(model.name, mHash);
+        });
+    }
+
+    function dataAccessObjects() {
+        return definedModels;
+    }
+
     try {
         exports.config = persistence.store.rhoconnect.config;
         exports.getSession = function() {
@@ -514,5 +545,7 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
         };
     } catch(e) {
     }
+
+    $.extend(rho.plugins, {persistencejs: publicInterface()});
 
 })(jQuery, window.persistence)}

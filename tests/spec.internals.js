@@ -25,7 +25,7 @@ describe("RhoConnect", function() {
                 ]}
         ];
 
-        rhoconnect.init(models /*, 'native'*/).done(okHdlr).fail(errHdlr);
+        rhoconnect.init(models /*, 'rhom'*/).done(okHdlr).fail(errHdlr);
 
         waitsForSpies([okHdlr, errHdlr], 'RhoConnect init timeout', 3000);
         runs(function(){

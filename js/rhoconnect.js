@@ -7,7 +7,8 @@ var RhoConnect = (function($) {
             login: login,
             logout: logout,
             isLoggedIn: isLoggedIn,
-            syncAllSources: syncAllSources
+            syncAllSources: syncAllSources,
+            dataAccessObjects: dataAccessObjects
         };
     }
 
@@ -15,6 +16,7 @@ var RhoConnect = (function($) {
         appName: 'rhoConnect',
         syncServer: '',
         pollInterval: 20,
+        logLevel: 'warning',
         database: {
             nameSuffix: 'Db_',
             version: '1.0',
@@ -87,6 +89,15 @@ var RhoConnect = (function($) {
 
     function syncAllSources() {
         return rho.engine.doSyncAllSources();
+    }
+
+    function dataAccessObjects() {
+        return _getStoragePlugin().dataAccessObjects();
+    }
+
+    function _getStoragePlugin() {
+        if (!storageType) return rho.plugins.emptyStoragePlugin;
+        return rho.plugins[storageType] || rho.plugins.emptyStoragePlugin;
     }
 
     function _initDbSources(tx, configSources) {
@@ -205,9 +216,14 @@ var RhoConnect = (function($) {
         models = {};
         allModelsLoaded = false;
     }
+
+    var storageType;
     
-    function _loadModels(storageType, modelDefs, syncProgressCb) {
+    function _loadModels(stType, modelDefs, syncProgressCb) {
         if (allModelsLoaded) return $.Deferred().resolve().promise();
+
+        storageType = stType || 'rhom';
+        _getStoragePlugin().initModels(modelDefs);
 
         function _addLoadedModel(defn) {
             var model = new rho.domain.Model(defn);
@@ -262,7 +278,14 @@ var RhoConnect = (function($) {
         protocol: null,
         engine: null,
         notify: null,
-        storage: null
+        storage: null,
+
+        plugins: {
+            emptyStoragePlugin: {
+                initModels: function(){},
+                dataAccessObjects: function(){return {}}
+            }
+        }
     };
 
     return $.extend(publicInterface(), {rho: rho});
