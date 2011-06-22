@@ -530,6 +530,8 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
             $.each(model.fields, function(idx, fld){
                 mHash[fld.name] = convertType(fld.type);
             });
+            // we need additional id field for rhosync support
+            mHash[persistence.store.rhoconnect.RHO_ID] = convertType('string');
             definedModels[model.name] = persistence.define(model.name, mHash);
         });
     }

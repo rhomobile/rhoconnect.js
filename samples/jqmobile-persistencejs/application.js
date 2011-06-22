@@ -203,7 +203,6 @@ onLoad = (function($) {
         {
             name: 'Customer',
             fields: [
-                {name: persistence.store.rhoconnect.RHO_ID, type: 'string'}, // id of the object in RhoConnect db
                 {name: 'first',   type: 'string'},
                 {name: 'last',    type: 'string'},
                 {name: 'phone',   type: 'string'},
