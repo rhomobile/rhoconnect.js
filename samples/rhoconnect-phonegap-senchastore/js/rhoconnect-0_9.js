@@ -4281,15 +4281,15 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
         persistence.loadFromRhoConnect = function(callback) {
 
             var models = {};
-            $.each(allObjects, function(modelName, model) {
-                if (allObjects.hasOwnProperty(modelName)) {
+            $.each(definedModels, function(modelName, model) {
+                if (definedModels.hasOwnProperty(modelName)) {
                     models[modelName] = 'anything';
                 }
             });
             var dfrMap = RhoConnect.rho.deferredMapOn(models);
 
-            $.each(allObjects, function(modelName, model) {
-                if (allObjects.hasOwnProperty(modelName)) {
+            $.each(definedModels, function(modelName, model) {
+                if (definedModels.hasOwnProperty(modelName)) {
                     loadAll(modelName).done(function(){
                         dfrMap.resolve(modelName);
                     }).fail(function(){
@@ -4311,15 +4311,15 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
         persistence.saveToRhoConnect = function(callback) {
 
             var models = {};
-            $.each(allObjects, function(modelName, model) {
-                if (allObjects.hasOwnProperty(modelName)) {
+            $.each(definedModels, function(modelName, model) {
+                if (definedModels.hasOwnProperty(modelName)) {
                     models[modelName] = 'anything';
                 }
             });
             var dfrMap = RhoConnect.rho.deferredMapOn(models);
 
-            $.each(allObjects, function(modelName, model) {
-                if (allObjects.hasOwnProperty(modelName)) {
+            $.each(definedModels, function(modelName, model) {
+                if (definedModels.hasOwnProperty(modelName)) {
                     saveAll(modelName).done(function(){
                         dfrMap.resolve(modelName);
                     }).fail(function(){
@@ -4582,6 +4582,7 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
             callback = args.callback;
 
             allObjects = {};
+            definedModels = {};
             this.clean();
             callback();
         };
