@@ -111,13 +111,7 @@ var RhoConnect = (function($) {
                     dbSourceMap[src.name] = src;
                 });
 
-                var dfrMap = {}; // to resolve/reject each exact item
-                var dfrs = []; // to watch on all of them
-                $.each(configSources, function(name, cfgSource){
-                    var dfr = new $.Deferred();
-                    dfrMap[name] = dfr;
-                    dfrs.push(dfr.promise());
-                });
+                var dfrMap = rho.deferredMapOn(configSources);
 
                 $.each(configSources, function(name, cfgSource){
                     // if source from config is already present in db
@@ -142,24 +136,24 @@ var RhoConnect = (function($) {
                         }
                         if (updateNeeded) {
                             rho.storage.storeSource(dbSource, tx).done(function(tx, source){
-                                dfrMap[name].resolve(source);
+                                dfrMap.resolve(name, [source]);
                             }).fail(function(obj, err){
-                                dfrMap[name].reject(obj, err);
+                                dfrMap.reject(name, [obj, err]);
                             });
                         }
                     } else { // if configured source not in db yet
                         if (!cfgSource.id) {
                             cfgSource.id = startId;
-                            startId =+ 1;
+                            startId += 1;
                         }
                         rho.storage.insertSource(cfgSource, tx).done(function(tx, source){
-                            dfrMap[name].resolve(source);
+                            dfrMap.resolve(name, [source]);
                         }).fail(function(obj, err){
-                            dfrMap[name].reject(obj, err);
+                            dfrMap.reject(name, [obj, err]);
                         });
                     }
                 });
-                $.when(dfrs).done(function(resolvedDfrs){
+                dfrMap.when().done(function(){
                     dfr.resolve();
                 }).fail(function(obj, err){
                     dfr.reject(obj, err);
