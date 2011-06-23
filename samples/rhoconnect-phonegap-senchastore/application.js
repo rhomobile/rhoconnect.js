@@ -92,8 +92,10 @@ onLoad = (function($, Ext) {
         });
     }
 
+    var locationError = false;
+
     function setMyLocation() {
-        if ("undefined" == typeof navigator || null == navigator) return;
+        if ("undefined" == typeof navigator || null == navigator || locationError) return;
 
         navigator.geolocation.getCurrentPosition(function(position){
             var store = RhoConnect.dataAccessObjects()['Customer'];
@@ -141,10 +143,15 @@ onLoad = (function($, Ext) {
             }
 
         }, function(error){
-            alert('PhoneGap location error! \n' +
+            locationError = true;
+            alert('Geolocation API error! \n' +
                     'code: '    + error.code    + '\n' +
                     'message: ' + error.message + '\n');
-        }, { enableHighAccuracy: true });
+        }, {
+            enableHighAccuracy: true,
+            maximumAge:Infinity,
+            timeout:3000
+        });
 
 
     }
