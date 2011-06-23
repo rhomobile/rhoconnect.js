@@ -111,13 +111,7 @@ var RhoConnect = (function($) {
                     dbSourceMap[src.name] = src;
                 });
 
-                var dfrMap = {}; // to resolve/reject each exact item
-                var dfrs = []; // to watch on all of them
-                $.each(configSources, function(name, cfgSource){
-                    var dfr = new $.Deferred();
-                    dfrMap[name] = dfr;
-                    dfrs.push(dfr.promise());
-                });
+                var dfrMap = rho.deferredMapOn(configSources);
 
                 $.each(configSources, function(name, cfgSource){
                     // if source from config is already present in db
@@ -142,24 +136,26 @@ var RhoConnect = (function($) {
                         }
                         if (updateNeeded) {
                             rho.storage.storeSource(dbSource, tx).done(function(tx, source){
-                                dfrMap[name].resolve(source);
+                                dfrMap.resolve(name, [source]);
                             }).fail(function(obj, err){
-                                dfrMap[name].reject(obj, err);
+                                dfrMap.reject(name, [obj, err]);
                             });
+                        } else {
+                            dfrMap.resolve(name, [dbSource]);
                         }
                     } else { // if configured source not in db yet
                         if (!cfgSource.id) {
                             cfgSource.id = startId;
-                            startId =+ 1;
+                            startId += 1;
                         }
                         rho.storage.insertSource(cfgSource, tx).done(function(tx, source){
-                            dfrMap[name].resolve(source);
+                            dfrMap.resolve(name, [source]);
                         }).fail(function(obj, err){
-                            dfrMap[name].reject(obj, err);
+                            dfrMap.reject(name, [obj, err]);
                         });
                     }
                 });
-                $.when(dfrs).done(function(resolvedDfrs){
+                dfrMap.when().done(function(){
                     dfr.resolve();
                 }).fail(function(obj, err){
                     dfr.reject(obj, err);
@@ -4715,6 +4711,8 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
             $.each(model.fields, function(idx, fld){
                 mHash[fld.name] = convertType(fld.type);
             });
+            // we need additional id field for rhosync support
+            mHash[persistence.store.rhoconnect.RHO_ID] = convertType('string');
             definedModels[model.name] = persistence.define(model.name, mHash);
         });
     }

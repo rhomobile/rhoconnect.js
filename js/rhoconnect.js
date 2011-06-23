@@ -140,6 +140,8 @@ var RhoConnect = (function($) {
                             }).fail(function(obj, err){
                                 dfrMap.reject(name, [obj, err]);
                             });
+                        } else {
+                            dfrMap.resolve(name, [dbSource]);
                         }
                     } else { // if configured source not in db yet
                         if (!cfgSource.id) {
