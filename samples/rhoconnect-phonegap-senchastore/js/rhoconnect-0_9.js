@@ -4361,7 +4361,7 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
                 return record;
             }
 
-            function _setupRecord(record) {
+            function _setupRecord(record, dfrMap) {
                 var recId = record[persistence.store.rhoconnect.RHO_ID];
                 var idAttr = persistence.store.rhoconnect.RHO_ID;
                 definedModels[srcName].findBy(persistence, null, idAttr, recId, function(found) {
@@ -4374,6 +4374,7 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
                     } else {
                         persistence.add(record);
                     }
+                    dfrMap.resolve(recId, []);
                 });
             }
 
@@ -4409,10 +4410,17 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
                 }
 
                 function _localObjectsAreRead(objects) {
+                    var dfrMap = rho.deferredMapOn(objects);
+
                     $.each(objects, function(id, object){
-                        _setupRecord(_buildRecord(id, object));
+                        _setupRecord(_buildRecord(id, object), dfrMap);
                     });
-                    dfr.resolve();
+
+                    dfrMap.when().done(function(){
+                        dfr.resolve();
+                    }).fail(function(errObj, err){
+                        dfr.reject(errObj, err);
+                    });
                 }
             }).promise();
         }

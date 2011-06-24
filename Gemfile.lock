@@ -24,6 +24,7 @@ GEM
       crack (>= 0.1.7)
 
 PLATFORMS
+  ruby
   x86-mingw32
 
 DEPENDENCIES
