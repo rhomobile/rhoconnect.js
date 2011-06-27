@@ -36,7 +36,8 @@ describe("RhoConnect use cases", function(){
                     ]}*/
             ];
 
-            rhoconnect.init(models, 'rhom', null /*no progress update callback*/, false /*no data resey*/).done(okHdlr).fail(errHdlr);
+            rhoconnect.init(models, 'custom', false /*no data reset*/,
+                    null /*no sources callback*/, null /*no general callback*/).done(okHdlr).fail(errHdlr);
 
             waitsForSpies([okHdlr, errHdlr], 'RhoConnect init timeout', 3000);
             runs(function(){

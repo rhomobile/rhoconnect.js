@@ -2,32 +2,20 @@
 <html>
 	<head>
 		<title>RhoSyncJS-PhoneGap demo</title>
-        <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
-        <style type="text/css">
-            html { height: 100%; }
-            body { height: 100%; margin: 0; padding: 0; }
-         /* #map, #map > .ui-content { height: 100%; } */
-            #map, #map > .ui-content { height: 400px; }
-            #map_canvas { width: 100%; height: 100%; }
-        </style>
 
-        <link rel="stylesheet" href="application.css">
+        <!-- PhoneGap -->
         <script type="text/javascript" charset="utf-8" src="external/phonegap.0.9.5.1.js"></script>
 
+        <!-- jQuery -->
         <script type="text/javascript" charset="utf-8" src="external/jquery/jquery-1.6.1.min.js"></script>
         <script type="text/javascript" charset="utf-8" src="external/jquery/jquery.base64.min.js"></script>
         <script type="text/javascript" charset="utf-8" src="external/jquery/json.js"></script>
 
-        <script type="text/javascript">
-            // jQuery-Mobile init options initialization goes here
-            //$(document).bind("mobileinit", function(){
-            //});
-        </script>
-        <link rel="stylesheet" href="external/jqmobile/jquery.mobile-1.0b1pre.min.css">
-        <script type="text/javascript" charset="utf-8" src="external/jqmobile/jquery.mobile-1.0b1pre.min.js"></script>
+        <!-- Persistence.js -->
+        <script src="external/persistencejs/persistence.js" type="application/javascript"></script>
+        <script src="external/persistencejs/persistence.store.sql.js" type="application/javascript"></script>
 
-        <script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=true"></script>
-
+        <!-- RhoConnect.js -->
         <script type="text/javascript">
             var syncUrl = 'http://rhohub-lars-692f63a7.rhosync.com/application';
             //var syncUrl = 'http://192.168.0.21:9292/application';
@@ -37,59 +25,76 @@
                 syncServer: syncUrl,
                 logLevel: 'trace'
             };
-
-            var setNames = function(){
-                firstName = $('#firstName')[0].value;
-                secondName = $('#secondName')[0].value;
-            };
         </script>
-        <script src="external/persistencejs/persistence.js" type="application/javascript"></script>
-        <script src="external/persistencejs/persistence.store.sql.js" type="application/javascript"></script>
-
-<!--
-        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.js"></script>
-        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.common.js"></script>
-        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.protocol.js"></script>
-        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.domain.js"></script>
-        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.storage.js"></script>
-        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.engine.js"></script>
-        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.notify.js"></script>
-        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.plugin-extjs.js"></script>
-        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.plugin-persistencejs.js"></script>
--->
         <script type="text/javascript" charset="utf-8" src="js/rhoconnect-0_9.min.js"></script>
 
+        <!-- This application -->
+        <link rel="stylesheet" href="application.css">
         <script type="text/javascript" language="javascript" src="application.js"></script>
 
+        <!-- jQuery Mobile (very last, as recommended in jQuery Mobile docs) -->
+        <script type="text/javascript">
+            // jQuery-Mobile init options initialization goes here
+            //$(document).bind("mobileinit", function(){
+            //});
+        </script>
+        <link rel="stylesheet" href="external/jqmobile/jquery.mobile-1.0b1pre.min.css">
+        <script type="text/javascript" charset="utf-8" src="external/jqmobile/jquery.mobile-1.0b1pre.min.js"></script>
 	</head>
-	<body onload="onLoad()">
+    <body onload="onLoad()">
 
-    <div data-role="page" id="form">
+    <div data-role="page" id="loginPage">
         <div data-role="header">
-            <h1>Settings</h1>
+            <h1>Login</h1>
         </div>
+
         <div data-role="content">
-            <div data-role="fieldcontain">
-                <label for="firstName">First name:</label>
-                <input type="text" name="firstName" id="firstName" value=""/>
-                <label for="secondName">Second name:</label>
-                <input type="text" name="secondName" id="secondName" value=""/>
-                <a href="#map" data-role="button" onclick="setNames(); return false;">Start</a>
+            <div data-role="content">
+                <div data-role="fieldcontain">
+                    <label for="username">Username:</label>
+                    <input type="text" name="username" id="username" value=""/>
+                    <label for="password">Password:</label>
+                    <input type="password" name="password" id="password" value=""/>
+                    <a href="#" onclick="return false;" data-role="button">Login</a>
+                </div>
             </div>
         </div>
+
+        <div data-role="footer">
+            <h4>Page Footer</h4>
+        </div>
     </div>
 
-    <div data-role="page" id="map">
+    <div data-role="page" id="listPage">
         <div data-role="header">
-            <h1>Customer locations</h1>
-<!--
-            <a href="#form" data-role="button">Options</a>
-            <a href="#" data-role="button" onclick="RhoConnect.syncAllSources();">Do Sync</a>
--->
+            <h1>Products</h1>
         </div>
+
         <div data-role="content">
-            <div id="map_canvas"></div>
+        </div>
+
+        <div data-role="footer">
+            <h4>Page Footer</h4>
         </div>
     </div>
-	</body>
+
+    <div data-role="page" id="formPage">
+
+        <div data-role="header">
+            <h1>Bar</h1>
+        </div>
+
+        <div data-role="content">
+            <p>I'm first in the source order so I'm shown as the page.</p>
+
+            <p><a href="#foo">Back to foo</a></p>
+        </div>
+
+        <div data-role="footer">
+            <h4>Page Footer</h4>
+        </div>
+        <!-- /footer -->
+    </div>
+
+    </body>
 </html>

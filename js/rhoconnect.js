@@ -50,12 +50,12 @@ var RhoConnect = (function($) {
         SYNC_SOURCE_END: 'rhoConnectSourceSynchronizationEnd'
     };
 
-    function init(modelDefs, storageType, syncProgressCb, doReset) {
+    function init(modelDefs, storageType, doReset, srcCallback, allCallback) {
         return $.Deferred(function(dfr){
             rho.storage.init(doReset).done(function(){
                 rho.engine.restoreSession().done(function(){
                     _resetModels();
-                    _loadModels(storageType, modelDefs, syncProgressCb).done(function(){
+                    _loadModels(storageType, modelDefs, srcCallback, allCallback).done(function(){
                         dfr.resolve();
                     }).fail(function(obj, error){
                         dfr.reject("models load error: " +error);
@@ -215,7 +215,7 @@ var RhoConnect = (function($) {
 
     var storageType;
     
-    function _loadModels(stType, modelDefs, syncProgressCb) {
+    function _loadModels(stType, modelDefs, srcCallback, allCallback) {
         if (allModelsLoaded) return $.Deferred().resolve().promise();
 
         storageType = stType || 'rhom';
@@ -254,13 +254,19 @@ var RhoConnect = (function($) {
 
         return _initSources(rho.engine.getSources()).done(function(){
             $.each(rho.engine.getSources(), function(name, src){
-                rho.engine.getNotify().setNotification(src, new rho.notify.SyncNotification(function(){
-                    if ("function" == typeof syncProgressCb) {
-                        syncProgressCb(name);
+                rho.engine.getNotify().setNotification(src, new rho.notify.SyncNotification(function(notifyBody){
+                    if ("function" == typeof srcCallback) {
+                        srcCallback(name, notifyBody);
                         return false;
                     }
                 }, false));
             });
+            rho.engine.getNotify().setSyncNotification(-1, new rho.notify.SyncNotification(function(notifyBody){
+                if ("function" == typeof allCallback) {
+                    allCallback(notifyBody);
+                    return false;
+                }
+            }, false));
         });
     }
 

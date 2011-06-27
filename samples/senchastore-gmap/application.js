@@ -240,7 +240,7 @@ onLoad = (function($, Ext) {
 
     // RhoConnect.js initialization
     function initRhoconnect(username, doReset) {
-        return RhoConnect.init(modelDefinitions, 'extjs', null, doReset);
+        return RhoConnect.init(modelDefinitions, 'extjs', doReset);
     }
 
     return doAppLaunch;

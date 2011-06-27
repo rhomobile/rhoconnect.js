@@ -92,7 +92,7 @@
         //   Here we using 'custom' type of storage API. It means we don't asking RhoConnect to initialize
         //   the storage API of any kind. Instead, we are doing it themselves in buildStoreFor(modeldefinition)
         //   function. Look at function implementation and using for details.
-        return RhoConnect.init(modelDefinitions, 'custom', syncProgressUpdate, doReset).done(function(){
+        return RhoConnect.init(modelDefinitions, 'custom', doReset, syncProgressUpdate).done(function(){
             // Initialized, now we can hide (do not destroy, it's kind of singletone) "wait please" message
             msg.hide();
             // Reload all lists
@@ -127,7 +127,16 @@
     }
 
     // Sync progress update callback, receives model name just has been synchronized
-    function syncProgressUpdate(modelName) {
+    function generalNotification(notifyBody) {
+        console.log('=== GENERAL NOTIFICATION:');
+        console.dir(notifyBody);
+    }
+
+    // Sync progress update callback, receives model name just has been synchronized
+    function syncProgressUpdate(modelName, notifyBody) {
+        console.log('=== SOURCE NOTIFICATION:');
+        console.dir(notifyBody);
+
         // Exclude this model name from tracking array
         for (var i=0; i<syncProgressArray.length; i++) {
             if (syncProgressArray[i] == modelName) {
