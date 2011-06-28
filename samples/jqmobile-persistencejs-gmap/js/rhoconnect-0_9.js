@@ -3,11 +3,22 @@ var RhoConnect = (function($) {
     function publicInterface() {
         return {
             ERRORS: ERRORS,
+            // Actions and checks
             init: init,
             login: login,
             logout: logout,
             isLoggedIn: isLoggedIn,
             syncAllSources: syncAllSources,
+            // Notifications
+            setModelNotification: setModelNotification,
+            clearModelNotification: clearModelNotification,
+            setAllNotification: setAllNotification,
+            clearAllNotification: clearAllNotification,
+            setObjectsNotification: setObjectsNotification,
+            clearObjectsNotification: clearObjectsNotification,
+            addObjectNotify: addObjectNotify,
+            clearObjectsNotify: clearObjectsNotify,
+            // Data access
             dataAccessObjects: dataAccessObjects
         };
     }
@@ -50,12 +61,12 @@ var RhoConnect = (function($) {
         SYNC_SOURCE_END: 'rhoConnectSourceSynchronizationEnd'
     };
 
-    function init(modelDefs, storageType, syncProgressCb, doReset) {
+    function init(modelDefs, storageType, doReset, sourceSyncCallback) {
         return $.Deferred(function(dfr){
             rho.storage.init(doReset).done(function(){
                 rho.engine.restoreSession().done(function(){
                     _resetModels();
-                    _loadModels(storageType, modelDefs, syncProgressCb).done(function(){
+                    _loadModels(storageType, modelDefs, sourceSyncCallback).done(function(){
                         dfr.resolve();
                     }).fail(function(obj, error){
                         dfr.reject("models load error: " +error);
@@ -215,7 +226,7 @@ var RhoConnect = (function($) {
 
     var storageType;
     
-    function _loadModels(stType, modelDefs, syncProgressCb) {
+    function _loadModels(stType, modelDefs, sourceSyncCallback) {
         if (allModelsLoaded) return $.Deferred().resolve().promise();
 
         storageType = stType || 'rhom';
@@ -254,14 +265,71 @@ var RhoConnect = (function($) {
 
         return _initSources(rho.engine.getSources()).done(function(){
             $.each(rho.engine.getSources(), function(name, src){
-                rho.engine.getNotify().setNotification(src, new rho.notify.SyncNotification(function(){
-                    if ("function" == typeof syncProgressCb) {
-                        syncProgressCb(name);
+                rho.engine.getNotify().setNotification(src, new rho.notify.SyncNotification(function(notifyBody){
+                    if ("function" == typeof sourceSyncCallback) {
+                        sourceSyncCallback(notifyBody);
                         return false;
                     }
                 }, false));
             });
         });
+    }
+
+    function validSourceWithName(name) {
+        if (name
+                && "object" == typeof rho.engine.getSources()
+                && "object" == typeof rho.engine.getSources()[name]
+                && rho.engine.getSources()[name].id
+                ) return rho.engine.getSources()[name];
+        else return false;
+    }
+
+    function setModelNotification(srcName, callback, removeAfterFire) {
+        var src = validSourceWithName(srcName);
+        if (src) {
+            rho.engine.getNotify().setNotification(src, new rho.notify.SyncNotification(callback, removeAfterFire));
+        }
+    }
+
+    function clearModelNotification(srcName) {
+        rho.engine.getNotify().clearNotification(srcName);
+    }
+
+    function setAllNotification(callback, removeAfterFire) {
+        rho.engine.getNotify().setAllNotification(new rho.notify.SyncNotification(callback, removeAfterFire));
+    }
+
+    function clearAllNotification() {
+        rho.engine.getNotify().clearAllNotification();
+    }
+
+    function setObjectsNotification(callback, removeAfterFire) {
+        // Call callback function only if there are any real changes
+        function nonEmptyChanges(notifyBody) {
+            if (notifyBody.deleted.length == 0
+                    && notifyBody.updated.length == 0
+                    && notifyBody.created.length == 0
+                    ) return false;
+            return callback(notifyBody);
+        }
+        rho.engine.getNotify().setObjectsNotification(new rho.notify.SyncNotification(nonEmptyChanges, removeAfterFire));
+    }
+
+    function clearObjectsNotification() {
+        rho.engine.getNotify().clearObjectsNotification();
+    }
+
+    function addObjectNotify(srcName, objId) {
+        var src = validSourceWithName(srcName);
+        if (src) {
+            rho.engine.getNotify().addObjectNotify(src.id, objId);
+        } else {
+            rho.engine.getNotify().addObjectNotify(srcName, objId);
+        }
+    }
+
+    function clearObjectsNotify() {
+        rho.engine.getNotify().cleanObjectsNotify();
     }
 
     // rhoconnect internal parts we _have_to_ make a public
@@ -2343,7 +2411,7 @@ var RhoConnect = (function($) {
                             that.processServerCmd_Ver3(strCmd,strObject,strAttrib,strValue, tx).done(function(){
                                 _localAfterIfSchemaSource();
                             }).fail(function(errCode, error){
-                                LOG.error("Sync of server changes failed for " + that.name + "; \object: " + strObject, error);
+                                LOG.error("Sync of server changes failed for " + that.name + "; object: " + strObject, error);
                                 dfrMap.reject(strObject, [errCode, error]);
                             });
 
@@ -2411,7 +2479,7 @@ var RhoConnect = (function($) {
                                     "(attrib, source_id, object, value) VALUES(?,?,?,?)",
                                     [oAttrValue.m_strAttrib, that.id, strObject, oAttrValue.m_strValue], tx).done(function(tx, rs){
 
-                                _localAfterInserOrUpdate();
+                                _localAfterInsertOrUpdate();
                             }).fail(_rejectOnDbAccessEror(dfr));
 
                         } else {
@@ -2431,14 +2499,14 @@ var RhoConnect = (function($) {
                                 } else {_localAfterSyncTypeNone();}
 
                                 function _localAfterSyncTypeNone() {
-                                    _localAfterInserOrUpdate();
+                                    _localAfterInsertOrUpdate();
                                 }
                             }).fail(_rejectOnDbAccessEror(dfr));
 
                         }
                     }).fail(_rejectOnDbAccessEror(dfr));
 
-                    function _localAfterInserOrUpdate() {
+                    function _localAfterInsertOrUpdate() {
                         if (that.sync_type != "none") {
                             that.getNotify().onObjectChanged(that.id, strObject, rho.notify.ACTIONS.update);
                         }
@@ -3067,6 +3135,7 @@ var RhoConnect = (function($) {
         var searchNotification = null;
         var syncNotifications = {};
         var allNotification = null;
+        var objectsNotification = null;
         var emptyNotify = SyncNotification();
         var /*ISyncStatusListener*/ syncStatusListener = null;
         var enableReporting = false;
@@ -3075,7 +3144,7 @@ var RhoConnect = (function($) {
         var hashSrcObjectCount = {};
 
 
-        function addObjectNotify(source, objectId) {
+        this.addObjectNotify = function(source, objectId) {
             if ("string" == typeof source) { // if source by name
                 singleObjectSrcName = source;
                 singleObjectID = objectId.match(/^\{/) ? objectId.substring(1, objectId.length-2) : objectId ;
@@ -3083,20 +3152,20 @@ var RhoConnect = (function($) {
                 var srcId = ("number" == typeof source) ? source : /*then it is an object*/ source.id;
                 if (srcId) {
                     var hashObject = srcIDAndObject[srcId];
-                    if (hashObject) {
+                    if (!hashObject) {
                         hashObject = {};
                         srcIDAndObject[srcId] = hashObject;
                     }
                     hashObject[objectId] = ACTIONS.none;
                 }
             }
-        }
+        };
 
-        function cleanObjectNotifications() {
+        this.cleanObjectsNotify = function() {
             singleObjectSrcName = "";
             singleObjectID = "";
             srcIDAndObject = {};
-        }
+        };
 
         this.cleanCreateObjectErrors = function() {
             hashCreateObjectErrors = {};
@@ -3107,42 +3176,39 @@ var RhoConnect = (function($) {
 
             var src = engine.getSources()[singleObjectSrcName];
             if (src) {
-                addObjectNotify(src,singleObjectID);
+                this.addObjectNotify(src,singleObjectID);
             }
             singleObjectSrcName = "";
             singleObjectID = "";
         }
 
         this.fireObjectsNotification = function() {
-            var body = {};
-            var strBody = "";
+            var notifyBody = {
+                deleted: [],
+                updated: [],
+                created: []
+            };
 
             $.each(srcIDAndObject, function(srcId, hashObject) {
                 $.each(hashObject, function(strObject, nNotifyType) {
-
                     if (nNotifyType == ACTIONS.none) return;
 
-                    if (strBody) {
-                        strBody += "&rho_callback=1&";
-                    }
-
                     if (nNotifyType == ACTIONS['delete']) {
-                        strBody += "deleted[][object]=" + strObject;
-                        strBody += "&deleted[][source_id]=" + srcId;
+                        notifyBody['deleted'].push({object: strObject, sourceId: srcId});
                     } else if (nNotifyType == ACTIONS.update) {
-                        strBody += "updated[][object]=" + strObject;
-                        strBody += "&updated[][source_id]=" + srcId;
+                        notifyBody['updated'].push({object: strObject, sourceId: srcId});
                     } else if (nNotifyType == ACTIONS.create) {
-                        strBody += "created[][object]=" + strObject;
-                        strBody += "&created[][source_id]=" + srcId;
+                        notifyBody['created'].push({object: strObject, sourceId: srcId});
                     }
-
                     hashObject[strObject] = ACTIONS.none;
                 });
             });
 
-            if (!strBody) return;
-            callNotify(new SyncNotification("", false), strBody);
+            if (!notifyBody) return;
+            callNotify(objectsNotification || (new SyncNotification("", false)),
+                    notifyBody);
+
+            // this.cleanObjectsNotify();
         };
 
         this.onObjectChanged = function(srcId, objectId, actionType) {
@@ -3169,12 +3235,11 @@ var RhoConnect = (function($) {
             var hashErrors = hashCreateObjectErrors[srcId];
             if (!hashErrors) return "";
 
-            var strBody = "";
+            var notifyBody = [];
             $.each(srcIDAndObject, function(strObject, strError) {
-                strBody += "&create_error[][object]=" + strObject;
-                strBody += "&create_error[][error_message]=" + strError;
+                notifyBody.push({object: strObject, errorMessage: strError});
             });
-            return strBody;
+            return notifyBody;
         }
 
          this.onSyncSourceEnd = function(nSrc, sourcesArray) {
@@ -3287,68 +3352,67 @@ var RhoConnect = (function($) {
             try {
                 var pSN = null;
 
-                var strBody = "";
+                var notifyBody = {};
                 var bRemoveAfterFire = isFinish;
                 {
                     pSN = getSyncNotifyBySrc(src);
                     if (!pSN) return;
 
-                    strBody = "";
+                    notifyBody = {};
 
                     if (src) {
-                        strBody += "total_count=" + src.totalCount;
-                        strBody += "&processed_count=" + src.curPageCount;
-                        strBody += "&processed_objects_count=" + getLastSyncObjectCount(src.id);
-                        strBody += "&cumulative_count=" + src.serverObjectsCount;
-                        strBody += "&source_id=" + src.id;
-                        strBody += "&source_name=" + src.name;
+                        notifyBody['total_count'] = src.totalCount;
+                        notifyBody['processed_count'] = src.curPageCount;
+                        notifyBody['processed_objects_count'] = getLastSyncObjectCount(src.id);
+                        notifyBody['cumulative_count'] = src.serverObjectsCount;
+                        notifyBody['source_id'] = src.id;
+                        notifyBody['source_name'] = src.name;
                     }
 
-                    strBody += (strBody ? "&" : "") +(params || "sync_type=incremental");
+                    notifyBody['params'] = (params || {sync_type: 'incremental'});
 
-                    strBody += "&status=";
                     if (isFinish) {
                         if (errCode == rho.ERRORS.ERR_NONE) {
                             //if (engine.isSchemaChanged()) {
-                            //    strBody += "schema_changed";
+                            //    notifyBody += "schema_changed";
                             //} else {
-                                strBody += (!src && !params) ? "complete" : "ok";
+                                notifyBody['status'] = (!src && !params) ? "complete" : "ok";
                             //}
                         } else {
                             if (engine.isStoppedByUser()) {
                                 errCode = rho.ERRORS.ERR_CANCELBYUSER;
                             }
 
-                            strBody += "error";
-                            strBody += "&error_code=" + errCode;
+                            notifyBody['status'] = "error";
+                            notifyBody['error_code'] = errCode;
 
                             if (error) {
-                                strBody += "&error_message=" + __urlEncode(error);
+                                notifyBody['error_message'] = __urlEncode(error);
                             } else if (src) {
-                                strBody += "&error_message=" + __urlEncode(src.error);
+                                notifyBody['error_message'] = __urlEncode(src.error);
                             }
 
                             if (serverError) {
-                                strBody += "&" + serverError;
+                                notifyBody['server_error'] = serverError;
                             } else if (src && src.serverError) {
-                                strBody += "&" + src.serverError;
+                                notifyBody['server_error'] = src.serverError;
                             }
                         }
 
                         if (src) {
-                            strBody += makeCreateObjectErrorBody(src.id);
+                            notifyBody['create_error'] = makeCreateObjectErrorBody(src.id);
                         }
                     } else {
-                        strBody += "in_progress";
+                        notifyBody['in_progress'] = true;
                     }
 
-                    strBody += "&rho_callback=1";
+                    //notifyBody += "&rho_callback=1";
                     /*
                     if (pSN.params) {
                         if (!pSN.params.match(/^&/)) {
-                            strBody += "&";
+                            notifyBody += "&";
                         }
-                        strBody += pSN.params;
+                        notifyBody += pSN.params;
                     }
                     */
 
@@ -3359,7 +3423,7 @@ var RhoConnect = (function($) {
                 }
                 LOG.info("Fire notification. Source: " +(src ? src.name : "") +"; " +pSN.toString());
 
-                if (callNotify(pSN, strBody)) {
+                if (callNotify(pSN, notifyBody)) {
                     this.clearNotification(src);
                 }
             } catch(exc) {
@@ -3367,22 +3431,19 @@ var RhoConnect = (function($) {
             }
         };
 
-        function callNotify(oNotify, strBody) {
+        function callNotify(oNotify, notifyBody) {
             if (engine.isNoThreadedMode()) {
-                strNotifyBody = strBody;
+                strNotifyBody = notifyBody;
                 return false;
             }
 
-            //TODO: implement real notification here!
-
-            // let's try this as an implementation
             if (oNotify && "function" == typeof oNotify.params) {
-                return oNotify.params();
+                return oNotify.params(notifyBody);
             } else {
                 return true;
             }
 
-            //NetResponse resp = getNet().pushData( oNotify.m_strUrl, strBody, null );
+            //NetResponse resp = getNet().pushData( oNotify.m_strUrl, notifyBody, null );
             //if ( !resp.isOK() )
             //    LOG.error( "Fire object notification failed. Code: " + resp.getRespCode() + "; Error body: " + resp.getCharData() );
             //else
@@ -3392,6 +3453,15 @@ var RhoConnect = (function($) {
             //}
 
         }
+
+        this.setObjectsNotification = function(notification) {
+            LOG.info("Set objects notification. " +(notification ? notification.toString() : ""));
+            objectsNotification = notification;
+        };
+
+        this.setAllNotification = function(notification) {
+            this.setSyncNotification(-1, notification);
+        };
 
         this.setNotification = function(src, notification) {
             if (!src) return;
@@ -3405,6 +3475,15 @@ var RhoConnect = (function($) {
             } else {
                 syncNotifications[srcId] = notification;
             }
+        };
+
+        this.clearObjectsNotification = function() {
+            LOG.info("Clear objects notification.");
+            objectsNotification = null;
+        };
+
+        this.clearAllNotification = function() {
+            this.clearSyncNotification(-1);
         };
 
         this.clearNotification = function(src) {
@@ -3442,14 +3521,14 @@ var RhoConnect = (function($) {
                 if (engine.isStoppedByUser())
                     return;
 
-                var strBody = "error_code=" + nErrCode;
+                var notifyBody = {
+                    error_code: nErrCode,
+                    error_message: __urlEncode(strMessage != null? strMessage : "")
+                };
 
-                strBody += "&error_message=" + __urlEncode(strMessage != null? strMessage : "");
-                strBody += "&rho_callback=1";
+                LOG.info("Login callback: " +oNotify.toString() +". Body: " +notifyBody);
 
-                LOG.info("Login callback: " +oNotify.toString() +". Body: " +strBody);
-
-                callNotify(oNotify, strBody);
+                callNotify(oNotify, notifyBody);
             //} catch (Exception exc) {
             //    LOG.error("Call Login callback failed.", exc);
             //}
@@ -4361,7 +4440,7 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
                 return record;
             }
 
-            function _setupRecord(record) {
+            function _setupRecord(record, dfrMap) {
                 var recId = record[persistence.store.rhoconnect.RHO_ID];
                 var idAttr = persistence.store.rhoconnect.RHO_ID;
                 definedModels[srcName].findBy(persistence, null, idAttr, recId, function(found) {
@@ -4374,6 +4453,7 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
                     } else {
                         persistence.add(record);
                     }
+                    dfrMap.resolve(recId, []);
                 });
             }
 
@@ -4409,10 +4489,17 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
                 }
 
                 function _localObjectsAreRead(objects) {
+                    var dfrMap = rho.deferredMapOn(objects);
+
                     $.each(objects, function(id, object){
-                        _setupRecord(_buildRecord(id, object));
+                        _setupRecord(_buildRecord(id, object), dfrMap);
                     });
-                    dfr.resolve();
+
+                    dfrMap.when().done(function(){
+                        dfr.resolve();
+                    }).fail(function(errObj, err){
+                        dfr.reject(errObj, err);
+                    });
                 }
             }).promise();
         }

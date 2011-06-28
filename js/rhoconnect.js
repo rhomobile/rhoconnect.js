@@ -3,11 +3,22 @@ var RhoConnect = (function($) {
     function publicInterface() {
         return {
             ERRORS: ERRORS,
+            // Actions and checks
             init: init,
             login: login,
             logout: logout,
             isLoggedIn: isLoggedIn,
             syncAllSources: syncAllSources,
+            // Notifications
+            setModelNotification: setModelNotification,
+            clearModelNotification: clearModelNotification,
+            setAllNotification: setAllNotification,
+            clearAllNotification: clearAllNotification,
+            setObjectsNotification: setObjectsNotification,
+            clearObjectsNotification: clearObjectsNotification,
+            addObjectNotify: addObjectNotify,
+            clearObjectsNotify: clearObjectsNotify,
+            // Data access
             dataAccessObjects: dataAccessObjects
         };
     }
@@ -50,12 +61,12 @@ var RhoConnect = (function($) {
         SYNC_SOURCE_END: 'rhoConnectSourceSynchronizationEnd'
     };
 
-    function init(modelDefs, storageType, doReset, srcCallback, allCallback) {
+    function init(modelDefs, storageType, doReset, sourceSyncCallback) {
         return $.Deferred(function(dfr){
             rho.storage.init(doReset).done(function(){
                 rho.engine.restoreSession().done(function(){
                     _resetModels();
-                    _loadModels(storageType, modelDefs, srcCallback, allCallback).done(function(){
+                    _loadModels(storageType, modelDefs, sourceSyncCallback).done(function(){
                         dfr.resolve();
                     }).fail(function(obj, error){
                         dfr.reject("models load error: " +error);
@@ -215,7 +226,7 @@ var RhoConnect = (function($) {
 
     var storageType;
     
-    function _loadModels(stType, modelDefs, srcCallback, allCallback) {
+    function _loadModels(stType, modelDefs, sourceSyncCallback) {
         if (allModelsLoaded) return $.Deferred().resolve().promise();
 
         storageType = stType || 'rhom';
@@ -255,19 +266,70 @@ var RhoConnect = (function($) {
         return _initSources(rho.engine.getSources()).done(function(){
             $.each(rho.engine.getSources(), function(name, src){
                 rho.engine.getNotify().setNotification(src, new rho.notify.SyncNotification(function(notifyBody){
-                    if ("function" == typeof srcCallback) {
-                        srcCallback(name, notifyBody);
+                    if ("function" == typeof sourceSyncCallback) {
+                        sourceSyncCallback(notifyBody);
                         return false;
                     }
                 }, false));
             });
-            rho.engine.getNotify().setSyncNotification(-1, new rho.notify.SyncNotification(function(notifyBody){
-                if ("function" == typeof allCallback) {
-                    allCallback(notifyBody);
-                    return false;
-                }
-            }, false));
         });
+    }
+
+    function validSourceWithName(name) {
+        if (name
+                && "object" == typeof rho.engine.getSources()
+                && "object" == typeof rho.engine.getSources()[name]
+                && rho.engine.getSources()[name].id
+                ) return rho.engine.getSources()[name];
+        else return false;
+    }
+
+    function setModelNotification(srcName, callback, removeAfterFire) {
+        var src = validSourceWithName(srcName);
+        if (src) {
+            rho.engine.getNotify().setNotification(src, new rho.notify.SyncNotification(callback, removeAfterFire));
+        }
+    }
+
+    function clearModelNotification(srcName) {
+        rho.engine.getNotify().clearNotification(srcName);
+    }
+
+    function setAllNotification(callback, removeAfterFire) {
+        rho.engine.getNotify().setAllNotification(new rho.notify.SyncNotification(callback, removeAfterFire));
+    }
+
+    function clearAllNotification() {
+        rho.engine.getNotify().clearAllNotification();
+    }
+
+    function setObjectsNotification(callback, removeAfterFire) {
+        // Call callback function only if there are any real changes
+        function nonEmptyChanges(notifyBody) {
+            if (notifyBody.deleted.length == 0
+                    && notifyBody.updated.length == 0
+                    && notifyBody.created.length == 0
+                    ) return false;
+            return callback(notifyBody);
+        }
+        rho.engine.getNotify().setObjectsNotification(new rho.notify.SyncNotification(nonEmptyChanges, removeAfterFire));
+    }
+
+    function clearObjectsNotification() {
+        rho.engine.getNotify().clearObjectsNotification();
+    }
+
+    function addObjectNotify(srcName, objId) {
+        var src = validSourceWithName(srcName);
+        if (src) {
+            rho.engine.getNotify().addObjectNotify(src.id, objId);
+        } else {
+            rho.engine.getNotify().addObjectNotify(srcName, objId);
+        }
+    }
+
+    function clearObjectsNotify() {
+        rho.engine.getNotify().cleanObjectsNotify();
     }
 
     // rhoconnect internal parts we _have_to_ make a public

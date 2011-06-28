@@ -987,7 +987,7 @@
                             that.processServerCmd_Ver3(strCmd,strObject,strAttrib,strValue, tx).done(function(){
                                 _localAfterIfSchemaSource();
                             }).fail(function(errCode, error){
-                                LOG.error("Sync of server changes failed for " + that.name + "; \object: " + strObject, error);
+                                LOG.error("Sync of server changes failed for " + that.name + "; object: " + strObject, error);
                                 dfrMap.reject(strObject, [errCode, error]);
                             });
 
@@ -1055,7 +1055,7 @@
                                     "(attrib, source_id, object, value) VALUES(?,?,?,?)",
                                     [oAttrValue.m_strAttrib, that.id, strObject, oAttrValue.m_strValue], tx).done(function(tx, rs){
 
-                                _localAfterInserOrUpdate();
+                                _localAfterInsertOrUpdate();
                             }).fail(_rejectOnDbAccessEror(dfr));
 
                         } else {
@@ -1075,14 +1075,14 @@
                                 } else {_localAfterSyncTypeNone();}
 
                                 function _localAfterSyncTypeNone() {
-                                    _localAfterInserOrUpdate();
+                                    _localAfterInsertOrUpdate();
                                 }
                             }).fail(_rejectOnDbAccessEror(dfr));
 
                         }
                     }).fail(_rejectOnDbAccessEror(dfr));
 
-                    function _localAfterInserOrUpdate() {
+                    function _localAfterInsertOrUpdate() {
                         if (that.sync_type != "none") {
                             that.getNotify().onObjectChanged(that.id, strObject, rho.notify.ACTIONS.update);
                         }

@@ -94,12 +94,29 @@
         //   function. Look at function implementation and using for details.
         return RhoConnect.init(modelDefinitions, 'custom', doReset, syncProgressUpdate).done(function(){
             // Initialized, now we can hide (do not destroy, it's kind of singletone) "wait please" message
+            setNotifications();
             msg.hide();
             // Reload all lists
             reloadLists();
         }).fail(function(error){
             // RhoConnect.js hasn't been initialized properly
             Ext.Msg.alert('Error', error, Ext.emptyFn);
+        });
+    }
+
+    // Sync notifications setup
+    function setNotifications() {
+        // this handler fires on object changes while sync
+        RhoConnect.setObjectsNotification(function(notifyBody) {
+            console.log('=== OBJECTS NOTIFICATION:');
+            alert('=== OBJECTS NOTIFICATION:');
+            console.dir(notifyBody);
+
+            var updated = notifyBody.updated; // [{objectId: objId, sourceId: srcId}, ...]
+            var created = notifyBody.created; // [{objectId: objId, sourceId: srcId}, ...]
+            var deleted = notifyBody.deleted; // [{objectId: objId, sourceId: srcId}, ...]
+
+            // UI update logic goes here..
         });
     }
 
@@ -127,15 +144,11 @@
     }
 
     // Sync progress update callback, receives model name just has been synchronized
-    function generalNotification(notifyBody) {
-        console.log('=== GENERAL NOTIFICATION:');
+    function syncProgressUpdate(notifyBody) {
+        console.log('=== SYNC PROGRESS NOTIFICATION:');
         console.dir(notifyBody);
-    }
 
-    // Sync progress update callback, receives model name just has been synchronized
-    function syncProgressUpdate(modelName, notifyBody) {
-        console.log('=== SOURCE NOTIFICATION:');
-        console.dir(notifyBody);
+        var modelName = notifyBody.source_name;
 
         // Exclude this model name from tracking array
         for (var i=0; i<syncProgressArray.length; i++) {
@@ -166,6 +179,10 @@
     function showForm(record) {
         // Model name is accessible from store
         var modelName = record.store.model.modelName;
+
+        // Watch for record changes while user edit it
+        RhoConnect.addObjectNotify(modelName, record.data.id);
+
         // To load record to the form, we need obtain form firstly. Form id is based on the model name.
         var form = Ext.getCmp(modelName+'Form');
         form.loadRecord(record);
@@ -484,6 +501,9 @@
                 var deleteButton = Ext.getCmp('deleteButton');
                 deleteButton.hide();
                 deleteButton.doComponentLayout();
+
+                // Stop watching for record changes while user edit it
+                RhoConnect.clearObjectsNotify();
             });
             return form;
         }

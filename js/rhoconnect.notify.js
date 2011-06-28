@@ -37,6 +37,7 @@
         var searchNotification = null;
         var syncNotifications = {};
         var allNotification = null;
+        var objectsNotification = null;
         var emptyNotify = SyncNotification();
         var /*ISyncStatusListener*/ syncStatusListener = null;
         var enableReporting = false;
@@ -45,7 +46,7 @@
         var hashSrcObjectCount = {};
 
 
-        function addObjectNotify(source, objectId) {
+        this.addObjectNotify = function(source, objectId) {
             if ("string" == typeof source) { // if source by name
                 singleObjectSrcName = source;
                 singleObjectID = objectId.match(/^\{/) ? objectId.substring(1, objectId.length-2) : objectId ;
@@ -53,20 +54,20 @@
                 var srcId = ("number" == typeof source) ? source : /*then it is an object*/ source.id;
                 if (srcId) {
                     var hashObject = srcIDAndObject[srcId];
-                    if (hashObject) {
+                    if (!hashObject) {
                         hashObject = {};
                         srcIDAndObject[srcId] = hashObject;
                     }
                     hashObject[objectId] = ACTIONS.none;
                 }
             }
-        }
+        };
 
-        function cleanObjectNotifications() {
+        this.cleanObjectsNotify = function() {
             singleObjectSrcName = "";
             singleObjectID = "";
             srcIDAndObject = {};
-        }
+        };
 
         this.cleanCreateObjectErrors = function() {
             hashCreateObjectErrors = {};
@@ -77,7 +78,7 @@
 
             var src = engine.getSources()[singleObjectSrcName];
             if (src) {
-                addObjectNotify(src,singleObjectID);
+                this.addObjectNotify(src,singleObjectID);
             }
             singleObjectSrcName = "";
             singleObjectID = "";
@@ -92,7 +93,6 @@
 
             $.each(srcIDAndObject, function(srcId, hashObject) {
                 $.each(hashObject, function(strObject, nNotifyType) {
-
                     if (nNotifyType == ACTIONS.none) return;
 
                     if (nNotifyType == ACTIONS['delete']) {
@@ -107,7 +107,10 @@
             });
 
             if (!notifyBody) return;
-            callNotify(new SyncNotification("", false), notifyBody); //TODO: object notification goes here
+            callNotify(objectsNotification || (new SyncNotification("", false)),
+                    notifyBody);
+
+            // this.cleanObjectsNotify();
         };
 
         this.onObjectChanged = function(srcId, objectId, actionType) {
@@ -353,6 +356,15 @@
 
         }
 
+        this.setObjectsNotification = function(notification) {
+            LOG.info("Set objects notification. " +(notification ? notification.toString() : ""));
+            objectsNotification = notification;
+        };
+
+        this.setAllNotification = function(notification) {
+            this.setSyncNotification(-1, notification);
+        };
+
         this.setNotification = function(src, notification) {
             if (!src) return;
             this.setSyncNotification(src.id, notification);
@@ -365,6 +377,15 @@
             } else {
                 syncNotifications[srcId] = notification;
             }
+        };
+
+        this.clearObjectsNotification = function() {
+            LOG.info("Clear objects notification.");
+            objectsNotification = null;
+        };
+
+        this.clearAllNotification = function() {
+            this.clearSyncNotification(-1);
         };
 
         this.clearNotification = function(src) {
