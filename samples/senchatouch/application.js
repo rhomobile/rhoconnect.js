@@ -253,7 +253,7 @@
 
     // Perform login with username and password
     function doLogin(username, password){
-        RhoConnect.login(username, password, new RhoConnect.SyncNotification()).done(function(){
+        RhoConnect.login(username, password).done(function(){
             // Store active user name
             activeUserName = username;
             // Init DB for the user on success

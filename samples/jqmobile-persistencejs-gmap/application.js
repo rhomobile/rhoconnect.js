@@ -228,8 +228,7 @@ onLoad = (function($) {
         persistence.store.rhoconnect.config(persistence);
 
         return $.Deferred(function(dfr){
-            RhoConnect.login(username, password,
-                    new RhoConnect.SyncNotification(), true /*do db init*/).done(function(){
+            RhoConnect.login(username, password, true /*do db init*/).done(function(){
                 // Init DB for the user on success
                 initRhoconnect(username, false).done(function(){
                     dfr.resolve();

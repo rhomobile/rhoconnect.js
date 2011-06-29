@@ -80,9 +80,9 @@ var RhoConnect = (function($) {
         }).promise();
     }
 
-    function login(login, password, oNotify, doInitDb) {
+    function login(login, password, /*oNotify,*/ doInitDb) {
         return $.Deferred(function(dfr){
-            rho.engine.login(login, password, oNotify, doInitDb).done(function(){
+            rho.engine.login(login, password, /*oNotify,*/ doInitDb).done(function(){
                 dfr.resolve();
             }).fail(function(errCode, errMsg){
                 dfr.reject(errCode, errMsg);
@@ -1559,7 +1559,7 @@ var RhoConnect = (function($) {
         }).promise();
     }
 
-    function login(login, password, oNotify, doInitDb) {
+    function login(login, password, /*oNotify,*/ doInitDb) {
         return $.Deferred(function(dfr){
             isStoppedByUser = false;
             
@@ -1575,7 +1575,7 @@ var RhoConnect = (function($) {
                     if(!session) {
                         LOG.error("DB doesn't contains this session.");
                         var errCode = rho.ERRORS.ERR_UNEXPECTEDSERVERRESPONSE;
-                        getNotify().callLoginCallback(oNotify, errCode, "" );
+                        //getNotify().callLoginCallback(oNotify, errCode, "" );
                         dfr.reject(errCode, "");
                         return;
                     }
@@ -1598,8 +1598,7 @@ var RhoConnect = (function($) {
                         }
 
                         rho.config["rho_sync_user"] = name;
-                        getNotify().callLoginCallback(oNotify, rho.ERRORS.ERR_NONE, "" );
-
+                        //getNotify().callLoginCallback(oNotify, rho.ERRORS.ERR_NONE, "" );
                         dfr.resolve();
                     }).fail(_rejectPassThrough(dfr));
                 }).fail(_rejectPassThrough(dfr));
@@ -1610,7 +1609,7 @@ var RhoConnect = (function($) {
                     errCode = rho.ERRORS.ERR_NOSERVERRESPONSE;
                 }
                 if (errCode != rho.ERRORS.ERR_NONE) {
-                    getNotify().callLoginCallback(oNotify, errCode, xhr.responseText);
+                    //getNotify().callLoginCallback(oNotify, errCode, xhr.responseText);
                 }
                 dfr.reject(errCode, error);
             });

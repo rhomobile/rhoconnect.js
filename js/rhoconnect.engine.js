@@ -135,7 +135,7 @@
         }).promise();
     }
 
-    function login(login, password, oNotify, doInitDb) {
+    function login(login, password, /*oNotify,*/ doInitDb) {
         return $.Deferred(function(dfr){
             isStoppedByUser = false;
             
@@ -151,7 +151,7 @@
                     if(!session) {
                         LOG.error("DB doesn't contains this session.");
                         var errCode = rho.ERRORS.ERR_UNEXPECTEDSERVERRESPONSE;
-                        getNotify().callLoginCallback(oNotify, errCode, "" );
+                        //getNotify().callLoginCallback(oNotify, errCode, "" );
                         dfr.reject(errCode, "");
                         return;
                     }
@@ -174,8 +174,7 @@
                         }
 
                         rho.config["rho_sync_user"] = name;
-                        getNotify().callLoginCallback(oNotify, rho.ERRORS.ERR_NONE, "" );
-
+                        //getNotify().callLoginCallback(oNotify, rho.ERRORS.ERR_NONE, "" );
                         dfr.resolve();
                     }).fail(_rejectPassThrough(dfr));
                 }).fail(_rejectPassThrough(dfr));
@@ -186,7 +185,7 @@
                     errCode = rho.ERRORS.ERR_NOSERVERRESPONSE;
                 }
                 if (errCode != rho.ERRORS.ERR_NONE) {
-                    getNotify().callLoginCallback(oNotify, errCode, xhr.responseText);
+                    //getNotify().callLoginCallback(oNotify, errCode, xhr.responseText);
                 }
                 dfr.reject(errCode, error);
             });
