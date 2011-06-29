@@ -1,7 +1,7 @@
 // ===========================================================================
 // This template doesn't show you all the details on how to use any exact
 // UI or data API library. Instead, it just demonstrate a good way to organize
-// application code, to have a usable template for quick start. Also, some
+// application code, providing a usable template for quick start. Also, some
 // possible glitches and quirks of used libraries are described here.
 //
 // For information on how to use exact UI or data API library look for
