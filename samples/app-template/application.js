@@ -5,7 +5,7 @@
 // possible glitches and quirks of used libraries are described here.
 //
 // For information on how to use exact UI or data API library look for
-// appropriate documents from a library provider.
+// appropriate documents from a library provider, please.
 // ===========================================================================
 
 // NOTE: It is a good behavior to isolate your code in anonymous namespace
@@ -48,22 +48,6 @@
                 {name: 'sku',       type: 'string'},
                 {name: 'price',     type: 'string'},
                 {name: 'quantity',  type: 'string'}
-            ]
-        },
-        {
-            name: 'Customer',
-            fields: [
-                {name: 'id',      type: 'int'},
-                {name: 'first',   type: 'string'},
-                {name: 'last',    type: 'string'},
-                {name: 'phone',   type: 'string'},
-                {name: 'email',   type: 'string'},
-                {name: 'address', type: 'string'},
-                {name: 'city',    type: 'string'},
-                {name: 'state',   type: 'string'},
-                {name: 'zip',     type: 'string'},
-                {name: 'lat',     type: 'string'},
-                {name: 'long',    type: 'string'}
             ]
         }
     ];
