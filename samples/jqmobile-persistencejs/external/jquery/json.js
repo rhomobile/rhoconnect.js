@@ -1,3 +1,5 @@
+/* http://jollytoad.googlepages.com/json.js */
+
 (function ($) {
     var m = {
             '\b': '\\b',

@@ -60,6 +60,9 @@
     // Edit form definitions. The same as above: fields are needed for Ext.formFormPanel instances.
     // At the moment RhoConnect.js stores all values as strings.
     var editForms = {
+        'WrongSource': [
+            {xtype: 'textfield', name: 'name', label: 'Name', required: true}
+        ],
         'Product': [
             {xtype: 'textfield', name: 'name', label: 'Name', required: true},
             {xtype: 'textfield', name: 'brand', label: 'Brand', required: true},
@@ -106,6 +109,11 @@
 
     // Sync notifications setup
     function setNotifications() {
+        RhoConnect.setAllNotification(function(notifyBody) {
+            console.log('=== ALL NOTIFICATION:');
+            console.dir(notifyBody);
+        });
+
         // this handler fires on object changes while sync
         RhoConnect.setObjectsNotification(function(notifyBody) {
             console.log('=== OBJECTS NOTIFICATION:');
@@ -145,10 +153,11 @@
 
     // Sync progress update callback, receives model name just has been synchronized
     function syncProgressUpdate(notifyBody) {
+        var modelName = notifyBody.source_name;
+        var syncStatus = notifyBody.status;
+
         console.log('=== SYNC PROGRESS NOTIFICATION:');
         console.dir(notifyBody);
-
-        var modelName = notifyBody.source_name;
 
         // Exclude this model name from tracking array
         for (var i=0; i<syncProgressArray.length; i++) {
@@ -320,12 +329,17 @@
         initSyncProgress();
         // Show progress bar
         var progress = showProgressBar('Synchronizing..');
-        RhoConnect.syncAllSources().done(function(){
+        RhoConnect.syncAllSources().done(function() {
             // Make progress bar disappear not so fast
             setTimeout(function(){ progress.hide(); }, 500);
             // Reload all lists
             reloadLists();
         }).fail(function(errCode, err){
+            // NOTE:
+            // RhoConnect.syncAllSource will not fail on some exact model synchronizing error.
+            // Instead, it will be reported as sync progress notification. See the syncProgressUpdate
+            // function implementation.
+
             progress.hide();
             // Show error message on failure
             showError('Synchronization error', errCode, err);
