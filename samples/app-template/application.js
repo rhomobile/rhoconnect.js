@@ -38,18 +38,23 @@
     // a field definitions for models, but it may be needed for each
     // exact data API used in your app. So it is mandatory for now.
     // At the moment RhoConnect.js stores all values as strings.
+    //    var modelDefinitions = [{
+    //            name: 'Product',
+    //            fields: [
+    //                {name: 'id',        type: 'int'},
+    //                {name: 'brand',     type: 'string'},
+    //                {name: 'name',      type: 'string'}
+    //            ]
+    //        },{
+    //            name: 'SomeOtherModel',
+    //            fields: [
+    //                {name: 'id',        type: 'int'},
+    //                {name: 'field1',    type: 'string'},
+    //                {name: 'field2',    type: 'string'}
+    //            ]
+    //        }];
+
     var modelDefinitions = [
-        {
-            name: 'Product',
-            fields: [
-                {name: 'id',        type: 'int'},
-                {name: 'brand',     type: 'string'},
-                {name: 'name',      type: 'string'},
-                {name: 'sku',       type: 'string'},
-                {name: 'price',     type: 'string'},
-                {name: 'quantity',  type: 'string'}
-            ]
-        }
     ];
 
     function initRhoConnect() {
