@@ -92,15 +92,16 @@
             };
 
             $.each(srcIDAndObject, function(srcId, hashObject) {
+                var srcName = rho.engine.findSourceBy('id', srcId);
                 $.each(hashObject, function(strObject, nNotifyType) {
                     if (nNotifyType == ACTIONS.none) return;
 
                     if (nNotifyType == ACTIONS['delete']) {
-                        notifyBody['deleted'].push({object: strObject, sourceId: srcId});
+                        notifyBody['deleted'].push({objectId: strObject, modelName: srcName});
                     } else if (nNotifyType == ACTIONS.update) {
-                        notifyBody['updated'].push({object: strObject, sourceId: srcId});
+                        notifyBody['updated'].push({objectId: strObject, modelName: srcName});
                     } else if (nNotifyType == ACTIONS.create) {
-                        notifyBody['created'].push({object: strObject, sourceId: srcId});
+                        notifyBody['created'].push({objectId: strObject, modelName: srcName});
                     }
                     hashObject[strObject] = ACTIONS.none;
                 });
@@ -263,12 +264,12 @@
                     notifyBody = {};
 
                     if (src) {
-                        notifyBody['total_count'] = src.totalCount;
-                        notifyBody['processed_count'] = src.curPageCount;
-                        notifyBody['processed_objects_count'] = getLastSyncObjectCount(src.id);
-                        notifyBody['cumulative_count'] = src.serverObjectsCount;
-                        notifyBody['source_id'] = src.id;
-                        notifyBody['source_name'] = src.name;
+                        notifyBody['totalCount'] = src.totalCount;
+                        notifyBody['processedCount'] = src.curPageCount;
+                        notifyBody['processedObjectsCount'] = getLastSyncObjectCount(src.id);
+                        notifyBody['cumulativeCount'] = src.serverObjectsCount;
+                        notifyBody['sourceId'] = src.id;
+                        notifyBody['sourceName'] = src.name;
                     }
 
                     notifyBody['params'] = (params || {sync_type: 'incremental'});
@@ -276,7 +277,7 @@
                     if (isFinish) {
                         if (errCode == rho.ERRORS.ERR_NONE) {
                             //if (engine.isSchemaChanged()) {
-                            //    notifyBody += "schema_changed";
+                            //    notifyBody += "schemaChanged";
                             //} else {
                                 notifyBody['status'] = (!src && !params) ? "complete" : "ok";
                             //}
@@ -286,26 +287,26 @@
                             }
 
                             notifyBody['status'] = "error";
-                            notifyBody['error_code'] = errCode;
+                            notifyBody['errorCode'] = errCode;
 
                             if (error) {
-                                notifyBody['error_message'] = __urlEncode(error);
+                                notifyBody['errorMessage'] = __urlEncode(error);
                             } else if (src) {
-                                notifyBody['error_message'] = __urlEncode(src.error);
+                                notifyBody['errorMessage'] = __urlEncode(src.error);
                             }
 
                             if (serverError) {
-                                notifyBody['server_error'] = serverError;
+                                notifyBody['serverError'] = serverError;
                             } else if (src && src.serverError) {
-                                notifyBody['server_error'] = src.serverError;
+                                notifyBody['serverError'] = src.serverError;
                             }
                         }
 
                         if (src) {
-                            notifyBody['create_error'] = makeCreateObjectErrorBody(src.id);
+                            notifyBody['createError'] = makeCreateObjectErrorBody(src.id);
                         }
                     } else {
-                        notifyBody['in_progress'] = true;
+                        notifyBody['inProgress'] = true;
                     }
 
                     //notifyBody += "&rho_callback=1";
