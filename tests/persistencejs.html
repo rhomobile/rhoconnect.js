@@ -12,16 +12,14 @@
     <script type="text/javascript" language="javascript" src="../external/jquery/jquery-1.6.1.js"></script>
     <script type="text/javascript" language="javascript" src="../external/jquery/json.js"></script>
 
+    <script src="../external/persistencejs/persistence.js" type="application/javascript"></script>
+    <script src="../external/persistencejs/persistence.store.sql.js" type="application/javascript"></script>
+
     <script type="text/javascript">
         var syncUrl = 'http://192.168.0.21:9292/application';
         RhoConfig = {
             syncServer: syncUrl,
-            logLevel: 'trace',
-            database: {
-                name: 'rhoConnectTestDb',
-                version: '1.0',
-                comment: 'RhoConnect.js test database'
-            }
+            logLevel: 'trace'
         };
     </script>
 
@@ -32,14 +30,16 @@
     <script type="text/javascript" language="javascript" src="../js/rhoconnect.storage.js"></script>
     <script type="text/javascript" language="javascript" src="../js/rhoconnect.engine.js"></script>
     <script type="text/javascript" language="javascript" src="../js/rhoconnect.notify.js"></script>
+    <script type="text/javascript" language="javascript" src="../js/rhoconnect.plugin-extjs.js"></script>
+    <script type="text/javascript" language="javascript" src="../js/rhoconnect.plugin-persistencejs.js"></script>
 
     <!-- include spec files here... -->
     <!--<script type="text/javascript" src="helpers/jasmine-fake-ajax.js"></script>-->
     <script type="text/javascript" src="helpers/SpecHelper.js"></script>
 
     <script type="text/javascript" src="spec.common.js"></script>
-    <script type="text/javascript" src="spec.internals.js"></script>
-    <!--<script type="text/javascript" src="spec.usecases.js"></script>-->
+    <!--<script type="text/javascript" src="spec.internals.js"></script>-->
+    <script type="text/javascript" src="spec.persistencejs.js"></script>
 
 
 </head>

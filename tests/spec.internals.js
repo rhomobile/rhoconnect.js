@@ -71,7 +71,7 @@ describe("RhoConnect", function() {
 
         waitsForSpies(okHdlr, 'login timeout');
         runs(function(){
-            expect(okHdlr).toHaveBeenCalledWith("success", null);
+            expect(okHdlr).toHaveBeenCalledWith("success", "success");
             expect(notified).toBeTruthy();
             $(window).unbind(rhoconnect.rho.EVENTS.GENERIC_NOTIFICATION, notify);
         });

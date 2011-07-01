@@ -805,6 +805,8 @@ var RhoConnect = (function($) {
         storeSource: storeSource,
         insertSource: insertSource,
         deleteSource: deleteSource,
+        // Object
+        listObjectsId: listObjectsId,
         // low-level
         init: _init,
         open: _open,
@@ -1363,6 +1365,24 @@ var RhoConnect = (function($) {
             });
         }).promise();
     }
+
+    // Object-related ========================
+
+    function listObjectsId(optionalTx) {
+        return $.Deferred(function(dfr){
+            _executeSql('SELECT DISTINCT object FROM object_values', null, optionalTx).done(function(tx, rs) {
+                var ids = [];
+                for(var i=0; i<rs.rows.length; i++) {
+                    ids.push(rs.rows.item(i)['object']);
+                }
+                dfr.resolve(tx, ids);
+            }).fail(function(obj, err) {
+                dfr.reject(obj, err);
+            });
+        }).promise();
+    }
+
+    // Attribute-related ========================
 
     var attrManager = new AttrManager();
 
@@ -3189,15 +3209,16 @@ var RhoConnect = (function($) {
             };
 
             $.each(srcIDAndObject, function(srcId, hashObject) {
+                var srcName = rho.engine.findSourceBy('id', srcId);
                 $.each(hashObject, function(strObject, nNotifyType) {
                     if (nNotifyType == ACTIONS.none) return;
 
                     if (nNotifyType == ACTIONS['delete']) {
-                        notifyBody['deleted'].push({object: strObject, sourceId: srcId});
+                        notifyBody['deleted'].push({objectId: strObject, modelName: srcName});
                     } else if (nNotifyType == ACTIONS.update) {
-                        notifyBody['updated'].push({object: strObject, sourceId: srcId});
+                        notifyBody['updated'].push({objectId: strObject, modelName: srcName});
                     } else if (nNotifyType == ACTIONS.create) {
-                        notifyBody['created'].push({object: strObject, sourceId: srcId});
+                        notifyBody['created'].push({objectId: strObject, modelName: srcName});
                     }
                     hashObject[strObject] = ACTIONS.none;
                 });
@@ -3360,12 +3381,12 @@ var RhoConnect = (function($) {
                     notifyBody = {};
 
                     if (src) {
-                        notifyBody['total_count'] = src.totalCount;
-                        notifyBody['processed_count'] = src.curPageCount;
-                        notifyBody['processed_objects_count'] = getLastSyncObjectCount(src.id);
-                        notifyBody['cumulative_count'] = src.serverObjectsCount;
-                        notifyBody['source_id'] = src.id;
-                        notifyBody['source_name'] = src.name;
+                        notifyBody['totalCount'] = src.totalCount;
+                        notifyBody['processedCount'] = src.curPageCount;
+                        notifyBody['processedObjectsCount'] = getLastSyncObjectCount(src.id);
+                        notifyBody['cumulativeCount'] = src.serverObjectsCount;
+                        notifyBody['sourceId'] = src.id;
+                        notifyBody['sourceName'] = src.name;
                     }
 
                     notifyBody['params'] = (params || {sync_type: 'incremental'});
@@ -3373,7 +3394,7 @@ var RhoConnect = (function($) {
                     if (isFinish) {
                         if (errCode == rho.ERRORS.ERR_NONE) {
                             //if (engine.isSchemaChanged()) {
-                            //    notifyBody += "schema_changed";
+                            //    notifyBody += "schemaChanged";
                             //} else {
                                 notifyBody['status'] = (!src && !params) ? "complete" : "ok";
                             //}
@@ -3383,26 +3404,26 @@ var RhoConnect = (function($) {
                             }
 
                             notifyBody['status'] = "error";
-                            notifyBody['error_code'] = errCode;
+                            notifyBody['errorCode'] = errCode;
 
                             if (error) {
-                                notifyBody['error_message'] = __urlEncode(error);
+                                notifyBody['errorMessage'] = __urlEncode(error);
                             } else if (src) {
-                                notifyBody['error_message'] = __urlEncode(src.error);
+                                notifyBody['errorMessage'] = __urlEncode(src.error);
                             }
 
                             if (serverError) {
-                                notifyBody['server_error'] = serverError;
+                                notifyBody['serverError'] = serverError;
                             } else if (src && src.serverError) {
-                                notifyBody['server_error'] = src.serverError;
+                                notifyBody['serverError'] = src.serverError;
                             }
                         }
 
                         if (src) {
-                            notifyBody['create_error'] = makeCreateObjectErrorBody(src.id);
+                            notifyBody['createError'] = makeCreateObjectErrorBody(src.id);
                         }
                     } else {
-                        notifyBody['in_progress'] = true;
+                        notifyBody['inProgress'] = true;
                     }
 
                     //notifyBody += "&rho_callback=1";
@@ -4339,6 +4360,7 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
                         if (persistence.objectsToRemove.hasOwnProperty(id)) {
                             delete trackedObjects[id];
                         } else {
+                            trackedObjects[id]._rhoDirtyProperties = trackedObjects[id]._dirtyProperties;
                             trackedObjects[id]._dirtyProperties = {};
                         }
                     }
@@ -4427,12 +4449,12 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
             function _setupObject(map, id, attrib, value) {
                 if (!map[id]) map[id] = {};
                 map[id][attrib] = value;
-                map[id][persistence.store.rhoconnect.RHO_ID] = id;
+                map[id]._rhoId = id;
             }
 
             function _buildRecord(id, objAttrs) {
                 var record = new definedModels[srcName]();
-                record.rhoId = id;
+                record._rhoId = id;
                 $.each(objAttrs, function(name, val){
                     record[name] = val;
                 });
@@ -4440,18 +4462,23 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
             }
 
             function _setupRecord(record, dfrMap) {
-                var recId = record[persistence.store.rhoconnect.RHO_ID];
+                var recId = record._rhoId;
                 var idAttr = persistence.store.rhoconnect.RHO_ID;
                 definedModels[srcName].findBy(persistence, null, idAttr, recId, function(found) {
                     if (found) {
-                        $.each(record, function(attrName, value) {
-                            if (record.hasOwnProperty(attrName)) {
+                        // here is kind of foolproof, Rhosync may provide us some
+                        // new fields which are not in the model definition
+                        $.each(record._data, function(attrName, value) {
+                            if (record._data.hasOwnProperty(attrName)) {
                                 found[attrName] = value;
                             }
                         })
                     } else {
                         persistence.add(record);
+                        record._new = false; // it's not a new record, it's just read one
+                        record._dirtyProperties = {}; // TODO: do we need it ?
                     }
+                    //record._dirtyProperties = {}; // TODO: do we need it ?
                     dfrMap.resolve(recId, []);
                 });
             }
@@ -4507,42 +4534,65 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
             var that = this;
             var storage = getStorageObject();
 
-            var records = {};
-            definedModels[srcName].all().each(null, function(record){
-                function _hasDirtyProps(record) {
-                    for (var p in record._dirtyProperties) {
-                        if (record._dirtyProperties.hasOwnProperty(p)) {
-                            return true;
+            return $.Deferred(function(dfr){
+
+                var dirtyRecords = {};
+                definedModels[srcName].all().each(null, function(record){
+                    function _hasDirtyProps(record) {
+                        for (var p in record._rhoDirtyProperties) {
+                            if (record._rhoDirtyProperties.hasOwnProperty(p)) {
+                                return true;
+                            }
                         }
+                        return false;
                     }
-                    return false;
-                }
-
-                if (record._new || _hasDirtyProps(record)) {
-                    records[record.id] = record;
-                }
-            });
-
-            var dfrMap = RhoConnect.rho.deferredMapOn(records);
-
-            $.each(records, function(id, record){
-                persistRecord(record).done(function(){
-                    dfrMap.resolve(id);
-                }).fail(function(obj, err){
-                    dfrMap.reject(id);
+                    if (record._new || _hasDirtyProps(record)) {
+                        dirtyRecords[record.id] = record;
+                    }
                 });
-            });
-            return dfrMap.when();
+
+                var dfrMap = RhoConnect.rho.deferredMapOn(dirtyRecords);
+                $.each(dirtyRecords, function(id, record){
+                    persistRecord(record).done(function(){
+                        dfrMap.resolve(id);
+                    }).fail(function(obj, err){
+                        dfrMap.reject(id, [obj, err]);
+                    });
+                });
+                dfrMap.when().done(function(){
+                    _localWithUpdateRecords();
+                }).fail(function(obj, err){
+                    dfr.reject(obj, err);
+                });
+
+                function _localWithUpdateRecords() {
+                    var dfrMap = RhoConnect.rho.deferredMapOn(persistence.objectsToRemove);
+                    $.each(persistence.objectsToRemove, function(id, record){
+                        removeRecord(record).done(function(){
+                            dfrMap.resolve(id);
+                        }).fail(function(obj, err){
+                            dfrMap.reject(id, [obj, err]);
+                        });
+                    });
+                    dfrMap.when().done(function(){
+                        persistence.objectsToRemove = {};
+                        persistence.objectsRemoved = [];
+                        dfr.resolve();
+                    }).fail(function(obj, err){
+                        dfr.reject(obj, err);
+                    });
+                }
+            }).promise();
 
             function persistRecord(record) {
                 var srcId = null;
-                var id = record[persistence.store.rhoconnect.RHO_ID].toString() || getNextId();
-                var isNew = record._new;
+                var id = record._rhoId.toString() || getNextId();
 
                 var objHash = {};
-                $.each(record, function(fldName, value){
+                $.each(record._data, function(fldName, value){
                     // skip persistence.js specific props
-                    if (record.hasOwnProperty(fldName) && !(fldName.match(/^_/))  && ('object' != typeof value)) {
+                    if (record._data.hasOwnProperty(fldName) && !(fldName.match(/(^_|^id$)/))
+                            /*&& (fldName != 'id')*/ && ('object' != typeof value)) {
                        objHash[fldName] = value;
                     }
                 });
@@ -4603,30 +4653,14 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
 
                                 var query = attrsToUpdate[name] ? updateQuery : insertQuery;
                                 if (name != 'id') {
-                                    storage.executeSql(query, [value, srcId.toString(), id.toString(), name], tx)/*.done(function(tx, rs){
-                                        //dfrMap.resolve(i, []);
-                                        that.LOG.warning('OK: setRecord() update/insert object_values ok');
-                                        //that.LOG.warning('  "' +query +'", [' +value +', ' +srcId +', ' +id +', ' +name +']');
-                                        //that.LOG.warning('  rs.rowsaffected: ' +rs.rowsAffected);
-                                    }).fail(function(obj, err){
-                                        //dfrMap.reject(i, [obj, err]);
-                                        that.LOG.warning('ERR: setRecord() update/insert object_values error: ' +err);
-                                    })*/;
-                                    if (!isNew) {
+                                    storage.executeSql(query, [value, srcId.toString(), id.toString(), name], tx);
+                                    if (!record._new) {
                                         storage.executeSql(insertChangedQuery,
-                                                [value, srcId.toString(), id.toString(), name, 'update'], tx)/*.done(function(tx, rs){
-                                            //dfrMap.resolve(i, []);
-                                            that.LOG.warning('OK: setRecord() update/insert changed_values ok');
-                                            that.LOG.warning('  "' +query +'", [' +value +', ' +srcId +', ' +id +', ' +name +']');
-                                            that.LOG.warning('  rs.rowsaffected: ' +rs.rowsAffected);
-                                        }).fail(function(obj, err){
-                                            //dfrMap.reject(i, [obj, err]);
-                                            that.LOG.warning('ERR: setRecord() update/insert changed_values error: ' +err);
-                                        })*/;
+                                                [value, srcId.toString(), id.toString(), name, 'update'], tx);
                                     }
                                 }
                             });
-                            if (isNew) {
+                            if (record._new) {
                                 storage.executeSql(insertChangedQuery,
                                         [null/*id.toString()*/, srcId.toString(), id.toString(), 'object', 'create'], tx)/*.done(function(tx, rs){
                                     //dfrMap.resolve(i, []);
@@ -4639,9 +4673,93 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
                                 })*/;
                             }
                         }).done(function(db){
+                            record._new = false;
+                            record._rhoDirtyProperties = {};
                             dfr.resolve(id);
                         }).fail(function(obj, err){
                             dfr.reject(null, 'setRecord() update/insert attr error');
+                        });
+                    }
+                }).promise();
+            }
+
+            function removeRecord(record) {
+                var srcId = null;
+                var id = record._rhoId.toString();
+
+                return $.Deferred(function(dfr){
+
+                    // Read source_id for stored object (object should be already stored)
+                    storage.executeSql("SELECT source_id FROM sources WHERE name=?",
+                            [srcName]).done(function(tx, rs){
+                        if (rs.rows && rs.rows.length && rs.rows.length > 0) {
+                            srcId = rs.rows.item(0)['source_id'];
+                        }
+                        _localWithSrcId();
+                    }).fail(function(obj, err){
+                        that.LOG.error('setRecord() read source_id error: ' +err);
+                        dfr.reject(obj, err);
+                    });
+
+                    function _localWithSrcId() {
+                        storage.rwTx().ready(function(db, tx) {
+
+                            var attrsToDelete = {};
+                            storage.executeSql("SELECT * FROM object_values WHERE object=? AND source_id=?",
+                                    [id.toString(), srcId.toString()], tx).done(function(tx, rs){
+                                for (var i=0; i< rs.rows.length; i++) {
+                                    var attrName = rs.rows.item(i)['attrib'];
+                                    var attrValue = rs.rows.item(i)['value'];
+                                    if (attrName) attrsToDelete[attrName] = attrValue;
+                                }
+                                storage.executeSql("DELETE FROM object_values WHERE object=? AND source_id=?",
+                                        [id.toString(), srcId.toString()], tx).done(function(tx, rs){
+                                    _localWithObjValsDeleted();
+                                });
+                            });
+
+                            function _localWithObjValsDeleted() {
+
+                                var updateType = 'delete';
+                                storage.executeSql("SELECT update_type FROM changed_values" +
+                                        " WHERE object=? AND update_type=? AND sent=?",
+                                        [id.toString(), 'create', 0], tx).done(function(tx, rs){
+                                    if (0 < rs.rows.length) {
+                                        updateType = null;
+                                    }
+                                    storage.executeSql("DELETE FROM changed_values" +
+                                            " WHERE object=? AND source_id=? AND sent=?",
+                                            [id.toString(), srcId.toString(), 0], tx).done(function(tx, rs){
+
+                                        var doInsert = false;
+                                        $.each(attrsToDelete, function(name, value) {
+                                            if (updateType) doInsert = true;
+                                        });
+
+                                        if (doInsert) {
+                                            _localDoInsertDelete();
+                                        }
+                                    });
+                                });
+
+                                function _localDoInsertDelete() {
+                                    var insertChangedQuery = 'INSERT INTO changed_values ('
+                                            +' value,'
+                                            +' source_id,'
+                                            +' object,'
+                                            +' attrib,'
+                                            +' update_type'
+                                            +' ) VALUES (?, ?, ?, ?, ?)';
+                                    $.each(attrsToDelete, function(name, value) {
+                                        storage.executeSql(insertChangedQuery, [value, srcId.toString(), id.toString(),
+                                            name, updateType], tx);
+                                    });
+                                }
+                            }
+                        }).done(function(db) {
+                            dfr.resolve(id);
+                        }).fail(function(obj, err) {
+                            dfr.reject(null, 'setRecord() remove attr error');
                         });
                     }
                 }).promise();
@@ -4799,7 +4917,7 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
                 mHash[fld.name] = convertType(fld.type);
             });
             // we need additional id field for rhosync support
-            mHash[persistence.store.rhoconnect.RHO_ID] = convertType('string');
+            mHash._rhoId = convertType('string');
             definedModels[model.name] = persistence.define(model.name, mHash);
         });
     }

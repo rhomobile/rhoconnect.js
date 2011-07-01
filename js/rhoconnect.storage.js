@@ -18,6 +18,8 @@
         storeSource: storeSource,
         insertSource: insertSource,
         deleteSource: deleteSource,
+        // Object
+        listObjectsId: listObjectsId,
         // low-level
         init: _init,
         open: _open,
@@ -576,6 +578,24 @@
             });
         }).promise();
     }
+
+    // Object-related ========================
+
+    function listObjectsId(optionalTx) {
+        return $.Deferred(function(dfr){
+            _executeSql('SELECT DISTINCT object FROM object_values', null, optionalTx).done(function(tx, rs) {
+                var ids = [];
+                for(var i=0; i<rs.rows.length; i++) {
+                    ids.push(rs.rows.item(i)['object']);
+                }
+                dfr.resolve(tx, ids);
+            }).fail(function(obj, err) {
+                dfr.reject(obj, err);
+            });
+        }).promise();
+    }
+
+    // Attribute-related ========================
 
     var attrManager = new AttrManager();
 

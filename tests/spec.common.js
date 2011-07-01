@@ -26,6 +26,8 @@ beforeEach(function() {
     wrongpass = "wrongpass";
 
     rhoconnect = RhoConnect;
+    persistence.store.rhoconnect.config(persistence);
+
     notified = false;
     notify = function(evt, obj){
         jasmine.log(evt.type + ': ' + $.toJSON(obj));
