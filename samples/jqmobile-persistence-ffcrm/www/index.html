@@ -1,0 +1,179 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>RhoConnect PhoneGap - Fat Free CRM</title>
+		<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+		        <style type="text/css">
+		            html { height: 100%; }
+		            body { height: 100%; margin: 0; padding: 0; }
+		         /* #map, #map > .ui-content { height: 100%; } */
+		            #map, #map > .ui-content { height: 400px; }
+		            #map_canvas { width: 100%; height: 100%; }
+		        </style>
+		
+        <link rel="stylesheet" href="application.css">
+        <script type="text/javascript" charset="utf-8" src="external/phonegap.0.9.5.1.js"></script>
+
+        <script type="text/javascript" charset="utf-8" src="external/jquery/jquery-1.6.1.min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="external/jquery/jquery.base64.min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="external/jquery/json.js"></script>
+
+        <script type="text/javascript">
+            //jQuery-Mobile init options initialization goes here
+            	// $(document).bind("mobileinit", function(){
+            	// 				$.mobile.ajaxLinksEnabled = false;
+            	// 				$.mobile.ajaxFormsEnabled = true;
+            	//                });
+        </script>
+
+			
+	    <link rel="stylesheet" href="external/jqmobile/jquery.mobile-1.0b1pre.css">
+		<script type="text/javascript" charset="utf-8" src="external/jqmobile/jquery.mobile-1.0b1pre.min.js"></script>
+		
+    <!--   <link rel="stylesheet" href="external/jqmobile/jquery.mobile.css">
+        <script type="text/javascript" charset="utf-8" src="external/jqmobile/jquery.mobile.js"></script> -->
+	
+        <script type="text/javascript">
+            //var syncUrl = 'http://rhohub-lars-692f63a7.rhosync.com/application';
+            var syncUrl = 'http://192.168.1.127:9292/application';
+            //var syncUrl = 'http://rhoconnect-resource.heroku.com/application';
+            RhoConfig = {
+                appName: 'rho-fat-free-crm',
+                syncServer: syncUrl,
+                logLevel: 'trace'
+            }; 
+        </script>
+        
+<!--
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.common.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.protocol.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.domain.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.storage.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.engine.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.notify.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.plugin-extjs.js"></script>
+        <script type="text/javascript" language="javascript" src="../../js/rhoconnect.plugin-persistencejs.js"></script>
+-->
+        <script src="external/persistencejs/persistence.js" type="application/javascript"></script>
+		<script src="external/persistencejs/persistence.store.sql.js" type="application/javascript"></script>
+
+		<script type="text/javascript" charset="utf-8" src="js/rhoconnect-0_9.js"></script>
+        <script type="text/javascript" language="javascript" src="application.js"></script>
+
+	</head>
+	<body onload="onLoad()">
+<!-- start of page 1 -->
+    <div data-role="page" id="form">
+        <div data-role="header">
+            <h1>Fat Free CRM</h1>
+        </div>
+        <div data-role="content">
+			<div class='login-error'></div>
+            <div data-role="fieldcontain">
+                <label for="username">username:</label>
+                <input type="text" name="username" id="username" value=""/>
+                <label for="password">password:</label>
+                <input type="text" name="password" id="password" value=""/>
+				<a id="login" href="#" data-role="button">Login</a>
+            </div>
+        </div>
+    </div>
+<!------  end page               -->
+
+<!-- start of page 2     -->
+    <div data-role="page" id="home">
+        <div data-role="header">
+            <div class='greeting'></div>
+        </div>
+        <div data-role="content">
+            <a id='tasks' href="#" data-role="button" data-icon="arrow-r">Tasks</a>
+			<a id='leads' href="#" data-role="button" data-icon="arrow-r">Leads</a> 
+			<a id='accounts' href="#" data-role="button" data-icon="arrow-r">Accounts</a> 
+			<a id='contacts' href="#" data-role="button" data-icon="arrow-r">Contacts</a>
+			<a id='opportunities' href="#" data-role="button" data-icon="arrow-r">Opportunities</a>
+        </div>
+    </div>
+<!------   end page              -->
+
+<!-- start of page 3     -->
+	<div data-role="page" id="list">
+	    <div data-role="header">
+	        <div class='greeting'>
+	        	
+	        </div>
+			<a id='new_form' href="#" data-role="button" data-icon="plus">new</a>
+	    </div>
+	   <div data-role="content">
+	    	<div id='list-data'><!-- lists are inserted here --></div>
+		</div>
+    	<div data-role="footer" class="ui-footer ui-footer-fixed fade ui-fixed-overlay" data-position='fixed' role='contentinfo' data-them='a'>
+			<div data-role='navbar' role='navigation'>
+				<ul class='ui-grid-b'>
+					<li class='ui-block-a'>
+						<a id='ftr-home' class='ui-state-persist ui-btn' href='#' data-theme='a'>
+							<span class='ui-btn-inner' style='border:0'>
+								<span class='ui-btn-text'>Home</span>
+							</span>
+						</a>
+					</li>
+					<li class='ui-block-b'>
+						<a id='sync' class='ui-state-persist ui-btn' href='#' data-theme='a'>
+							<span class='ui-btn-inner' style='border:0'>
+								<span class='ui-btn-text'>sync</span>
+							</span>
+						</a>
+					</li>
+					<li class='ui-block-b'>
+						<a id='logout' class='ui-state-persist ui-btn' href='#' data-theme='a'>
+							<span class='ui-btn-inner' style='border:0'>
+								<span class='ui-btn-text'>logout</span>
+							</span>
+						</a>
+					</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+<!------   end page              -->
+
+<!-- start of page 4 			 -->
+	<div data-role="page" id="form-new">
+        <div data-role="header">
+            <div class='form-header'></div>
+        </div>
+        <div data-role="content">
+			<div class='new-error'></div>
+             <form action='#' id='form-create'></form>
+        </div>
+		<div data-role="footer" class="ui-footer ui-footer-fixed fade ui-fixed-overlay" data-position='fixed' role='contentinfo' data-them='a'>
+			<div data-role='navbar' role='navigation'>
+				<ul class='ui-grid-b'>
+					<li class='ui-block-a'>
+						<a class='ui-state-persist ui-btn' href='#home' data-theme='a'>
+							<span class='ui-btn-inner' style='border:0'>
+								<span class='ui-btn-text'>Home</span>
+							</span>
+						</a>
+					</li>
+					<li class='ui-block-b'>
+						<a id='sync' class='ui-state-persist ui-btn' href='#' data-theme='a'>
+							<span class='ui-btn-inner' style='border:0'>
+								<span class='ui-btn-text'>sync</span>
+							</span>
+						</a>
+					</li>
+					<li class='ui-block-b'>
+						<a id='logout' class='ui-state-persist ui-btn' href='#' data-theme='a'>
+							<span class='ui-btn-inner' style='border:0'>
+								<span class='ui-btn-text'>logout</span>
+							</span>
+						</a>
+					</li>
+				</ul>
+			</div>
+		</div>
+    </div>
+<!------ end of page             -->
+	</body>
+</html>
