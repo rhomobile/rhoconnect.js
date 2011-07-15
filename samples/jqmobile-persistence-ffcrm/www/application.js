@@ -6,13 +6,13 @@ var syncInterval = null;
 var current_model = null;
 var html = "<div id='list-data'></div>";
 
-jQuery('div').live('pagehide', function(event, ui){
-  var page = jQuery(event.target);
-
-  if(page.attr('data-cache') == 'never'){
-    page.remove();
-  };
-});
+// jQuery('div').live('pagehide', function(event, ui){
+//   var page = jQuery(event.target);
+// 
+//   if(page.attr('data-cache') == 'never'){
+//     page.remove();
+//   };
+// });
 
 onLoad = (function($) {
 
@@ -24,7 +24,7 @@ onLoad = (function($) {
         //document.addEventListener("deviceready", function(){ 
 		$('a#login').live('tap',function(event){
 			setNames();
-			initDeviceId();
+			//initDeviceId();
             loginRhoConnect(username, password).done(function(){
 				sync();
 				$.mobile.changePage("#home", "slideup");
@@ -76,9 +76,6 @@ onLoad = (function($) {
 			$.mobile.changePage("#form-new", "slideup");
 		})
 	}
-	function get_current_model(){
-		return current_model;
-	}
 	
 	function create_obj(){
 		var record = null;
@@ -99,8 +96,19 @@ onLoad = (function($) {
 		$.mobile.changePage("#home", "slideup");
 	}
 	
+	function get_current_model(){
+		return current_model;
+	}
+	
 	function logout(){
 		RhoConnect.logout().done(function(){
+			var map = null;
+			var definedModels = {};
+			var username = null;
+			var password = null;
+			var syncInterval = null;
+			var current_model = null;
+			var html = "<div id='list-data'></div>";
 			$.mobile.changePage("#form", "slideup");
 		}).fail(function(errCode){
 			alert('Logout error: ' +errCode);
@@ -437,22 +445,22 @@ onLoad = (function($) {
 		return html;
 	}
 
-    var myUuid = null;
-    var myName = null;
-
-    function initDeviceId() {
-	//phonegap emulator issue will always cause device to be undefined, uncomment lines 10, 20 for real phone
-        if ("undefined" != typeof device && (!myUuid || !myName)) {
-            myUuid = device['uuid'];
-            myName = device['name'];
-
-            //alert('Device uuid: ' + myUuid);
-            //alert('Device name: ' + myName);
-        } else {
-            myUuid = 'UNDEFINED';
-            myName = 'UNDEFINED';
-        }
-    }
+    // var myUuid = null;
+    //     var myName = null;
+    // 
+    //     function initDeviceId() {
+    // 	//phonegap emulator issue will always cause device to be undefined, uncomment lines 10, 20 for real phone
+    //         if ("undefined" != typeof device && (!myUuid || !myName)) {
+    //             myUuid = device['uuid'];
+    //             myName = device['name'];
+    // 
+    //             //alert('Device uuid: ' + myUuid);
+    //             //alert('Device name: ' + myName);
+    //         } else {
+    //             myUuid = 'UNDEFINED';
+    //             myName = 'UNDEFINED';
+    //         }
+    //     }
 
     var fields = [
 					'user_id','assigned_to','completed_by','name','asset_id','priority','category','bucket',
@@ -569,7 +577,7 @@ onLoad = (function($) {
 
     // RhoConnect.js initialization
     function initRhoconnect(username, doReset) {
-        return RhoConnect.init(modelDefinitions, 'persistencejs', null, doReset);
+        return RhoConnect.init(modelDefinitions, 'persistencejs', doReset);
     }
 	
 
