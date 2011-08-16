@@ -182,9 +182,15 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
             }
 
             function _setupRecord(record, dfrMap) {
-                var recId = record._rhoId;
-                var idAttr = persistence.store.rhoconnect.RHO_ID;
-                definedModels[srcName].findBy(persistence, null, idAttr, recId, function(found) {
+                // Can't use definedModels[srcName].findBy() for  _rhoId attribute.
+                definedModels[srcName].all().list(null, function(records) {
+                    var found = null;
+                    for (var i=0; i<records.length; i++) {
+                        if (records[i]._rhoId == record._rhoId) {
+                            found = records[i];
+                            break;
+                        }
+                    }
                     if (found) {
                         // here is kind of foolproof, Rhosync may provide us some
                         // new fields which are not in the model definition
@@ -199,7 +205,7 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
                         record._dirtyProperties = {}; // TODO: do we need it ?
                     }
                     //record._dirtyProperties = {}; // TODO: do we need it ?
-                    dfrMap.resolve(recId, []);
+                    dfrMap.resolve(record._rhoId, []);
                 });
             }
 
@@ -394,6 +400,7 @@ if('undefined' != typeof window.persistence){(function($, persistence) {
                             }
                         }).done(function(db){
                             record._new = false;
+                            record._rhoId = id;
                             record._rhoDirtyProperties = {};
                             dfr.resolve(id);
                         }).fail(function(obj, err){

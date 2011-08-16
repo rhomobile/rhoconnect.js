@@ -1,5 +1,7 @@
-describe("Persistence.js integration use cases", function(){
+describe("Persistence.js integration", function(){
 
+    var models;
+    
     beforeEach(function(){
         models = [
             {name: 'Product', fields: [
@@ -44,186 +46,172 @@ describe("Persistence.js integration use cases", function(){
 
     });
 
-    describe("USE CASE: User initialize API with model definitions", function(){
+    describe("Use cases", function() {
 
-        it("should be initialized with models", function() {
-            var okHdlr = jasmine.createSpy('for ok');
-            var errHdlr = jasmine.createSpy('for errors');
+        describe("User session", function(){
 
-            expect(rhoconnect.init).toBeDefined();
+            var testName = 'testCustomerName';
 
-            rhoconnect.init(models, 'persistencejs', false /*no data reset*/).done(okHdlr).fail(errHdlr);
+            var okHdlr;
+            var errHdlr;
+            var model;
 
-            waitsForSpies([okHdlr, errHdlr], 'RhoConnect init timeout', 3000);
-            runs(function(){
-                expect(errHdlr).not.toHaveBeenCalled();
-                if(0 < errHdlr.callCount) {
-                    jasmine.log('errHdlr called with:');
-                    jasmine.log(errHdlr.mostRecentCall.args);
-                }
-
-                expect(rhoconnect.rho.getModels()).toBeDefined('models map');
-                expect(rhoconnect.rho.engine.getSources()).toBeDefined('sources map');
-
-                expect(rhoconnect.rho.getModels().Product).toBeSet('Product model');
-                expect(rhoconnect.rho.getModels().Product.name).toBeSet('Product model');
-                expect(rhoconnect.rho.engine.getSources().Product).toBeSet('Product source');
-                expect(rhoconnect.rho.engine.getSources().Product.name).toBeSet('Product source');
-                expect(rhoconnect.rho.engine.getSources().Product.id).toBeGreaterThan(0);
-                expect(rhoconnect.rho.getModels().Product.name).toEqual(rhoconnect.rho.engine.getSources().Product.name);
-                jasmine.log(rhoconnect.rho.getModels().Product.name +' source id = ' +rhoconnect.rho.engine.getSources().Product.id);
+            beforeEach(function(){
+                okHdlr = jasmine.createSpy('for ok');
+                errHdlr = jasmine.createSpy('for errors');
+                model = rhoconnect.dataAccessObjects()['Customer'];
             });
-        });
-    });
 
-    describe("USE CASE: User login with proper credentials", function(){
-        beforeEach(function(){
-            rhoconnect.logout();
-        });
+            it("should login ok with proper credentials", function() {
+                var okHdlr = jasmine.createSpy('for ok');
+                var errHdlr = jasmine.createSpy('for errors');
 
-        it("should login ok with proper credentials", function() {
-            var okHdlr = jasmine.createSpy('for ok');
-            var errHdlr = jasmine.createSpy('for errors');
+                //expect(rhoconnect.isLoggedIn()).not.toBeTruthy();
 
-            //expect(rhoconnect.isLoggedIn()).not.toBeTruthy();
+                rhoconnect.login(userlogin, userpass, true /*do db init*/).done(okHdlr).fail(errHdlr);
 
-            rhoconnect.login(userlogin, userpass, true /*do db init*/).done(okHdlr).fail(errHdlr);
-
-            waitsForSpies([okHdlr, errHdlr], 'login timeout');
-            runs(function(){
-                expect(errHdlr).not.toHaveBeenCalled();
-                if(0 < errHdlr.callCount) {
-                    jasmine.log('errHdlr called with:');
-                    jasmine.log(errHdlr.mostRecentCall.args);
-                }
-                expect(okHdlr).toHaveBeenCalled();
-                expect(rhoconnect.isLoggedIn()).toBeTruthy();
+                waitsForSpies([okHdlr, errHdlr], 'login timeout');
+                runs(function(){
+                    expect(errHdlr).not.toHaveBeenCalled();
+                    if(0 < errHdlr.callCount) {
+                        jasmine.log('errHdlr called with:');
+                        jasmine.log(errHdlr.mostRecentCall.args);
+                    }
+                    expect(okHdlr).toHaveBeenCalled();
+                    expect(rhoconnect.isLoggedIn()).toBeTruthy();
+                });
             });
-        });
-    });
 
-    describe("USE CASE: User login with wrong credentials", function(){
-        beforeEach(function(){
-            rhoconnect.logout();
-        });
+            it("should initialize API with models", function() {
+                var okHdlr = jasmine.createSpy('for ok');
+                var errHdlr = jasmine.createSpy('for errors');
 
-        it("should fail", function() {
-            var okHdlr = jasmine.createSpy('for ok');
-            var errHdlr = jasmine.createSpy('for errors');
+                expect(rhoconnect.init).toBeDefined();
 
-            //expect(rhoconnect.isLoggedIn()).not.toBeTruthy('for logged in status');
+                rhoconnect.init(models, 'persistencejs', true /*do data reset*/).done(okHdlr).fail(errHdlr);
 
-            rhoconnect.login(userlogin, wrongpass, true /*do db init*/).done(okHdlr).fail(errHdlr);
+                waitsForSpies([okHdlr, errHdlr], 'RhoConnect init timeout', 3000);
+                runs(function(){
+                    expect(errHdlr).not.toHaveBeenCalled();
+                    if(0 < errHdlr.callCount) {
+                        jasmine.log('errHdlr called with:');
+                        jasmine.log(errHdlr.mostRecentCall.args);
+                    }
 
-            waitsForSpies([okHdlr, errHdlr], 'login timeout');
-            runs(function(){
-                expect(okHdlr).not.toHaveBeenCalled();
-                if(0 < okHdlr.callCount) {
-                    jasmine.log('okHdlr called with:');
-                    jasmine.log(okHdlr.mostRecentCall.args);
-                }
-                expect(errHdlr).toHaveBeenCalled();
-                expect(rhoconnect.isLoggedIn()).not.toBeTruthy();
+                    expect(rhoconnect.rho.getModels()).toBeDefined('models map');
+                    expect(rhoconnect.rho.engine.getSources()).toBeDefined('sources map');
+
+                    expect(rhoconnect.rho.getModels().Product).toBeSet('Product model');
+                    expect(rhoconnect.rho.getModels().Product.name).toBeSet('Product model');
+                    expect(rhoconnect.rho.engine.getSources().Product).toBeSet('Product source');
+                    expect(rhoconnect.rho.engine.getSources().Product.name).toBeSet('Product source');
+                    expect(rhoconnect.rho.engine.getSources().Product.id).toBeGreaterThan(0);
+                    expect(rhoconnect.rho.getModels().Product.name).toEqual(rhoconnect.rho.engine.getSources().Product.name);
+                    jasmine.log(rhoconnect.rho.getModels().Product.name +' source id = ' +rhoconnect.rho.engine.getSources().Product.id);
+                });
             });
-        });
-    });
 
-    it("USE CASE: read records", function() {
-        var okHdlr = jasmine.createSpy('for ok');
-        var errHdlr = jasmine.createSpy('for errors');
+            it("should have no records on session start", function(){
+                runs(function(){
+                    var that = this;
 
-        expect(rhoconnect.login).toBeDefined();
-        expect(rhoconnect.syncAllSources).toBeDefined();
+                    persistence.loadFromRhoConnect(function() {
+                        that.customers = [];
+                        model.all().each(null /*no tx*/, function(customer){
+                            that.customers.push(customer);
+                        });
+                        okHdlr();
+                    });
+                });
 
+                waitsForSpies([okHdlr, errHdlr], 'first read timeout', 5000);
 
-        runs(function(){
-            var that = this;
-            rhoconnect.login(userlogin, userpass, true).fail(errHdlr).done(function(){
-                rhoconnect.init(models, 'persistencejs').fail(errHdlr).done(function(){
-                    that.model = rhoconnect.dataAccessObjects()['Customer'];
-                    jasmine.log('first sync');
-                    rhoconnect.syncAllSources().fail(errHdlr).done(function(){
-//                        that.customers = [];
-                        persistence.loadFromRhoConnect(function() {
-//                            that.model.all().each(null /*no tx*/, function(customer){
-//                                that.customers.push(customer);
-//                            });
+                runs(function(){
+                    var that = this;
+                    expect(okHdlr).toHaveBeenCalled();
+                    expect(errHdlr).not.toHaveBeenCalled();
+                    expect(that.customers).toBeDefined();
+                    expect(that.customers.length).toBeDefined();
+                    expect(that.customers.length).toEqual(0);
+                });
+            });
+
+            it("should add record", function(){
+
+                runs(function(){
+                    var that = this;
+
+                    var customer = new model();
+                    customer.first = testName;
+
+                    persistence.add(customer);
+                    persistence.flush(function(){
+                        persistence.saveToRhoConnect(function(){
                             okHdlr();
                         });
                     });
                 });
-            });
-        });
 
-        waitsForSpies([okHdlr, errHdlr], 'first sync timeout', 5000);
-        runs(function(){
-            var that = this;
-            expect(errHdlr).not.toHaveBeenCalled();
-            if(0 < errHdlr.callCount) {
-                jasmine.log('errHdlr called with:');
-                jasmine.log(errHdlr.mostRecentCall.args);
-            }
-            expect(okHdlr).toHaveBeenCalled();
-            that.model.all().count(null /*no tx*/, function(number){
-                jasmine.log('there are ' +number +' records');
-                expect(number).toBeGreaterThan(0);
-            });
-//            expect(this.customers).toBeDefined();
-//            expect(this.customers.length).toBeDefined();
-//            expect(this.customers.length).toBeGreaterThan(0);
-        });
+                waitsForSpies([okHdlr, errHdlr], 'first read timeout', 5000);
 
-        runs(function(){
-            var that = this;
-            persistence.loadFromRhoConnect(function() {
-                var FIRST_NAME = '---firstName';
-                var SECOND_NAME = '---secondName';
-                var SUFFIX = '--changed';
-
-                var record = null;
-                that.model.all().each(null /*no tx*/, function(customer){
-                    if (!record &&
-                            (customer.first == FIRST_NAME && customer.last == SECOND_NAME) ||
-                            (customer.first == FIRST_NAME+SUFFIX && customer.last == SECOND_NAME+SUFFIX)
-                            ) {
-                        record = customer;
-                    }
-                });
-
-                if (!record) {
-                    jasmine.log("record wasn't found, going to create..");
-                    record = new that.model();
-                    record.first = FIRST_NAME;
-                    record.last = SECOND_NAME;
-                    persistence.add(record);
-                } else {
-                    jasmine.log("record was found");
-                    if (record.first == FIRST_NAME) {
-                        jasmine.log("record is original, going to change..");
-                        record.first = FIRST_NAME +SUFFIX;
-                        record.last = SECOND_NAME +SUFFIX;
-                    } else {
-                        jasmine.log("record is changed, going to delete..");
-                        persistence.remove(record);
-                    }
-
-                }
-                persistence.flush();
-                persistence.saveToRhoConnect(function() {
-                    jasmine.log('second sync');
-                    rhoconnect.syncAllSources().fail(errHdlr).done(okHdlr);
+                runs(function(){
+                    var that = this;
+                    expect(okHdlr).toHaveBeenCalled();
+                    expect(errHdlr).not.toHaveBeenCalled();
                 });
             });
-        });
 
-        waitsForSpies([okHdlr, errHdlr], 'second sync timeout', 5000);
-        runs(function(){
-            expect(errHdlr).not.toHaveBeenCalled();
-            if(0 < errHdlr.callCount) {
-                jasmine.log('errHdlr called with:');
-                jasmine.log(errHdlr.mostRecentCall.args);
-            }
-            expect(okHdlr).toHaveBeenCalled();
+            it("should read all records", function(){
+                runs(function(){
+                    var that = this;
+
+                    persistence.loadFromRhoConnect(function() {
+                        that.customers = [];
+                        model.all().each(null /*no tx*/, function(customer){
+                            that.customers.push(customer);
+                        });
+                        okHdlr();
+                    });
+                });
+
+                waitsForSpies([okHdlr, errHdlr], 'first read timeout', 5000);
+
+                runs(function(){
+                    var that = this;
+                    expect(okHdlr).toHaveBeenCalled();
+                    expect(errHdlr).not.toHaveBeenCalled();
+                    expect(that.customers).toBeDefined();
+                    expect(that.customers.length).toBeDefined();
+                    expect(that.customers.length).toEqual(1);
+                });
+            });
+
+            it("should search records", function(){
+                runs(function(){
+                    var that = this;
+
+                    persistence.loadFromRhoConnect(function() {
+                        that.customers = [];
+                        model.findBy(persistence, null /*no tx*/, "first", testName, function(customer){
+                            that.customers.push(customer);
+                        });
+                        okHdlr();
+                    });
+                });
+
+                waitsForSpies([okHdlr, errHdlr], 'first read timeout', 5000);
+
+                runs(function(){
+                    var that = this;
+                    expect(okHdlr).toHaveBeenCalled();
+                    expect(errHdlr).not.toHaveBeenCalled();
+                    expect(that.customers).toBeDefined();
+                    expect(that.customers.length).toBeDefined();
+                    expect(that.customers.length).toEqual(1);
+                });
+            });
+
+
         });
     });
 });
