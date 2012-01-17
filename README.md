@@ -1,20 +1,20 @@
 RhoConnect.js
 ===
 
-A javascript client library for the [RhoConnect](http://rhomobile.com/products/rhosync) App Integration Server.
+A javascript client library for the [RhoConnect](http://rhomobile.com/products/rhoconnect) App Integration Server.
 
-Using rhoconnect.js, your application's model data will transparently synchronize with a mobile application built using the [Rhodes framework](http://rhomobile.com/products/rhodes), or any of the available [RhoConnect clients](http://rhomobile.com/products/rhosync/).  This client includes built-in support for [SenchaTouch](http://www.sencha.com/) data API and [Persistence.js](http://persistencejs.org/) models.
+Using rhoconnect.js, your application's model data will transparently synchronize with a mobile application built using the [Rhodes framework](http://rhomobile.com/products/rhodes), or any of the available [RhoConnect clients](http://rhomobile.com/products/rhoconnect/).  This client includes built-in support for [SenchaTouch](http://www.sencha.com/) data API and [Persistence.js](http://persistencejs.org/) models.
 
 Rhoconnect.js is completely UI-agnostic framework, so feel free to use any type of UI javascript library.
 
-Due to to the CORS support in [RhoConnect](http://rhomobile.com/products/rhosync) server, you able to create cross-domain applications and standalone mobile applications using [PhoneGap](http://www.phonegap.com/) framework.
+Due to to the CORS support in [RhoConnect](http://rhomobile.com/products/rhoconnect) server, you able to create cross-domain applications and standalone mobile applications using [PhoneGap](http://www.phonegap.com/) framework.
 
 It depends on:
 * [jQuery](http://jquery.com/) library
 * jQuery [Base64](http://github.com/carlo/jquery-base64) plugin
 * jQuery [JSON](http://jollytoad.googlepages.com/json.js) plugin
 
-Rhoconnect.js actively using *deferred/promise* objects from jQuery API. All asynchronous results are returned as parameter values of *done(..)* method call of returned *promise* object.
+RhoConnect.js actively using *deferred/promise* objects from jQuery API. All asynchronous results are returned as parameter values of *done(..)* method call of returned *promise* object.
 
 ## Getting started
 
